@@ -1,0 +1,39 @@
+[project]
+name = "tausurv"
+version = "0.1.0"
+description = "Survival analysis."
+readme = "../README.md"
+requires-python = ">=3.12"
+license = "MIT"
+authors = [
+    { name = "Anna Weller", email = "anna.weller@scai.fraunhofer.de" },
+    { name = "Jannis Guski", email = "jannis.guski@scai.fraunhofer.de" },
+    { name = "Lennart Carstens-Behrens", email = "lennart.carstens-behrens@scai.fraunhofer.de" },
+]
+dependencies = [
+    "numpy>=2.0",
+    "scipy>=1.10",
+    "polars>=1.0",
+    "platformdirs>=4.0",
+    "tqdm>=4.65",
+]
+
+[project.optional-dependencies]
+plot = [
+    "matplotlib>=3.8",
+]
+
+[build-system]
+requires = ["maturin>=1.10,<2"]
+build-backend = "maturin"
+
+[tool.maturin]
+manifest-path = "../crates/tausurv-pyo3/Cargo.toml"
+python-source = "."
+module-name = "tausurv._tausurv_core"
+bindings = "pyo3"
+features = ["pyo3/extension-module"]
+include = [
+    { path = "tausurv/_tausurv_core.pyi", format = "sdist" },
+    { path = "tausurv/py.typed", format = "sdist" },
+]

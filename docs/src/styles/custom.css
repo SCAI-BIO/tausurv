@@ -1,0 +1,81 @@
+:root {
+  --sl-font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --sl-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+:root[data-theme="dark"] {
+  --sl-color-accent-low: #1a1f2e;
+  --sl-color-accent: #6ea8fe;
+  --sl-color-accent-high: #aac7ff;
+}
+
+:root[data-theme="light"] {
+  --sl-color-accent-low: #e6efff;
+  --sl-color-accent: #2563eb;
+  --sl-color-accent-high: #1d4ed8;
+}
+
+.api-signature {
+  display: block;
+  padding: 0.6rem 0.85rem;
+  border-radius: 6px;
+  background: var(--sl-color-gray-6);
+  border-left: 3px solid var(--sl-color-accent);
+  font-family: var(--sl-font-mono);
+  font-size: 0.92em;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.api-kind {
+  display: inline-block;
+  padding: 0.05rem 0.45rem;
+  margin-right: 0.5rem;
+  border-radius: 4px;
+  background: var(--sl-color-accent-low);
+  color: var(--sl-color-accent-high);
+  font-size: 0.72em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.api-symbol {
+  margin-top: 2.2rem;
+}
+
+.sl-markdown-content p > img:only-child {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-block: 1.25rem;
+}
+
+.sl-markdown-content .cell-output {
+  display: block;
+  margin-block: 0.5rem 1.25rem;
+  padding: 0.65rem 0.9rem;
+  background: var(--sl-color-gray-7);
+  border-left: 3px solid var(--sl-color-gray-4);
+  border-radius: 0.25rem;
+  font-family: var(--sl-font-mono);
+  font-size: 0.82em;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-x: auto;
+  color: var(--sl-color-gray-2);
+}
+
+:root[data-theme="light"] .sl-markdown-content .cell-output {
+  background: var(--sl-color-gray-6);
+  color: var(--sl-color-gray-1);
+}
+
+:root[data-theme="light"] {
+  --sl-color-bg-inline-code: hsl(224, 18%, 91%);
+}
+
+.sl-markdown-content code:not(:where(.not-content *, pre *)) {
+  border-radius: 0.25rem;
+}

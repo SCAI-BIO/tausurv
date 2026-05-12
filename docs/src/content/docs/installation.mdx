@@ -1,0 +1,17 @@
+---
+title: Installation
+description: How to install tausurv and causurv.
+---
+
+PyTorch must be installed with a build matching your hardware (CPU, CUDA, or
+ROCm) **before** syncing the rest of the workspace.
+
+```bash
+# Pick one:
+uv pip install torch --index-url https://download.pytorch.org/whl/cpu
+uv pip install torch --index-url https://download.pytorch.org/whl/cu128
+uv pip install torch --index-url https://download.pytorch.org/whl/cu130
+
+# Then sync everything else:
+uv sync
+```

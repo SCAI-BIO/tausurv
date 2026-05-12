@@ -1,0 +1,70 @@
+[project]
+name = "tausurv-workspace"
+version = "0.0.0"
+description = "Workspace for tausurv (survival) and causurv (causal survival, renames to dosurv pending team approval)."
+requires-python = ">=3.12"
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["tausurv", "causurv"]
+
+[tool.uv.sources]
+tausurv = { workspace = true }
+causurv = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-cov>=5",
+    "ruff>=0.6",
+    "mypy>=1.10",
+    "pre-commit>=3.5",
+]
+docs = [
+    "griffe>=2.0.2",
+    "ipykernel>=7.2.0",
+    "jupytext>=1.19.2",
+    "matplotlib>=3.10.9",
+    "nbconvert>=7.17.1",
+]
+parity = [
+    "scikit-survival>=0.24",
+    "lifelines>=0.30",
+    "pycox>=0.2",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.pep8-naming]
+# Math identifiers from guidelines/notation.md. Uppercase single letters are
+# the survival-analysis convention (Y = observed time, S = survival function,
+# T = event time, C = censoring time, F = CDF, G = censoring survival,
+# Lam = cumulative hazard, J = competing-cause count, etc.) and PEP 8's
+# lowercase-variable rule actively conflicts with that here.
+extend-ignore-names = [
+    "X", "Y", "T", "C", "F", "G", "S", "J", "L", "M", "N", "A", "D", "Lam",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# jupytext .py files are notebook source. They follow notebook conventions
+# (per-cell imports, bare last expressions as Jupyter display values, long
+# markdown-cell prose) that PEP 8 / pyflakes-style rules don't apply to.
+"docs/tutorials/*.py" = ["E501", "E402", "I001", "B018"]
+
+[tool.pytest.ini_options]
+testpaths = ["tausurv/tests", "causurv/tests"]
+addopts = "-ra --strict-markers --strict-config"
+markers = [
+    "network: test hits external URLs; skipped unless --run-network is passed",
+]
+
+[tool.mypy]
+strict = true
+files = ["tausurv", "causurv"]

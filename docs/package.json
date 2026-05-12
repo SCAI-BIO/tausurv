@@ -1,0 +1,25 @@
+{
+  "name": "tausurv-docs",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "scripts": {
+    "api": "uv run --group docs python scripts/build_api.py",
+    "figures": "uv run --group docs python scripts/build_figures.py",
+    "tutorials": "uv run --group docs python scripts/build_tutorials.py",
+    "plotting": "uv run --group docs python scripts/build_tutorials.py plotting",
+    "dev": "npm run api && npm run figures && npm run tutorials && npm run plotting && astro dev",
+    "build": "npm run api && npm run figures && npm run tutorials && npm run plotting && astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/mdx": "^5.0.4",
+    "@astrojs/starlight": "^0.39.2",
+    "astro": "^6.3.1",
+    "katex": "^0.16.45",
+    "rehype-katex": "^7.0.1",
+    "remark-math": "^6.0.0",
+    "sharp": "^0.34.5"
+  }
+}

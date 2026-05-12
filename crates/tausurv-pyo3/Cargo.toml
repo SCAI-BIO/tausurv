@@ -1,0 +1,18 @@
+[package]
+name = "tausurv-pyo3"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "PyO3 bindings for tausurv-core. Compiles to the tausurv._tausurv_core Python extension module."
+
+[lib]
+name = "_tausurv_core"
+crate-type = ["cdylib"]
+
+[dependencies]
+tausurv-core = { path = "../tausurv-core" }
+pyo3.workspace = true
+numpy.workspace = true
+ndarray.workspace = true

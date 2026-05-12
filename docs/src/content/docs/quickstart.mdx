@@ -1,0 +1,23 @@
+---
+title: Quickstart
+description: Fit your first survival model in under a minute.
+---
+
+```python
+import numpy as np
+from tausurv.nonparametric import kaplan_meier
+from tausurv.simulations import single_risk
+
+# Generate a small synthetic single-risk dataset.
+rng = np.random.default_rng(0)
+data = single_risk.simulate(n=500, rng=rng)
+
+# Nonparametric survival estimate.
+S_hat = kaplan_meier(data.event_time, data.event_indicator)
+
+# Evaluate on a grid.
+t_grid = np.linspace(0, data.event_time.max(), 200)
+S_t = S_hat(t_grid)
+```
+
+For a guided walk-through, see [Tutorials](/tutorials/).

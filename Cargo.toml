@@ -1,0 +1,41 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/tausurv-core",
+    "crates/tausurv-pyo3",
+]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+authors = [
+    "Anna Weller <anna.weller@scai.fraunhofer.de>",
+    "Jannis Guski <jannis.guski@scai.fraunhofer.de>",
+    "Lennart Carstens-Behrens <lennart.carstens-behrens@scai.fraunhofer.de>",
+]
+
+[workspace.dependencies]
+pyo3 = { version = "0.28", features = ["abi3-py312", "extension-module"] }
+numpy = "0.28"
+ndarray = "0.17"
+rayon = "1.10"
+rand = "0.9"
+rand_chacha = "0.9"
+thiserror = "2"
+parking_lot = "0.12"
+smallvec = "1"
+
+divan = "0.1"
+proptest = "1"
+approx = "0.5"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+opt-level = 3
+debug = "line-tables-only"
+
+[profile.bench]
+inherits = "release"
+debug = "line-tables-only"

@@ -1,0 +1,28 @@
+[package]
+name = "tausurv-core"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Performance-critical survival-analysis primitives. Pure Rust, no Python bindings."
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+ndarray.workspace = true
+rayon.workspace = true
+rand.workspace = true
+rand_chacha.workspace = true
+thiserror.workspace = true
+smallvec.workspace = true
+
+[dev-dependencies]
+divan.workspace = true
+proptest.workspace = true
+approx.workspace = true
+
+[[bench]]
+name = "log_rank_tree"
+harness = false

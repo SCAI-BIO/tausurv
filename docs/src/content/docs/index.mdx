@@ -1,0 +1,37 @@
+---
+title: tausurv
+description: Modern survival and causal-survival analysis for Python.
+template: splash
+hero:
+  tagline: A clean, typed, well-documented survival-analysis library for Python.
+  actions:
+    - text: Quickstart
+      link: /quickstart/
+      icon: right-arrow
+      variant: primary
+    - text: API reference
+      link: /api/
+      icon: external
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+<CardGrid>
+  <Card title="Nonparametric estimators">
+    Kaplan-Meier, Nelson-Aalen, Aalen-Johansen, and censoring-distribution
+    estimators with a unified step-function interface.
+  </Card>
+  <Card title="Cox and beyond">
+    Cox proportional hazards with Breslow ties, plus survival trees and
+    random survival forests.
+  </Card>
+  <Card title="Neural survival models">
+    DeepSurv, DeepHit, and logistic-hazard models with a clean training
+    loop, optimizer/schedule plumbing, and checkpointing.
+  </Card>
+  <Card title="Metrics that match the literature">
+    Harrell and Uno concordance, time-dependent AUC, Brier score, and
+    calibration — all parity-tested against `scikit-survival` and
+    `lifelines`.
+  </Card>
+</CardGrid>
