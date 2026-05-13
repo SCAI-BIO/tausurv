@@ -309,6 +309,50 @@ def test_trainer_subclass_can_override_train_step():
     assert history["train_loss"][-1] < history["train_loss"][0]
 
 
+def test_trainer_subclass_can_override_only_compute_loss():
+    """Subclasses customising the loss math should override only
+    :meth:`compute_loss` — the inherited :meth:`train_step` handles
+    zero_grad, backward, grad-clip, and optimiser step."""
+    torch.manual_seed(0)
+
+    class RegularizedTrainer(Trainer):
+        def __init__(self, model, *, l2_lambda: float = 0.01, **kwargs):
+            super().__init__(model, **kwargs)
+            self.l2_lambda = l2_lambda
+
+        def compute_loss(self, batch):
+            X, *targets = batch
+            predictions = self.model(X)
+            base = self.loss_fn(predictions, *targets)
+            return base + self.l2_lambda * (predictions**2).mean()
+
+    model = DeepSurv(in_features=5, hidden_dim=16, n_blocks=2, dropout=0.0)
+    trainer = RegularizedTrainer(
+        model, loss_fn=functional.cox_nll, lr=1e-2, l2_lambda=0.001
+    )
+    history = trainer.fit(_data(), epochs=20, verbose=False)
+    assert len(history["train_loss"]) == 20
+    assert history["train_loss"][-1] < history["train_loss"][0]
+
+
+def test_trainer_compute_loss_handles_grad_clip_from_base_train_step():
+    """A compute_loss-only subclass still benefits from grad_clip set
+    on the base Trainer — the inherited train_step applies it."""
+    torch.manual_seed(0)
+
+    class CustomLossTrainer(Trainer):
+        def compute_loss(self, batch):
+            X, *targets = batch
+            return self.loss_fn(self.model(X), *targets)
+
+    model = DeepSurv(in_features=5, hidden_dim=16, dropout=0.0)
+    trainer = CustomLossTrainer(
+        model, loss_fn=functional.cox_nll, lr=1e-2, grad_clip=1.0
+    )
+    history = trainer.fit(_data(), epochs=5, verbose=False)
+    assert all(math.isfinite(x) for x in history["train_loss"])
+
+
 def test_trainer_subclass_without_loss_fn_overrides_both_steps():
     """A fully-custom trainer can skip loss_fn entirely by overriding both steps."""
     torch.manual_seed(0)

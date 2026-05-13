@@ -318,25 +318,16 @@ class SurvITE(HTEPredictor):
     def predict_hte(
         self,
         X: ArrayLike,
-        times: ArrayLike | None = None,
         *,
-        contrast: str = "survival_diff",
-        cause: int | None = None,
-        treatment: int = 1,
-        reference: int = 0,
-        horizon: float | None = None,
+        estimand,
+        **kwargs,
     ) -> HTEEstimates:
-        if (treatment, reference) not in {(1, 0), (0, 1)}:
+        from causurv.estimands import resolve as _resolve_estimand
+
+        est = _resolve_estimand(estimand, **kwargs)
+        if (est.treatment, est.reference) not in {(1, 0), (0, 1)}:
             raise ValueError(
                 "SurvITE is binary-treatment; treatment/reference must be "
-                f"a permutation of (0, 1); got ({treatment}, {reference})"
+                f"a permutation of (0, 1); got ({est.treatment}, {est.reference})"
             )
-        return super().predict_hte(
-            X,
-            times,
-            contrast=contrast,
-            cause=cause,
-            treatment=treatment,
-            reference=reference,
-            horizon=horizon,
-        )
+        return self._predict_hte_impl(X, est)

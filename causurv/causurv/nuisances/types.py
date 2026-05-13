@@ -41,13 +41,17 @@ class Nuisances:
         classifier exposing ``predict_proba(X) -> (n, n_arms)``. No
         Protocol yet because there is only one concrete consumer
         (sklearn).
-    censoring : :class:`SurvivalPredictor` or ``None``
-        Censoring distribution model $\hat G(t \mid x)$. Optional.
+    censoring : ``dict[int, SurvivalPredictor]`` or ``None``
+        Per-arm censoring distribution models $\hat G_a(t \mid x)$.
+        Required by orthogonal/DR-style learners; ``None`` when no
+        censoring factory was supplied. When the caller asks for
+        marginal censoring (``per_arm_censoring=False``), every arm
+        key points at the same fitted model.
     """
 
     outcome: dict[int, SurvivalPredictor]
     propensity: Any  # sklearn classifier with predict_proba
-    censoring: SurvivalPredictor | None = None
+    censoring: dict[int, SurvivalPredictor] | None = None
 
 
 @dataclass(kw_only=True)
@@ -68,9 +72,9 @@ class CrossFitNuisances(Nuisances):
         train on subject $i$. Aligned to ``times``.
     oof_propensity : ``(n, n_arms)`` array
         Out-of-fold propensity scores summing to 1 along the arm axis.
-    oof_censoring : ``(n, T)`` array or ``None``
-        Out-of-fold censoring survival $\hat G(t \mid x_i)$ on
-        ``times``. ``None`` when ``censoring_factory`` was not supplied.
+    oof_censoring : ``dict[int, (n, T) array]`` or ``None``
+        Per-arm out-of-fold censoring survival $\hat G_a(t \mid x_i)$.
+        ``None`` when ``censoring_factory`` was not supplied.
     times : ``(T,)`` array
         Common time grid the OOF outcome/censoring predictions live on.
     fold_assignment : ``(n,)`` array
@@ -81,7 +85,7 @@ class CrossFitNuisances(Nuisances):
 
     oof_outcome: dict[int, NDArray[np.float64]]
     oof_propensity: NDArray[np.float64]
-    oof_censoring: NDArray[np.float64] | None = None
+    oof_censoring: dict[int, NDArray[np.float64]] | None = None
     times: NDArray[np.float64]
     fold_assignment: NDArray[np.int_]
     n_folds: int

@@ -27,7 +27,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-from causurv.predictor import HTEPredictor
+from causurv.predictor import HTEPredictor, _validate_fit_inputs
 
 
 class SLearner(HTEPredictor):
@@ -90,18 +90,9 @@ class SLearner(HTEPredictor):
         event_indicator: ArrayLike,
         treatment: ArrayLike,
     ) -> "SLearner":
-        X = np.asarray(X, dtype=np.float64)
-        A = np.asarray(treatment)
-        if X.ndim != 2:
-            raise ValueError(f"X must be 2D (n, d); got shape {X.shape}")
-        if A.shape != (X.shape[0],):
-            raise ValueError(
-                f"treatment must be shape ({X.shape[0]},); got {A.shape}"
-            )
-        if int(A.min()) < 0:
-            raise ValueError(
-                f"treatment values must be non-negative integers; min was {A.min()}"
-            )
+        X, event_time, event_indicator, A = _validate_fit_inputs(
+            X, event_time, event_indicator, treatment
+        )
         self._n_arms = int(A.max()) + 1
 
         XA = np.hstack([X, A.reshape(-1, 1).astype(X.dtype)])

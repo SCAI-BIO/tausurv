@@ -112,24 +112,15 @@ class SurvITEModule(nn.Module):
 class SurvITETrainer(Trainer):
     r"""Trainer for :class:`SurvITEModule`.
 
-    Overrides :meth:`train_step` because SurvITE's forward returns
-    ``(phi, logits_list)`` (representation + per-arm logits) and its
-    loss consumes both alongside ``(event_time, event_indicator,
-    treatment)``. The default :meth:`Trainer.train_step` assumes a
-    single tensor prediction and a ``loss_fn(predictions, *targets)``
-    signature, which doesn't fit SurvITE's multi-output forward.
+    SurvITE's forward returns ``(phi, logits_list)`` and its loss
+    consumes both alongside ``(event_time, event_indicator, treatment)``
+    — a shape the default :meth:`Trainer.compute_loss` doesn't fit.
+    Overriding :meth:`compute_loss` is enough: the gradient mechanics
+    (zero_grad / backward / grad-clip / optimizer step) are inherited
+    from the base class.
     """
 
-    def train_step(self, batch: tuple[Tensor, ...]) -> Tensor:
-        self.model.train()
+    def compute_loss(self, batch: tuple[Tensor, ...]) -> Tensor:
         X, T, E, A = batch
-        self.optimizer.zero_grad(set_to_none=True)
         phi, logits = self.model(X)
-        out = self.loss_fn(phi, logits, T, E, A)
-        if not torch.isfinite(out.total):
-            return out.total
-        out.total.backward()
-        if self.grad_clip > 0:
-            nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_clip)
-        self.optimizer.step()
-        return out.total
+        return self.loss_fn(phi, logits, T, E, A).total

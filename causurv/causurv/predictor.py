@@ -34,43 +34,76 @@ docstring.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-from causurv.contrasts import apply_contrast, is_cif_scale, is_survival_scale
+from causurv.contrasts import apply_contrast
+from causurv.estimands import resolve as resolve_estimand
+
+if TYPE_CHECKING:
+    from causurv.estimands import Estimand
 
 
 @dataclass
 class HTEEstimates:
     r"""Container for per-subject treatment-effect predictions.
 
-    Carries the contrast name, treatment/reference arm labels, time
-    grid, and optional CR cause so the predictions are self-describing.
+    Self-describing: carries the result values *plus the* :class:`Estimand`
+    that produced them, so any consumer can reconstruct the full
+    estimand spec (contrast, time grid, horizon, cause, arms) from the
+    result object alone.
 
     Attributes
     ----------
     values : ``(n, T)`` or ``(n,)`` array
-        Per-subject effect on the chosen contrast. Pointwise across
-        ``times`` for survival/cif contrasts; scalar per subject for
-        contrasts that integrate over time (``rmst_diff``).
-    contrast : str
-        The contrast name (e.g., ``"survival_diff"``).
-    treatment, reference : int
-        The arm comparison: ``arm_treatment`` vs ``arm_reference``.
-    times : ``(T,)`` array or ``None``
-        Time grid the values are evaluated at. ``None`` for time-collapsed
-        contrasts like ``rmst_diff``.
-    cause : int or ``None``
-        Competing-risks cause (1-indexed). ``None`` for single-event.
+        Per-subject effect. Pointwise across ``estimand.times`` for
+        survival/cif contrasts → shape ``(n, T)``. Collapsed to a
+        per-subject scalar for time-integrating contrasts like
+        ``rmst_diff`` → shape ``(n,)``.
+    estimand : :class:`Estimand`
+        The specification that produced ``values``. Carries the
+        contrast name, time grid, horizon (if any), cause (if any),
+        and the arm comparison.
+
+    Notes
+    -----
+    Most-used estimand attributes are exposed as @property shortcuts
+    on this class — ``hte.contrast``, ``hte.treatment``,
+    ``hte.reference``, ``hte.cause`` — so callers rarely need to
+    reach through ``hte.estimand.*``.
+
+    For the time axis, use ``hte.estimand.times``. Its semantics depend
+    on the estimand: evaluation grid for survival/cif contrasts,
+    integration grid for ``rmst_diff``. :attr:`is_time_collapsed`
+    distinguishes the two.
     """
 
     values: NDArray[np.float64]
-    contrast: str
-    treatment: int
-    reference: int
-    times: NDArray[np.float64] | None = None
-    cause: int | None = None
+    estimand: "Estimand"
+
+    @property
+    def contrast(self) -> str:
+        return self.estimand.contrast
+
+    @property
+    def treatment(self) -> int:
+        return self.estimand.treatment
+
+    @property
+    def reference(self) -> int:
+        return self.estimand.reference
+
+    @property
+    def cause(self) -> int | None:
+        return getattr(self.estimand, "cause", None)
+
+    @property
+    def is_time_collapsed(self) -> bool:
+        """``True`` when :attr:`values` is shape ``(n,)`` (e.g., RMST);
+        ``False`` for pointwise-in-time results of shape ``(n, T)``."""
+        return self.values.ndim == 1
 
 
 class HTEPredictor:
@@ -135,92 +168,81 @@ class HTEPredictor:
     def predict_hte(
         self,
         X: ArrayLike,
-        times: ArrayLike | None = None,
         *,
-        contrast: str = "survival_diff",
-        cause: int | None = None,
-        treatment: int = 1,
-        reference: int = 0,
-        horizon: float | None = None,
+        estimand: "Estimand | type[Estimand] | str",
+        **kwargs: Any,
     ) -> HTEEstimates:
         r"""Conditional Average Treatment Effect (CATE) per subject.
 
-        Resolves the requested contrast against
-        :meth:`predict_potential_outcomes` and packages the result with
-        metadata. See :mod:`causurv.contrasts` for the contrast vocabulary.
+        Parameters
+        ----------
+        X : ``(n, d)`` array
+        estimand : :class:`Estimand`, Estimand subclass, or string
+            What to estimate. Accepted forms:
 
-        Some learners override this with a direct CATE estimator
-        (R-learner, DR-learner) — in that case the override should still
-        return an :class:`HTEEstimates`.
+            - **Instance**: ``estimand=SurvivalDiff(times=[5, 10])``
+            - **Class + kwargs**: ``estimand=SurvivalDiff, times=[5, 10]``
+            - **String + kwargs**: ``estimand="survival_diff", times=[5, 10]``
+
+            See :mod:`causurv.estimands`. Estimand-specific required
+            parameters (``horizon`` for RMST, ``cause`` for CIF) are
+            enforced by the dataclass at construction.
+        **kwargs
+            Forwarded to the :class:`Estimand` constructor when
+            ``estimand`` is a string or class object.
+
+        Returns
+        -------
+        :class:`HTEEstimates`
         """
-        # Caller-facing validation: cause must match the contrast's scale.
-        if is_cif_scale(contrast) and cause is None:
-            raise ValueError(
-                f"contrast={contrast!r} requires `cause` (an integer cause "
-                f"index); got cause=None"
-            )
-        if is_survival_scale(contrast) and cause is not None:
-            raise ValueError(
-                f"contrast={contrast!r} is a survival-scale contrast and "
-                f"cannot take `cause` (got cause={cause}); use a cif_* "
-                f"contrast for cause-specific effects"
-            )
+        est = resolve_estimand(estimand, **kwargs)
+        return self._predict_hte_impl(X, est)
 
-        times_arr = self._resolve_times(times)
-        arms = self.predict_potential_outcomes(X, times_arr, cause=cause)
-        if treatment >= len(arms) or reference >= len(arms):
-            raise ValueError(
-                f"treatment={treatment} or reference={reference} out of "
-                f"range; model has {len(arms)} arms (0..{len(arms) - 1})"
-            )
+    def _predict_hte_impl(
+        self, X: ArrayLike, estimand: "Estimand"
+    ) -> HTEEstimates:
+        """Compute the HTE from a resolved :class:`Estimand`.
 
+        Override this in subclasses that need direct-CATE estimation
+        (R-learner, DR-learner / OrthoLearner) — :meth:`predict_hte`
+        handles input resolution and delegates here.
+        """
+        times = np.asarray(estimand.times, dtype=np.float64)
+        cause = getattr(estimand, "cause", None)
+        arms = self.predict_potential_outcomes(X, times, cause=cause)
+        if estimand.treatment >= len(arms) or estimand.reference >= len(arms):
+            raise ValueError(
+                f"treatment={estimand.treatment} or reference="
+                f"{estimand.reference} out of range; model has "
+                f"{len(arms)} arms (0..{len(arms) - 1})"
+            )
+        horizon = getattr(estimand, "horizon", None)
         values = apply_contrast(
-            arms[reference],
-            arms[treatment],
-            contrast,
-            times=times_arr,
+            arms[estimand.reference],
+            arms[estimand.treatment],
+            estimand.contrast,
+            times=times,
             horizon=horizon,
         )
-        # rmst_diff collapses the time axis; everything else keeps it.
-        out_times = None if contrast == "rmst_diff" else times_arr
-        return HTEEstimates(
-            values=values,
-            contrast=contrast,
-            treatment=treatment,
-            reference=reference,
-            times=out_times,
-            cause=cause,
-        )
+        return HTEEstimates(values=values, estimand=estimand)
 
     def predict_ate(
         self,
         X: ArrayLike | None = None,
-        times: ArrayLike | None = None,
         *,
-        contrast: str = "survival_diff",
-        cause: int | None = None,
-        treatment: int = 1,
-        reference: int = 0,
-        horizon: float | None = None,
+        estimand: "Estimand | type[Estimand] | str",
+        **kwargs: Any,
     ) -> NDArray[np.float64]:
         r"""Average Treatment Effect (ATE).
 
-        Default: the mean of :meth:`predict_hte`'s output over ``X``.
-        If ``X`` is ``None``, uses the training set (subclasses must
-        retain it). Subclasses with a more efficient direct path (e.g.,
-        AIPW or TMLE for the ATE) should override.
+        Mean of :meth:`predict_hte` over ``X``. If ``X`` is ``None``,
+        uses the training set (subclasses retain it via
+        ``self._fit_X``).
         """
+        est = resolve_estimand(estimand, **kwargs)
         if X is None:
             X = self._stored_X()
-        hte = self.predict_hte(
-            X,
-            times,
-            contrast=contrast,
-            cause=cause,
-            treatment=treatment,
-            reference=reference,
-            horizon=horizon,
-        )
+        hte = self._predict_hte_impl(X, est)
         return hte.values.mean(axis=0)
 
     _fit_X: NDArray[np.float64] | None = None
@@ -250,3 +272,59 @@ class HTEPredictor:
                 f"fit() first."
             )
         return self._fit_X
+
+
+def _validate_fit_inputs(
+    X: ArrayLike,
+    event_time: ArrayLike,
+    event_indicator: ArrayLike,
+    treatment: ArrayLike,
+) -> tuple[
+    NDArray[np.float64],
+    NDArray[np.float64],
+    NDArray[np.int_],
+    NDArray[np.int_],
+]:
+    r"""Standard fit-time validation for ``(X, T, E, A)`` inputs.
+
+    Coerces ``X`` and ``event_time`` to ``float64`` and ``treatment``
+    to a contiguous integer dtype; ``event_indicator`` is coerced to an
+    integer array but the caller's narrower dtype (e.g., ``int8``) is
+    preserved when valid. Validates:
+
+    - ``X`` is 2D.
+    - ``event_time``, ``event_indicator``, ``treatment`` share the first
+      axis with ``X``.
+    - ``treatment`` is non-negative.
+    - Treatment labels are contiguous ``0..K-1`` — every arm in that
+      range has at least one subject. Sparse arm IDs (``{0, 2}``) would
+      cause downstream learners to produce silently wrong outputs
+      because they index arms positionally; we reject up front.
+    """
+    X_arr = np.asarray(X, dtype=np.float64)
+    T_arr = np.asarray(event_time, dtype=np.float64)
+    E_arr = np.asarray(event_indicator)
+    A_arr = np.asarray(treatment, dtype=np.int_)
+    if X_arr.ndim != 2:
+        raise ValueError(f"X must be 2D (n, d); got shape {X_arr.shape}")
+    n = X_arr.shape[0]
+    if not (T_arr.shape == (n,) and E_arr.shape == (n,) and A_arr.shape == (n,)):
+        raise ValueError(
+            "X, event_time, event_indicator, and treatment must share "
+            f"first axis; got {X_arr.shape}, {T_arr.shape}, "
+            f"{E_arr.shape}, {A_arr.shape}"
+        )
+    if A_arr.min() < 0:
+        raise ValueError(
+            f"treatment values must be non-negative integers; "
+            f"min was {A_arr.min()}"
+        )
+    n_arms = int(A_arr.max()) + 1
+    counts = np.bincount(A_arr, minlength=n_arms)
+    if (counts == 0).any():
+        missing = [int(a) for a in range(n_arms) if counts[a] == 0]
+        raise ValueError(
+            f"treatment labels must be contiguous integers 0..{n_arms - 1}; "
+            f"arms {missing} have no subjects"
+        )
+    return X_arr, T_arr, E_arr, A_arr

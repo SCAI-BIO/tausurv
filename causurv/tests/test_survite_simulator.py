@@ -182,11 +182,13 @@ def test_oracle_potential_outcomes_rejects_cause():
 
 
 def test_oracle_predict_hte_returns_hteestimates():
+    from causurv.estimands import SurvivalDiff
+
     sim = SurvITE(scenario="S4")
     rng = np.random.default_rng(0)
     X = rng.normal(size=(10, sim.n_features))
     times = np.array([5.0, 10.0, 20.0])
-    hte = sim.predict_hte(X, times)
+    hte = sim.predict_hte(X, estimand=SurvivalDiff(times=times))
     assert isinstance(hte, HTEEstimates)
     assert hte.values.shape == (10, 3)
     assert hte.contrast == "survival_diff"
@@ -194,21 +196,27 @@ def test_oracle_predict_hte_returns_hteestimates():
 
 
 def test_oracle_predict_hte_equals_manual_subtraction():
+    from causurv.estimands import SurvivalDiff
+
     sim = SurvITE(scenario="S4")
     rng = np.random.default_rng(0)
     X = rng.normal(size=(8, sim.n_features))
     times = np.linspace(1.0, 20.0, 5)
     S0, S1 = sim.predict_potential_outcomes(X, times)
-    hte = sim.predict_hte(X, times)
+    hte = sim.predict_hte(X, estimand=SurvivalDiff(times=times))
     np.testing.assert_allclose(hte.values, S1 - S0)
 
 
 def test_oracle_rejects_non_binary_arm_request():
+    from causurv.estimands import SurvivalDiff
+
     sim = SurvITE()
     rng = np.random.default_rng(0)
     X = rng.normal(size=(5, sim.n_features))
     with pytest.raises(ValueError, match="binary-treatment"):
-        sim.predict_hte(X, treatment=2, reference=0)
+        sim.predict_hte(
+            X, estimand=SurvivalDiff(times=[5.0], treatment=2, reference=0)
+        )
 
 
 def test_oracle_treatment_changes_hazard_when_x2_nonnegative():
@@ -250,11 +258,11 @@ def test_fit_raises():
 def test_predict_ate_uses_last_generated_X():
     sim = SurvITE(scenario="S4")
     sim.generate(n=200, seed=0)
-    ate = sim.predict_ate(times=[5.0, 10.0, 20.0])
+    ate = sim.predict_ate(estimand="survival_diff", times=[5.0, 10.0, 20.0])
     assert ate.shape == (3,)
 
 
 def test_predict_ate_without_generate_raises():
     sim = SurvITE()
     with pytest.raises(RuntimeError, match="prior generate"):
-        sim.predict_ate(times=[5.0])
+        sim.predict_ate(estimand="survival_diff", times=[5.0])

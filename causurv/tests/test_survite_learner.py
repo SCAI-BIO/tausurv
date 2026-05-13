@@ -95,7 +95,7 @@ def test_predict_hte_dispatches_via_hte_predictor():
     X, T, E, A = _data()
     m = _quick_model().fit(X, T, E, A)
     times = np.array([0.5, 1.0, 2.0])
-    hte = m.predict_hte(X[:10], times)
+    hte = m.predict_hte(X[:10], estimand="survival_diff", times=times)
     assert hte.values.shape == (10, 3)
     assert hte.contrast == "survival_diff"
 
@@ -103,7 +103,7 @@ def test_predict_hte_dispatches_via_hte_predictor():
 def test_predict_ate_uses_stored_training_X():
     X, T, E, A = _data()
     m = _quick_model().fit(X, T, E, A)
-    ate = m.predict_ate(times=np.array([0.5, 1.0]))
+    ate = m.predict_ate(estimand="survival_diff", times=[0.5, 1.0])
     assert ate.shape == (2,)
 
 
@@ -171,7 +171,11 @@ def test_works_on_multi_arm_three_arms():
     arms = m.predict_potential_outcomes(X[:5], times=np.array([0.5, 1.0]))
     assert len(arms) == 3
     # Also predict_hte for a 2-vs-0 contrast.
-    hte = m.predict_hte(X[:5], times=np.array([0.5, 1.0]), treatment=2, reference=0)
+    from causurv.estimands import SurvivalDiff
+    hte = m.predict_hte(
+        X[:5],
+        estimand=SurvivalDiff(times=[0.5, 1.0], treatment=2, reference=0),
+    )
     assert hte.treatment == 2 and hte.reference == 0
 
 

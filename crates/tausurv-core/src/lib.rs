@@ -8,16 +8,18 @@
 #![cfg_attr(test, allow(missing_docs))]
 
 pub mod data;
+pub mod forest;
 pub mod nelson_aalen;
 pub mod splits;
 pub mod step;
 pub mod tree;
 
 pub use data::SurvivalData;
+pub use forest::{Bootstrap, Forest, ForestConfig};
 pub use nelson_aalen::nelson_aalen;
-pub use splits::{BestSplit, LogRankCriterion, SplitCriterion};
+pub use splits::{BestSplit, GradientCriterion, LogRankCriterion, SplitCriterion};
 pub use step::{Side, StepFunction};
-pub use tree::{MaxFeatures, Tree, TreeConfig};
+pub use tree::{HonestyMode, LeafPayload, MaxFeatures, Tree, TreeConfig};
 
 /// Crate version, surfaced through the Python binding for sanity checks.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

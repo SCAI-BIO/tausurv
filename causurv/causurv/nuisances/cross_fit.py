@@ -29,6 +29,7 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
 from causurv.nuisances.types import CrossFitNuisances, Nuisances
+from causurv.predictor import _validate_fit_inputs
 
 
 def fit_nuisances(
@@ -40,6 +41,7 @@ def fit_nuisances(
     outcome_factory: Callable[[], Any],
     propensity_factory: Callable[[], Any],
     censoring_factory: Callable[[], Any] | None = None,
+    per_arm_censoring: bool = True,
 ) -> Nuisances:
     r"""Fit a nuisance bundle on the full dataset (no cross-fitting).
 
@@ -60,39 +62,69 @@ def fit_nuisances(
         Zero-argument factory returning a fresh sklearn-style
         classifier exposing ``fit(X, y)`` and ``predict_proba(X)``.
     censoring_factory : callable, optional
-        Factory for the censoring distribution. If ``None``, the
-        returned :class:`Nuisances` has ``censoring=None``.
+        Factory for the censoring distribution. ``None`` ⇒ no censoring
+        models fit; the returned :class:`Nuisances` has ``censoring=None``.
+    per_arm_censoring : bool, default ``True``
+        When ``True``, fits one censoring model per arm — required by
+        Frauen et al. (2025) orthogonal-survival learners and most
+        DR-style learners. When ``False``, fits a single marginal
+        censoring model and replicates it under both arm keys.
 
     Returns
     -------
     :class:`Nuisances`
     """
-    X_arr, T_arr, E_arr, A_arr = _check_inputs(X, event_time, event_indicator, treatment)
+    X_arr, T_arr, E_arr, A_arr = _validate_fit_inputs(
+        X, event_time, event_indicator, treatment
+    )
     n_arms = int(A_arr.max()) + 1
 
     outcome_models: dict[int, Any] = {}
     for a in range(n_arms):
         mask = A_arr == a
-        if not mask.any():
-            continue
         outcome_models[a] = outcome_factory().fit(
             X_arr[mask], T_arr[mask], E_arr[mask]
         )
 
     propensity_model = propensity_factory().fit(X_arr, A_arr)
 
-    censoring_model = None
+    censoring_models: dict[int, Any] | None = None
     if censoring_factory is not None:
-        # Censoring indicator: 1 - event_indicator (subjects who were censored
-        # have the "censoring event" observed; events are censored from the
-        # censoring perspective).
-        censoring_model = censoring_factory().fit(X_arr, T_arr, 1 - E_arr)
+        # Censoring indicator: subjects who were censored have the
+        # "censoring event" observed (1 - E).
+        censoring_models = _fit_censoring(
+            X_arr, T_arr, E_arr, A_arr,
+            n_arms=n_arms,
+            factory=censoring_factory,
+            per_arm=per_arm_censoring,
+        )
 
     return Nuisances(
         outcome=outcome_models,
         propensity=propensity_model,
-        censoring=censoring_model,
+        censoring=censoring_models,
     )
+
+
+def _fit_censoring(
+    X: NDArray[np.float64],
+    T: NDArray[np.float64],
+    E: NDArray,
+    A: NDArray[np.int_],
+    *,
+    n_arms: int,
+    factory: Callable[[], Any],
+    per_arm: bool,
+) -> dict[int, Any]:
+    cens_event = 1 - E
+    if not per_arm:
+        shared = factory().fit(X, T, cens_event)
+        return {a: shared for a in range(n_arms)}
+    out: dict[int, Any] = {}
+    for a in range(n_arms):
+        mask = A == a
+        out[a] = factory().fit(X[mask], T[mask], cens_event[mask])
+    return out
 
 
 def cross_fit(
@@ -107,6 +139,7 @@ def cross_fit(
     times: ArrayLike | None = None,
     n_folds: int = 5,
     stratify_by_arm: bool = True,
+    per_arm_censoring: bool = True,
     seed: int = 0,
 ) -> CrossFitNuisances:
     r"""K-fold cross-fit nuisances; return OOF predictions + full-data refits.
@@ -138,6 +171,10 @@ def cross_fit(
         Ensure each fold contains subjects from every arm. Off by
         default would risk fitting an outcome model with zero training
         subjects in some arm.
+    per_arm_censoring : bool, default ``True``
+        Fit one censoring model per arm (as required by Frauen et al.
+        2025 orthogonal-survival learners). When ``False``, a single
+        marginal censoring model is fit and shared across arms.
     seed : int, default ``0``
 
     Returns
@@ -147,7 +184,9 @@ def cross_fit(
     if n_folds < 2:
         raise ValueError(f"n_folds must be >= 2; got {n_folds}")
 
-    X_arr, T_arr, E_arr, A_arr = _check_inputs(X, event_time, event_indicator, treatment)
+    X_arr, T_arr, E_arr, A_arr = _validate_fit_inputs(
+        X, event_time, event_indicator, treatment
+    )
     n, _ = X_arr.shape
     n_arms = int(A_arr.max()) + 1
 
@@ -161,8 +200,10 @@ def cross_fit(
 
     oof_outcome = {a: np.full((n, T_grid), np.nan) for a in range(n_arms)}
     oof_propensity = np.full((n, n_arms), np.nan)
-    oof_censoring = (
-        np.full((n, T_grid), np.nan) if censoring_factory is not None else None
+    oof_censoring: dict[int, NDArray[np.float64]] | None = (
+        {a: np.full((n, T_grid), np.nan) for a in range(n_arms)}
+        if censoring_factory is not None
+        else None
     )
 
     for k in range(n_folds):
@@ -205,15 +246,31 @@ def cross_fit(
             slice_[missing] = 0.0
             oof_propensity[test_mask] = slice_
 
-        # Censoring — fit on the full train fold with the censoring indicator.
+        # Censoring — per-arm (or shared if per_arm_censoring=False).
         if censoring_factory is not None:
-            cens = censoring_factory().fit(
-                X_arr[train_mask], T_arr[train_mask], 1 - E_arr[train_mask]
-            )
-            oof_censoring[test_mask] = np.asarray(
-                cens.predict_survival_function(X_arr[test_mask], times_arr),
-                dtype=np.float64,
-            )
+            cens_event_train = 1 - E_arr[train_mask]
+            if per_arm_censoring:
+                for a in range(n_arms):
+                    arm_train_mask = train_mask & (A_arr == a)
+                    cens_a = censoring_factory().fit(
+                        X_arr[arm_train_mask],
+                        T_arr[arm_train_mask],
+                        1 - E_arr[arm_train_mask],
+                    )
+                    oof_censoring[a][test_mask] = np.asarray(
+                        cens_a.predict_survival_function(X_arr[test_mask], times_arr),
+                        dtype=np.float64,
+                    )
+            else:
+                cens_shared = censoring_factory().fit(
+                    X_arr[train_mask], T_arr[train_mask], cens_event_train
+                )
+                shared_pred = np.asarray(
+                    cens_shared.predict_survival_function(X_arr[test_mask], times_arr),
+                    dtype=np.float64,
+                )
+                for a in range(n_arms):
+                    oof_censoring[a][test_mask] = shared_pred
 
     # Sanity: every entry must have been filled.
     for a in range(n_arms):
@@ -233,6 +290,7 @@ def cross_fit(
         outcome_factory=outcome_factory,
         propensity_factory=propensity_factory,
         censoring_factory=censoring_factory,
+        per_arm_censoring=per_arm_censoring,
     )
 
     return CrossFitNuisances(
@@ -246,36 +304,6 @@ def cross_fit(
         fold_assignment=fold_assignment,
         n_folds=n_folds,
     )
-
-
-def _check_inputs(
-    X: ArrayLike,
-    event_time: ArrayLike,
-    event_indicator: ArrayLike,
-    treatment: ArrayLike,
-) -> tuple[
-    NDArray[np.float64],
-    NDArray[np.float64],
-    NDArray[np.int8],
-    NDArray[np.int_],
-]:
-    X_arr = np.asarray(X, dtype=np.float64)
-    T_arr = np.asarray(event_time, dtype=np.float64)
-    E_arr = np.asarray(event_indicator, dtype=np.int8)
-    A_arr = np.asarray(treatment, dtype=np.int_)
-    if X_arr.ndim != 2:
-        raise ValueError(f"X must be 2D (n, d); got shape {X_arr.shape}")
-    n = X_arr.shape[0]
-    if not (T_arr.shape == (n,) and E_arr.shape == (n,) and A_arr.shape == (n,)):
-        raise ValueError(
-            "X, event_time, event_indicator, and treatment must share first axis; "
-            f"got {X_arr.shape}, {T_arr.shape}, {E_arr.shape}, {A_arr.shape}"
-        )
-    if A_arr.min() < 0:
-        raise ValueError(
-            f"treatment values must be non-negative integers; min was {A_arr.min()}"
-        )
-    return X_arr, T_arr, E_arr, A_arr
 
 
 def _resolve_times(

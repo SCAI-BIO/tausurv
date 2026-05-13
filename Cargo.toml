@@ -18,7 +18,7 @@ authors = [
 [workspace.dependencies]
 pyo3 = { version = "0.28", features = ["abi3-py312", "extension-module"] }
 numpy = "0.28"
-ndarray = "0.17"
+ndarray = { version = "0.17", features = ["rayon"] }
 rayon = "1.10"
 rand = "0.9"
 rand_chacha = "0.9"

@@ -11,6 +11,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from causurv.estimands import SurvivalDiff
 from causurv.learners import SLearner
 from causurv.predictor import HTEPredictor
 
@@ -41,7 +42,7 @@ def test_fit_returns_self_and_caches_X_for_default_ate():
     out = sl.fit(X, T, E, A)
     assert out is sl
     # predict_ate without X uses the cached training set.
-    ate = sl.predict_ate(times=np.array([0.5, 1.0]))
+    ate = sl.predict_ate(estimand=SurvivalDiff(times=[0.5, 1.0]))
     assert ate.shape == (2,)
 
 
@@ -85,7 +86,7 @@ def test_hte_call_through_inherits_contrast_dispatch():
     X, T, E, A = _data()
     sl = SLearner(outcome_factory=lambda: CoxPH()).fit(X, T, E, A)
     times = np.linspace(0.2, 3.0, 5)
-    hte = sl.predict_hte(X[:5], times, contrast="survival_diff")
+    hte = sl.predict_hte(X[:5], estimand=SurvivalDiff(times=times))
     assert hte.contrast == "survival_diff"
     assert hte.values.shape == (5, 5)
 
@@ -96,7 +97,7 @@ def test_ate_uses_stored_training_X_when_X_omitted():
     X, T, E, A = _data(n=80)
     sl = SLearner(outcome_factory=lambda: CoxPH()).fit(X, T, E, A)
     times = np.linspace(0.2, 3.0, 4)
-    ate = sl.predict_ate(times=times)
+    ate = sl.predict_ate(estimand=SurvivalDiff(times=times))
     assert ate.shape == (4,)
 
 
@@ -108,7 +109,7 @@ def test_works_with_aft_base_model():
     X, T, E, A = _data(n=120)
     sl = SLearner(outcome_factory=lambda: WeibullAFT()).fit(X, T, E, A)
     times = np.linspace(0.2, 3.0, 6)
-    hte = sl.predict_hte(X[:5], times)
+    hte = sl.predict_hte(X[:5], estimand=SurvivalDiff(times=times))
     assert hte.values.shape == (5, 6)
 
 
@@ -119,7 +120,7 @@ def test_works_with_rsf_base_model():
     sl = SLearner(outcome_factory=lambda: RandomSurvivalForest(n_estimators=10, seed=0))
     sl.fit(X, T, E, A)
     times = np.linspace(0.2, 3.0, 5)
-    hte = sl.predict_hte(X[:5], times)
+    hte = sl.predict_hte(X[:5], estimand=SurvivalDiff(times=times))
     assert hte.values.shape == (5, 5)
 
 
@@ -132,7 +133,7 @@ def test_validates_dimensions():
         sl.fit(X, np.ones(10), np.ones(10, dtype=np.int8), np.zeros(10, dtype=np.int8))
 
     X = np.zeros((10, 3))
-    with pytest.raises(ValueError, match="treatment must be shape"):
+    with pytest.raises(ValueError, match="first axis"):
         sl.fit(X, np.ones(10), np.ones(10, dtype=np.int8), np.zeros(5, dtype=np.int8))
 
     with pytest.raises(ValueError, match="non-negative"):

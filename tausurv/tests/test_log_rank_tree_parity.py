@@ -103,3 +103,50 @@ def test_rejects_shape_mismatch(two_group_data):
             event_time=event_time[:50].astype(np.float64),
             event_indicator=event_indicator.astype(np.uint8),
         )
+
+
+def test_honest_mode_separates_groups(two_group_data):
+    X, event_time, event_indicator = two_group_data
+    tree = _fit_rust(
+        X, event_time, event_indicator,
+        min_samples_leaf=15, honesty=True, honesty_fraction=0.5, seed=42,
+    )
+    X_f = np.asfortranarray(X.astype(np.float64))
+    H = tree.predict_cumulative_hazard(X=X_f, times=np.array([5.0]))
+    group_a = X[:, 0] > 0  # higher hazard
+    group_b = ~group_a
+    assert H[group_a, 0].mean() > H[group_b, 0].mean()
+
+
+def test_honest_mode_is_deterministic(two_group_data):
+    X, event_time, event_indicator = two_group_data
+    a = _fit_rust(X, event_time, event_indicator, honesty=True, seed=7)
+    b = _fit_rust(X, event_time, event_indicator, honesty=True, seed=7)
+    X_f = np.asfortranarray(X.astype(np.float64))
+    times = np.linspace(0.1, 5.0, 8, dtype=np.float64)
+    np.testing.assert_array_equal(
+        a.predict_cumulative_hazard(X=X_f, times=times),
+        b.predict_cumulative_hazard(X=X_f, times=times),
+    )
+
+
+def test_honest_differs_from_non_honest(two_group_data):
+    X, event_time, event_indicator = two_group_data
+    non = _fit_rust(X, event_time, event_indicator, honesty=False, seed=7)
+    hon = _fit_rust(X, event_time, event_indicator, honesty=True, seed=7)
+    X_f = np.asfortranarray(X.astype(np.float64))
+    times = np.linspace(0.1, 5.0, 8, dtype=np.float64)
+    H_non = non.predict_cumulative_hazard(X=X_f, times=times)
+    H_hon = hon.predict_cumulative_hazard(X=X_f, times=times)
+    # Disjoint estimation set ≠ identical predictions to non-honest.
+    assert np.max(np.abs(H_hon - H_non)) > 1e-6
+
+
+@pytest.mark.parametrize("bad", [0.0, 1.0, -0.1, 1.5])
+def test_rejects_invalid_honesty_fraction(two_group_data, bad):
+    X, event_time, event_indicator = two_group_data
+    with pytest.raises(ValueError, match="honesty_fraction"):
+        _fit_rust(
+            X, event_time, event_indicator,
+            honesty=True, honesty_fraction=bad,
+        )

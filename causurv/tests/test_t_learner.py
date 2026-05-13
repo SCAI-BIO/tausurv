@@ -101,7 +101,7 @@ def test_predict_hte_dispatch_returns_hteestimates():
     X, T, E, A = _data()
     tl = TLearner(outcome_factory=lambda: CoxPH()).fit(X, T, E, A)
     times = np.linspace(0.5, 2.0, 4)
-    hte = tl.predict_hte(X[:5], times, contrast="survival_diff")
+    hte = tl.predict_hte(X[:5], estimand="survival_diff", times=times)
     assert hte.values.shape == (5, 4)
     assert hte.contrast == "survival_diff"
 
@@ -115,7 +115,7 @@ def test_predict_hte_matches_manual_subtraction():
     tl = TLearner(outcome_factory=lambda: CoxPH()).fit(X, T, E, A)
     times = np.linspace(0.5, 2.0, 4)
     s0, s1 = tl.predict_potential_outcomes(X[:5], times)
-    hte = tl.predict_hte(X[:5], times)
+    hte = tl.predict_hte(X[:5], estimand="survival_diff", times=times)
     np.testing.assert_allclose(hte.values, s1 - s0)
 
 
@@ -172,7 +172,11 @@ def test_multi_arm_extension():
     arms = tl.predict_potential_outcomes(X[:5])
     assert len(arms) == 3
     # Predict 2-vs-0 contrast.
-    hte = tl.predict_hte(X[:5], treatment=2, reference=0)
+    from causurv.estimands import SurvivalDiff
+    hte = tl.predict_hte(
+        X[:5],
+        estimand=SurvivalDiff(times=tl.times_, treatment=2, reference=0),
+    )
     assert hte.treatment == 2 and hte.reference == 0
 
 
@@ -206,7 +210,7 @@ def test_ate_without_X_uses_stored_training_X():
     X, T, E, A = _data(n=120)
     tl = TLearner(outcome_factory=lambda: CoxPH()).fit(X, T, E, A)
     times = np.linspace(0.2, 2.0, 5)
-    ate = tl.predict_ate(times=times)
+    ate = tl.predict_ate(estimand="survival_diff", times=times)
     assert ate.shape == (5,)
 
 

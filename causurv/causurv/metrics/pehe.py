@@ -147,8 +147,10 @@ def _coerce_pair(
                 f"hte_true is {b.contrast!r} — PEHE across different "
                 f"contrasts is not meaningful"
             )
-        if a.times is not None and b.times is not None and not np.array_equal(
-            np.asarray(a.times), np.asarray(b.times)
+        a_times = a.estimand.times
+        b_times = b.estimand.times
+        if not np.array_equal(
+            np.asarray(a_times), np.asarray(b_times)
         ):
             raise ValueError(
                 "time grids disagree between hte_hat and hte_true"
@@ -162,8 +164,8 @@ def _resolve_times(
     if times is not None:
         return np.asarray(times, dtype=np.float64)
     for h in hte_inputs:
-        if isinstance(h, HTEEstimates) and h.times is not None:
-            return np.asarray(h.times, dtype=np.float64)
+        if isinstance(h, HTEEstimates):
+            return np.asarray(h.estimand.times, dtype=np.float64)
     raise ValueError(
-        "integrated_pehe needs `times`, or HTEEstimates inputs carrying `.times`"
+        "integrated_pehe needs `times` (or HTEEstimates inputs carrying their estimand)"
     )

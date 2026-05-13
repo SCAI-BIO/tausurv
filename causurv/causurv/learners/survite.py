@@ -21,7 +21,7 @@ from numpy.typing import ArrayLike, NDArray
 
 from causurv.nn.losses.survite import SurvITELoss
 from causurv.nn.models.survite import SurvITEConfig, SurvITEModule, SurvITETrainer
-from causurv.predictor import HTEPredictor
+from causurv.predictor import HTEPredictor, _validate_fit_inputs
 from tausurv.nn._utils import as_model_tensor
 
 
@@ -138,22 +138,7 @@ class SurvITE(HTEPredictor):
         event_indicator: ArrayLike,
         treatment: ArrayLike,
     ) -> "SurvITE":
-        X = np.asarray(X, dtype=np.float64)
-        T = np.asarray(event_time, dtype=np.float64)
-        E = np.asarray(event_indicator)
-        A = np.asarray(treatment)
-        if X.ndim != 2:
-            raise ValueError(f"X must be 2D (n, d); got shape {X.shape}")
-        n = X.shape[0]
-        if not (T.shape == (n,) and E.shape == (n,) and A.shape == (n,)):
-            raise ValueError(
-                "X, event_time, event_indicator, treatment must share first axis; "
-                f"got {X.shape}, {T.shape}, {E.shape}, {A.shape}"
-            )
-        if int(A.min()) < 0:
-            raise ValueError(
-                f"treatment values must be non-negative integers; min was {A.min()}"
-            )
+        X, T, E, A = _validate_fit_inputs(X, event_time, event_indicator, treatment)
 
         n_arms = int(A.max()) + 1
         time_bins = self._choose_time_bins(T, E)
@@ -219,8 +204,7 @@ class SurvITE(HTEPredictor):
     ) -> tuple[NDArray[np.float64], ...]:
         if cause is not None:
             raise ValueError(
-                "SurvITE is single-event; pass cause=None (got cause="
-                f"{cause}). Competing risks needs SurvITE-CR (not yet ported)."
+                f"SurvITE is single-event; cause must be None (got cause={cause})"
             )
         if self._module is None:
             raise RuntimeError(f"{type(self).__name__}: call fit() first")

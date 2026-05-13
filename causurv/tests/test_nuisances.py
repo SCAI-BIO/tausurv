@@ -84,7 +84,7 @@ def test_fit_nuisances_censoring_is_none_when_factory_missing():
     assert nuis.censoring is None
 
 
-def test_fit_nuisances_censoring_fits_on_1_minus_event():
+def test_fit_nuisances_censoring_is_per_arm_dict():
     X, T, E, A = _data()
     outc, prop, cens = _factories()
     nuis = fit_nuisances(
@@ -92,10 +92,23 @@ def test_fit_nuisances_censoring_fits_on_1_minus_event():
         outcome_factory=outc, propensity_factory=prop, censoring_factory=cens,
     )
     assert nuis.censoring is not None
-    # Censoring model should be able to predict survival functions.
+    assert sorted(nuis.censoring) == [0, 1]
+    # Each arm-specific censoring model predicts survival functions.
     grid = np.array([0.5, 1.0, 2.0])
-    G = nuis.censoring.predict_survival_function(X[:5], grid)
+    G = nuis.censoring[0].predict_survival_function(X[:5], grid)
     assert G.shape == (5, 3)
+
+
+def test_fit_nuisances_shared_censoring_when_per_arm_censoring_false():
+    X, T, E, A = _data()
+    outc, prop, cens = _factories()
+    nuis = fit_nuisances(
+        X, T, E, A,
+        outcome_factory=outc, propensity_factory=prop, censoring_factory=cens,
+        per_arm_censoring=False,
+    )
+    # Both arm keys point to the same shared model.
+    assert nuis.censoring[0] is nuis.censoring[1]
 
 
 def test_fit_nuisances_validates_dimensions():
@@ -106,6 +119,22 @@ def test_fit_nuisances_validates_dimensions():
             np.zeros(10, dtype=np.int8),
             outcome_factory=outc, propensity_factory=prop,
         )
+
+
+def test_validation_rejects_sparse_arm_labels():
+    """A = {0, 2} (no 1s) must raise — sparse arms would silently break
+    learners that index potential outcomes positionally."""
+    rng = np.random.default_rng(0)
+    n = 60
+    X = rng.normal(size=(n, 4))
+    T = rng.exponential(1.0, size=n).astype(np.float64)
+    E = (rng.uniform(size=n) < 0.7).astype(np.int8)
+    A = np.where(rng.uniform(size=n) < 0.5, 0, 2).astype(np.int8)
+    outc, prop, _ = _factories()
+    with pytest.raises(ValueError, match="contiguous integers"):
+        fit_nuisances(X, T, E, A, outcome_factory=outc, propensity_factory=prop)
+    with pytest.raises(ValueError, match="contiguous integers"):
+        cross_fit(X, T, E, A, outcome_factory=outc, propensity_factory=prop, n_folds=3)
 
 
 def test_cross_fit_returns_cross_fit_nuisances():
@@ -129,7 +158,9 @@ def test_cross_fit_shapes_are_aligned_to_grid():
     assert xf.oof_outcome[0].shape == (200, n_t)
     assert xf.oof_outcome[1].shape == (200, n_t)
     assert xf.oof_propensity.shape == (200, 2)
-    assert xf.oof_censoring.shape == (200, n_t)
+    assert sorted(xf.oof_censoring) == [0, 1]
+    assert xf.oof_censoring[0].shape == (200, n_t)
+    assert xf.oof_censoring[1].shape == (200, n_t)
     assert xf.fold_assignment.shape == (200,)
     assert xf.n_folds == 4
 
@@ -153,7 +184,8 @@ def test_cross_fit_no_nan_in_oof():
     for a in (0, 1):
         assert not np.isnan(xf.oof_outcome[a]).any()
     assert not np.isnan(xf.oof_propensity).any()
-    assert not np.isnan(xf.oof_censoring).any()
+    for a in (0, 1):
+        assert not np.isnan(xf.oof_censoring[a]).any()
 
 
 def test_cross_fit_oof_censoring_is_none_when_factory_missing():

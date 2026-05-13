@@ -48,16 +48,15 @@ def test_pehe_matches_manual_rmse_per_time():
 
 
 def test_pehe_accepts_hte_estimates():
+    from causurv.estimands import SurvivalDiff
+
     rng = np.random.default_rng(0)
     vals_hat = rng.normal(size=(30, 5))
     vals_true = vals_hat + 0.1
     times = np.linspace(1, 5, 5)
-    h_hat = HTEEstimates(
-        values=vals_hat, contrast="survival_diff", treatment=1, reference=0, times=times
-    )
-    h_true = HTEEstimates(
-        values=vals_true, contrast="survival_diff", treatment=1, reference=0, times=times
-    )
+    est = SurvivalDiff(times=times)
+    h_hat = HTEEstimates(values=vals_hat, estimand=est)
+    h_true = HTEEstimates(values=vals_true, estimand=est)
     np.testing.assert_allclose(pehe(h_hat, h_true), 0.1 * np.ones(5))
 
 
@@ -67,30 +66,28 @@ def test_pehe_rejects_shape_mismatch():
 
 
 def test_pehe_rejects_contrast_mismatch_on_hte_estimates():
+    from causurv.estimands import CIFDiff, SurvivalDiff
+
     a = HTEEstimates(
-        values=np.zeros((5, 3)), contrast="survival_diff", treatment=1, reference=0
+        values=np.zeros((5, 3)), estimand=SurvivalDiff(times=[1, 2, 3])
     )
     b = HTEEstimates(
-        values=np.zeros((5, 3)), contrast="cif_diff", treatment=1, reference=0
+        values=np.zeros((5, 3)), estimand=CIFDiff(times=[1, 2, 3], cause=1)
     )
     with pytest.raises(ValueError, match="contrast mismatch"):
         pehe(a, b)
 
 
 def test_pehe_rejects_time_grid_mismatch_on_hte_estimates():
+    from causurv.estimands import SurvivalDiff
+
     a = HTEEstimates(
         values=np.zeros((5, 3)),
-        contrast="survival_diff",
-        treatment=1,
-        reference=0,
-        times=np.array([1.0, 2.0, 3.0]),
+        estimand=SurvivalDiff(times=[1.0, 2.0, 3.0]),
     )
     b = HTEEstimates(
         values=np.zeros((5, 3)),
-        contrast="survival_diff",
-        treatment=1,
-        reference=0,
-        times=np.array([1.0, 2.5, 3.0]),
+        estimand=SurvivalDiff(times=[1.0, 2.5, 3.0]),
     )
     with pytest.raises(ValueError, match="time grids disagree"):
         pehe(a, b)
@@ -112,16 +109,15 @@ def test_integrated_pehe_zero_when_identical():
 
 
 def test_integrated_pehe_picks_up_times_from_hte_estimates():
+    from causurv.estimands import SurvivalDiff
+
     rng = np.random.default_rng(0)
     times = np.linspace(1, 5, 4)
     vals_hat = rng.normal(size=(20, 4))
     vals_true = rng.normal(size=(20, 4))
-    h_hat = HTEEstimates(
-        values=vals_hat, contrast="survival_diff", treatment=1, reference=0, times=times
-    )
-    h_true = HTEEstimates(
-        values=vals_true, contrast="survival_diff", treatment=1, reference=0, times=times
-    )
+    est = SurvivalDiff(times=times)
+    h_hat = HTEEstimates(values=vals_hat, estimand=est)
+    h_true = HTEEstimates(values=vals_true, estimand=est)
     expected = float(np.trapezoid(pehe(vals_hat, vals_true), x=times))
     assert integrated_pehe(h_hat, h_true) == pytest.approx(expected)
 
@@ -185,13 +181,14 @@ def test_ate_error_scalar_for_1d_inputs():
 
 def test_pehe_against_survite_oracle_with_oracle_as_both_inputs():
     """Sanity check: an oracle benchmarked against itself has PEHE == 0."""
+    from causurv.estimands import SurvivalDiff
     from causurv.simulations import SurvITE
 
     sim = SurvITE(scenario="S4")
     rng = np.random.default_rng(0)
     X = rng.normal(size=(50, sim.n_features))
     times = np.array([5.0, 10.0, 20.0])
-    h = sim.predict_hte(X, times)
+    h = sim.predict_hte(X, estimand=SurvivalDiff(times=times))
     np.testing.assert_allclose(pehe(h, h), np.zeros(3), atol=1e-12)
     assert integrated_pehe(h, h) == pytest.approx(0.0)
 

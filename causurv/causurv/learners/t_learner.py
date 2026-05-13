@@ -29,7 +29,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-from causurv.predictor import HTEPredictor
+from causurv.predictor import HTEPredictor, _validate_fit_inputs
 
 
 class TLearner(HTEPredictor):
@@ -89,29 +89,11 @@ class TLearner(HTEPredictor):
         event_indicator: ArrayLike,
         treatment: ArrayLike,
     ) -> "TLearner":
-        X = np.asarray(X, dtype=np.float64)
-        T = np.asarray(event_time)
-        E = np.asarray(event_indicator)
-        A = np.asarray(treatment)
-        if X.ndim != 2:
-            raise ValueError(f"X must be 2D (n, d); got shape {X.shape}")
-        if A.shape != (X.shape[0],) or T.shape != (X.shape[0],) or E.shape != (
-            X.shape[0],
-        ):
-            raise ValueError(
-                "X, event_time, event_indicator, and treatment must share "
-                f"first axis; got {X.shape}, {T.shape}, {E.shape}, {A.shape}"
-            )
-        if int(A.min()) < 0:
-            raise ValueError(
-                f"treatment values must be non-negative integers; min was {A.min()}"
-            )
+        X, T, E, A = _validate_fit_inputs(X, event_time, event_indicator, treatment)
 
         self._models = {}
         for a in np.unique(A):
             mask = A == a
-            if not mask.any():
-                continue
             arm_X, arm_T, arm_E = X[mask], T[mask], E[mask]
             self._models[int(a)] = self._make().fit(arm_X, arm_T, arm_E)
 

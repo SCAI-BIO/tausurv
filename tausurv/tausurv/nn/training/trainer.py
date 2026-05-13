@@ -49,13 +49,18 @@ def _pick_tracked(
 
 
 class Trainer:
-    r"""Survival training orchestrator. Four override points; one main loop.
+    r"""Survival training orchestrator. Five override points; one main loop.
 
     Mental model:
 
-    - :meth:`train_step` — the per-batch training math (forward → loss →
-      backward → step). Override for custom losses, regularizers, adversarial
-      updates. Most subclasses override only this.
+    - :meth:`compute_loss` — the per-batch *loss math*: how the model is
+      called and how the loss is composed. Almost every subclass overrides
+      *only* this. Returns a scalar tensor.
+    - :meth:`train_step` — the per-batch *gradient mechanics*: zero_grad,
+      backward, gradient clip, optimizer step. Default delegates the loss
+      math to :meth:`compute_loss`. Override here only for non-standard
+      gradient flow (alternating optimizers, manual backward, GAN-style
+      updates).
     - :meth:`eval_step` — the per-batch inference math. Override to return
       richer prediction objects (e.g., CIFs per cause, counterfactuals).
     - :meth:`train_epoch` — orchestrates :meth:`train_step` over batches.
@@ -67,7 +72,7 @@ class Trainer:
 
     :meth:`fit` is the main loop and is *not* an override point. It owns
     scheduling, logging, checkpointing, best-tracking, early-stopping,
-    interrupt handling. Subclasses customize behavior through the four
+    interrupt handling. Subclasses customize behavior through the
     methods above.
 
     No callbacks. No hooks. No config dataclass. No third-party dependency
@@ -110,25 +115,16 @@ class Trainer:
     >>> trainer = Trainer(model, loss_fn=cox_nll, lr=1e-2)
     >>> history = trainer.fit(train_data, val_data, epochs=100)
 
-    Custom training math (add a regularizer):
+    Custom loss math (override only :meth:`compute_loss`):
 
     >>> class MyTrainer(Trainer):
     ...     def __init__(self, model, *, l2=0.01, **kw):
     ...         super().__init__(model, **kw)
     ...         self.l2 = l2
-    ...     def train_step(self, batch):
-    ...         self.model.train()
+    ...     def compute_loss(self, batch):
     ...         X, *targets = batch
-    ...         self.optimizer.zero_grad(set_to_none=True)
     ...         pred = self.model(X)
-    ...         loss = self.loss_fn(pred, *targets) + self.l2 * (pred ** 2).mean()
-    ...         if not torch.isfinite(loss):
-    ...             return loss
-    ...         loss.backward()
-    ...         if self.grad_clip > 0:
-    ...             torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_clip)
-    ...         self.optimizer.step()
-    ...         return loss
+    ...         return self.loss_fn(pred, *targets) + self.l2 * (pred ** 2).mean()
     """
 
     model: nn.Module
@@ -186,23 +182,44 @@ class Trainer:
         self.device = device
         self.seed = seed
 
-    def train_step(self, batch: tuple[Tensor, ...]) -> Tensor:
-        """Run one optimizer step on ``batch``. Returns the loss tensor.
+    def compute_loss(self, batch: tuple[Tensor, ...]) -> Tensor:
+        """Forward + loss for one batch. Override to customize.
 
-        Default behavior: forward → loss → backward → grad-clip → step.
-        Non-finite losses are returned as-is for :meth:`fit` to count toward
-        ``nan_tolerance``. Override for custom training math.
+        Default: unpacks ``(X, *targets) = batch``, calls
+        ``self.model(X)``, and applies
+        ``self.loss_fn(predictions, *targets)``. Override when the
+        model's forward needs more than ``X`` or when multiple losses
+        must be combined.
+
+        Returns a scalar tensor — the value that gets backpropagated.
+        Gradient mechanics (zero_grad, backward, grad-clip, step) live
+        in :meth:`train_step`; subclasses customising only the loss
+        math should override here, not there.
         """
         if self.loss_fn is None:
             raise NotImplementedError(
-                "Default train_step requires loss_fn. Pass loss_fn or override train_step."
+                "Default compute_loss requires loss_fn. Pass loss_fn or "
+                "override compute_loss."
             )
-        self.model.train()
         X = batch[0]
         targets = batch[1:]
-        self.optimizer.zero_grad(set_to_none=True)
         predictions = self.model(X)
-        loss = self.loss_fn(predictions, *targets)
+        return self.loss_fn(predictions, *targets)
+
+    def train_step(self, batch: tuple[Tensor, ...]) -> Tensor:
+        """Run one optimizer step on ``batch``. Returns the loss tensor.
+
+        Default behaviour: call :meth:`compute_loss`, then backward →
+        grad-clip → step. Non-finite losses are returned as-is for
+        :meth:`fit` to count toward ``nan_tolerance``. Override only
+        when the gradient flow itself differs from the standard
+        single-backward / single-step pattern (alternating optimisers,
+        GAN-style updates, manual backward); for everything else,
+        override :meth:`compute_loss` instead.
+        """
+        self.model.train()
+        self.optimizer.zero_grad(set_to_none=True)
+        loss = self.compute_loss(batch)
         if not torch.isfinite(loss):
             return loss
         loss.backward()
