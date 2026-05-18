@@ -1,24 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Union
-
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-from tausurv.nonparametric.nelson_aalen import nelson_aalen
+from tausurv._tausurv_core import LogRankSurvivalTree, fit_log_rank_tree
 from tausurv.predictor import SurvivalPredictor
-from tausurv.step import StepFunction
-
-
-@dataclass(slots=True)
-class _Node:
-    is_leaf: bool = False
-    split_feature: int = -1
-    split_threshold: float = 0.0
-    left: Union["_Node", None] = None
-    right: Union["_Node", None] = None
-    leaf_hazard: StepFunction | None = None
 
 
 def _log_rank_statistic(
@@ -33,6 +19,10 @@ def _log_rank_statistic(
     $$
 
     Higher is better; favors splits that separate the two groups' hazards.
+
+    Reference NumPy implementation kept for transparency, tests, and
+    use by callers outside the tree machinery. The compiled tree fitter
+    uses an equivalent Rust implementation internally.
     """
     if not (delta == 1).any():
         return 0.0
@@ -79,6 +69,9 @@ class SurvivalTree(SurvivalPredictor):
 
     Recursively partitions the covariate space; each leaf stores a
     Nelson-Aalen cumulative hazard estimated on the leaf's samples.
+    The fit and predict paths are implemented in compiled Rust
+    (:func:`tausurv.core.fit_log_rank_tree`); this Python class is a
+    thin wrapper that exposes the :class:`SurvivalPredictor` contract.
 
     Parameters
     ----------
@@ -86,8 +79,10 @@ class SurvivalTree(SurvivalPredictor):
         Maximum tree depth.
     min_samples_leaf : int, default 15
         Smallest allowed leaf size.
-    max_features : int | "sqrt" | None, default None
-        Number of features considered per split.
+    max_features : int | ``"sqrt"`` | None, default None
+        Features considered per split. ``None`` uses all features;
+        ``"sqrt"`` uses $\lfloor \sqrt d \rfloor$; an integer uses that
+        many.
     seed : int, optional
 
     Attributes
@@ -101,8 +96,7 @@ class SurvivalTree(SurvivalPredictor):
     Random survival forests. Annals of Applied Statistics, 2(3).
     """
 
-    _root: _Node
-    _n_features: int
+    _handle: LogRankSurvivalTree
 
     def __init__(
         self,
@@ -112,6 +106,12 @@ class SurvivalTree(SurvivalPredictor):
         max_features: int | str | None = None,
         seed: int | None = None,
     ) -> None:
+        if max_features is not None and not isinstance(max_features, int):
+            if max_features not in ("sqrt", "all"):
+                raise ValueError(
+                    f"invalid max_features: {max_features!r}; "
+                    f"expected None, 'sqrt', 'all', or a positive integer"
+                )
         self.max_depth = max_depth
         self.min_samples_leaf = min_samples_leaf
         self.max_features = max_features
@@ -123,94 +123,16 @@ class SurvivalTree(SurvivalPredictor):
         event_time: ArrayLike,
         event_indicator: ArrayLike,
     ) -> "SurvivalTree":
-        X = np.asarray(X, dtype=np.float64)
-        Y = np.asarray(event_time, dtype=np.float64)
-        delta = np.asarray(event_indicator, dtype=np.int8)
-
-        self._n_features = X.shape[1]
-        self._rng = np.random.default_rng(self.seed)
-        self._n_features_per_split = self._resolve_max_features()
-        self.times_ = np.unique(Y[delta == 1])
-
-        self._root = self._build(X, Y, delta, depth=0)
+        X_f, T_c, E_u = _coerce_inputs(X, event_time, event_indicator)
+        self.times_ = np.unique(T_c[E_u == 1])
+        self._handle = fit_log_rank_tree(
+            X_f, T_c, E_u,
+            min_samples_leaf=self.min_samples_leaf,
+            max_depth=self.max_depth,
+            max_features=self.max_features,
+            seed=self.seed,
+        )
         return self
-
-    def _resolve_max_features(self) -> int:
-        if self.max_features is None:
-            return self._n_features
-        if self.max_features == "sqrt":
-            return max(1, int(np.sqrt(self._n_features)))
-        if isinstance(self.max_features, int):
-            return min(max(1, self.max_features), self._n_features)
-        raise ValueError(f"invalid max_features: {self.max_features!r}")
-
-    def _build(
-        self,
-        X: NDArray[np.float64],
-        Y: NDArray[np.float64],
-        delta: NDArray[np.int8],
-        depth: int,
-    ) -> _Node:
-        node = _Node()
-
-        stop = (
-            len(Y) < 2 * self.min_samples_leaf
-            or (self.max_depth is not None and depth >= self.max_depth)
-            or not (delta == 1).any()
-        )
-        if stop:
-            node.is_leaf = True
-            node.leaf_hazard = nelson_aalen(Y, delta)
-            return node
-
-        split = self._find_best_split(X, Y, delta)
-        if split is None:
-            node.is_leaf = True
-            node.leaf_hazard = nelson_aalen(Y, delta)
-            return node
-
-        feature, threshold = split
-        left_mask = X[:, feature] <= threshold
-        node.split_feature = feature
-        node.split_threshold = threshold
-        node.left = self._build(X[left_mask], Y[left_mask], delta[left_mask], depth + 1)
-        node.right = self._build(
-            X[~left_mask], Y[~left_mask], delta[~left_mask], depth + 1
-        )
-        return node
-
-    def _find_best_split(
-        self,
-        X: NDArray[np.float64],
-        Y: NDArray[np.float64],
-        delta: NDArray[np.int8],
-    ) -> tuple[int, float] | None:
-        candidate_features = self._rng.choice(
-            self._n_features,
-            size=self._n_features_per_split,
-            replace=False,
-        )
-        best_score = -np.inf
-        best_split: tuple[int, float] | None = None
-
-        for feature in candidate_features:
-            vals = X[:, feature]
-            unique_vals = np.unique(vals)
-            if len(unique_vals) < 2:
-                continue
-            thresholds = 0.5 * (unique_vals[:-1] + unique_vals[1:])
-            for threshold in thresholds:
-                left_mask = vals <= threshold
-                n_left = int(left_mask.sum())
-                if n_left < self.min_samples_leaf:
-                    continue
-                if len(Y) - n_left < self.min_samples_leaf:
-                    continue
-                score = _log_rank_statistic(Y, delta, left_mask)
-                if score > best_score:
-                    best_score = score
-                    best_split = (int(feature), float(threshold))
-        return best_split
 
     def predict_cumulative_hazard(
         self,
@@ -223,13 +145,11 @@ class SurvivalTree(SurvivalPredictor):
         ``-log S`` so very large hazards are not lost to the log/exp clip.
         """
         times_arr = self._resolve_times(times)
-        X = np.asarray(X, dtype=np.float64)
-        n = len(X)
-        out = np.empty((n, len(times_arr)))
-        for i in range(n):
-            leaf = self._leaf_for_sample(X[i])
-            out[i] = leaf.leaf_hazard(times_arr)
-        return out
+        X_f = np.asfortranarray(np.asarray(X, dtype=np.float64))
+        return np.asarray(
+            self._handle.predict_cumulative_hazard(X_f, times_arr),
+            dtype=np.float64,
+        )
 
     def predict(self, X: ArrayLike) -> NDArray[np.float64]:
         r"""Ishwaran mortality: $M(x) = \sum_i \hat\Lambda(t_i \mid x)$ summed
@@ -244,11 +164,23 @@ class SurvivalTree(SurvivalPredictor):
     ) -> NDArray[np.float64]:
         return np.exp(-self.predict_cumulative_hazard(X, times))
 
-    def _leaf_for_sample(self, x: NDArray[np.float64]) -> _Node:
-        node = self._root
-        while not node.is_leaf:
-            if x[node.split_feature] <= node.split_threshold:
-                node = node.left
-            else:
-                node = node.right
-        return node
+
+def _coerce_inputs(
+    X: ArrayLike,
+    event_time: ArrayLike,
+    event_indicator: ArrayLike,
+) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.uint8]]:
+    """Cast inputs to the layout the Rust core expects.
+
+    The fitter requires column-major `float64` X, contiguous `float64`
+    event times, and contiguous `uint8` event indicators. ``np.asfortranarray``
+    and ``np.ascontiguousarray`` are no-ops when the caller already
+    provides the right layout.
+    """
+    X_arr = np.asarray(X, dtype=np.float64)
+    if X_arr.ndim != 2:
+        raise ValueError(f"X must be 2D (n, d); got shape {X_arr.shape}")
+    X_f = np.asfortranarray(X_arr)
+    T_c = np.ascontiguousarray(np.asarray(event_time, dtype=np.float64))
+    E_u = np.ascontiguousarray(np.asarray(event_indicator, dtype=np.uint8))
+    return X_f, T_c, E_u

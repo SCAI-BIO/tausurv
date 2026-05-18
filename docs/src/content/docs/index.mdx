@@ -1,14 +1,21 @@
 ---
 title: tausurv
-description: Modern survival and causal-survival analysis for Python.
+description: Survival and causal-survival analysis for Python, with publication-grade plotting and identifiability front and centre.
 template: splash
 hero:
-  tagline: A clean, typed, well-documented survival-analysis library for Python.
+  tagline: |
+    Survival analysis for Python: clean APIs, publication-grade plotting, real cohorts to learn from, and the assumption every estimate carries stated next to the estimate.
   actions:
     - text: Quickstart
       link: /quickstart/
       icon: right-arrow
       variant: primary
+    - text: Tutorials
+      link: /tutorials/first-survival-analysis/
+      icon: rocket
+    - text: Concepts
+      link: /concepts/thinking-in-survival/
+      icon: open-book
     - text: API reference
       link: /api/
       icon: external
@@ -16,22 +23,38 @@ hero:
 
 import { Card, CardGrid } from "@astrojs/starlight/components";
 
+Five lines, a real clinical-trial cohort, a publication-ready figure:
+
+```python
+import tausurv as ts
+
+ts.plot.set_style("publication")
+X, Y, delta = ts.datasets.load_pbc()
+ts.plot.km(Y / 365.25, delta, xlabel="years from registration")
+```
+
+![Kaplan-Meier survival curve on the PBC trial cohort, with a 95% confidence band and an at-risk table below the time axis.](/figures/landing_km.svg)
+
+`tausurv` is organised around three principles. **The estimand comes before the method.** Survival probability, hazard rate, restricted mean survival time, cumulative incidence: pick the quantity that matches the question, then reach for a model. **Every estimate carries an assumption.** Independent censoring, proportional hazards, conditional ignorability: each appears next to the estimate it produces, not in an appendix. **Plotting is publication-grade by default.** One call to `ts.plot.set_style("publication")` configures matplotlib so user code can read as a story about the analysis instead of a stack of `rcParams` boilerplate.
+
 <CardGrid>
-  <Card title="Nonparametric estimators">
-    Kaplan-Meier, Nelson-Aalen, Aalen-Johansen, and censoring-distribution
-    estimators with a unified step-function interface.
+  <Card title="Tutorials" icon="rocket">
+    Three executable walk-throughs on the PBC trial: a first Kaplan-Meier
+    analysis, a Cox model with SHAP decomposition and held-out evaluation,
+    and competing risks with Aalen-Johansen and Fine-Gray.
   </Card>
-  <Card title="Cox and beyond">
-    Cox proportional hazards with Breslow ties, plus survival trees and
-    random survival forests.
+  <Card title="Concepts" icon="open-book">
+    The mental model: at-risk sets, the censoring assumption, which
+    quantity to estimate for which question, and the identifiability
+    boundary between what the data show and what would need an intervention.
   </Card>
-  <Card title="Neural survival models">
-    DeepSurv, DeepHit, and logistic-hazard models with a clean training
-    loop, optimizer/schedule plumbing, and checkpointing.
+  <Card title="Plotting" icon="seti:image">
+    Publication-grade defaults, Okabe-Ito palettes, forest plots for hazard
+    ratios, SHAP decomposition, calibration plots, and time-varying
+    discrimination and Brier metrics with cross-validation bands.
   </Card>
-  <Card title="Metrics that match the literature">
-    Harrell and Uno concordance, time-dependent AUC, Brier score, and
-    calibration — all parity-tested against `scikit-survival` and
-    `lifelines`.
+  <Card title="API reference" icon="document">
+    Auto-generated reference for every public class and function, with the
+    assumption each estimator relies on stated next to its signature.
   </Card>
 </CardGrid>

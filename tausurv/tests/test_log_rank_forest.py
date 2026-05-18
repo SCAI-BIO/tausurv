@@ -28,17 +28,17 @@ def _fit_forest(X, event_time, event_indicator, **kwargs):
     )
 
 
-def test_fits_and_separates_groups(two_group_data):
+def test_fits_with_basic_params(two_group_data):
+    """Smoke: forest fits and reports expected metadata (no recovery
+    assertion — that lives in scripts/log_rank_tree_parity.py)."""
     X, event_time, event_indicator = two_group_data
     forest = _fit_forest(
         X, event_time, event_indicator,
         n_trees=20, min_samples_leaf=15, max_features="sqrt", seed=42,
     )
     assert forest.n_trees == 20
-    X_f = np.asfortranarray(X.astype(np.float64))
-    H = forest.predict_cumulative_hazard(X=X_f, times=np.array([5.0]))
-    group_a = X[:, 0] > 0  # high hazard
-    assert H[group_a, 0].mean() > H[~group_a, 0].mean()
+    assert forest.n_features == X.shape[1]
+    assert forest.n_train_samples == X.shape[0]
 
 
 def test_deterministic_under_seed(two_group_data):

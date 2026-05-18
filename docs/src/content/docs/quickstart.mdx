@@ -1,23 +1,33 @@
 ---
 title: Quickstart
-description: Fit your first survival model in under a minute.
+description: Fit a Kaplan-Meier curve to a real clinical-trial cohort in five lines.
 ---
 
+This is the 60-second tour. Five lines fit and plot a Kaplan-Meier survival curve on the Mayo Clinic primary biliary cholangitis (PBC) trial cohort, with logit-transformed 95% confidence bands and an at-risk table aligned to the time axis.
+
 ```python
-import numpy as np
-from tausurv.nonparametric import kaplan_meier
-from tausurv.simulations import single_risk
+import tausurv as ts
 
-# Generate a small synthetic single-risk dataset.
-rng = np.random.default_rng(0)
-data = single_risk.simulate(n=500, rng=rng)
-
-# Nonparametric survival estimate.
-S_hat = kaplan_meier(data.event_time, data.event_indicator)
-
-# Evaluate on a grid.
-t_grid = np.linspace(0, data.event_time.max(), 200)
-S_t = S_hat(t_grid)
+ts.plot.set_style("publication")
+X, Y, delta = ts.datasets.load_pbc()
+ts.plot.km(Y / 365.25, delta, xlabel="years from registration")
 ```
 
-For a guided walk-through, see [Tutorials](/tutorials/).
+![Kaplan-Meier survival curve on the PBC trial cohort, with a 95% confidence band and an at-risk table below the time axis.](/figures/landing_km.svg)
+
+That is the entire analysis. `ts.datasets.load_pbc()` returns a `SurvivalBunch` that tuple-unpacks as `(X, Y, delta)`: a polars `DataFrame` of covariates, the observed time $Y = \min(T, C)$ in days, and the event indicator $\delta$. The dataset downloads on first call and caches locally; subsequent runs read from `~/.cache/tausurv/datasets/`. `ts.plot.set_style("publication")` configures matplotlib once for the rest of the session: sans-serif font, single accent colour, no top or right spines, Okabe-Ito palette.
+
+## What you need
+
+- Python ≥ 3.12
+- `pip install tausurv[plot]` for matplotlib-backed plotting (the `plot` extra is optional but everything in this Quickstart needs it)
+- Internet on first run for the dataset download (set `TAUSURV_OFFLINE=1` to make the fetch raise instead)
+
+## Where next
+
+The same idiom (load a `SurvivalBunch`, set the style, call a one-line plot) recurs throughout the docs.
+
+- **[Tutorial 1: Your first survival analysis](/tutorials/first-survival-analysis/)** takes the analysis above further: median survival, treatment-arm comparison, stratification by histologic stage.
+- **[Tutorial 2: Modeling risk with covariates](/tutorials/modeling-with-covariates/)** fits a Cox model on the same cohort, with hazard-ratio interpretation, SHAP decomposition for an individual prediction, and held-out calibration and Brier evaluation.
+- **[Tutorial 3: Competing risks](/tutorials/competing-risks/)** brings the third outcome back (transplant), shows visually why naively applying $1 - \widehat{\mathrm{KM}}$ to one cause overstates incidence, and fits a Fine-Gray model.
+- **[Thinking in Survival](/concepts/thinking-in-survival/)** is the conceptual entry point: the mental model for what survival analysis is for, before any method.
