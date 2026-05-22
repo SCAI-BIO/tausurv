@@ -28,6 +28,7 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
 from causurv.predictor import HTEPredictor, _validate_fit_inputs
+from tausurv.predictor import SurvivalPredictor
 
 
 class SLearner(HTEPredictor):
@@ -80,7 +81,7 @@ class SLearner(HTEPredictor):
 
     def __init__(self, *, outcome_factory: Callable[[], Any]) -> None:
         self._make = outcome_factory
-        self._model: Any = None
+        self._model: SurvivalPredictor | None = None
         self._n_arms: int = 0
 
     def fit(

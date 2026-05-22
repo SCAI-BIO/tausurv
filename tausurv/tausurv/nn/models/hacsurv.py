@@ -221,7 +221,7 @@ class LearnedGenerator(nn.Module):
         return next(self._weight_net.parameters()).device
 
     def resample(self, n_samples: int | None = None) -> None:
-        """Draw a fresh mixing sample $M_l = \\exp(g_\\theta(U_l))$.
+        r"""Draw a fresh mixing sample $M_l = \exp(g_\theta(U_l))$.
 
         Must be called before any forward pass during training so the
         sample is fresh and gradients flow through the weight network.

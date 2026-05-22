@@ -71,7 +71,7 @@ class ShapCurvesDisplay:
 
 @dataclass
 class ShapDecompositionDisplay:
-    """Result of :func:`local_decomposition`.
+    r"""Result of :func:`local_decomposition`.
 
     Attributes
     ----------
@@ -87,7 +87,7 @@ class ShapDecompositionDisplay:
         positive and negative contributions across time appears twice in
         its list (one band above zero, one below).
     delta_line : Line2D or None
-        The :math:`\\hat S(t \\mid x) - S_0(t)` reference line drawn on the
+        The :math:`\hat S(t \mid x) - S_0(t)` reference line drawn on the
         bottom panel, when ``show_total=True``.
     """
 

@@ -119,10 +119,10 @@ def draw_at_risk_table(
     colors: "dict[str, str] | None" = None,
     xlabel: str = "Time",
 ) -> None:
-    """Render at-risk count rows aligned to ``curve_ax``'s major x-ticks.
+    r"""Render at-risk count rows aligned to ``curve_ax``'s major x-ticks.
 
     Each entry in ``rows`` maps a group label to its raw observation times
-    :math:`Y_g`. The count at each tick ``t`` is :math:`\\#\\{i : Y_{g,i} \\ge t\\}`.
+    :math:`Y_g`. The count at each tick ``t`` is :math:`\#\{i : Y_{g,i} \ge t\}`.
     Row labels are colour-matched to the curves when ``colors`` is supplied.
     """
     from matplotlib.transforms import blended_transform_factory

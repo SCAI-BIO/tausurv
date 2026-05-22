@@ -30,6 +30,7 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
 from causurv.predictor import HTEPredictor, _validate_fit_inputs
+from tausurv.predictor import SurvivalPredictor
 
 
 class TLearner(HTEPredictor):
@@ -80,7 +81,7 @@ class TLearner(HTEPredictor):
 
     def __init__(self, *, outcome_factory: Callable[[], Any]) -> None:
         self._make = outcome_factory
-        self._models: dict[int, Any] = {}
+        self._models: dict[int, SurvivalPredictor] = {}
 
     def fit(
         self,

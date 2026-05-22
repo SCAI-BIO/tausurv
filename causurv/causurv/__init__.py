@@ -19,6 +19,7 @@ types, and the concrete learners — are re-exported at the package root:
 
 from causurv import contrasts, estimands, learners, metrics, nn, nuisances, simulations
 from causurv.learners import (
+    CausalSurvivalForest,
     DRLearner,
     OrthoLearner,
     RLearner,
@@ -37,6 +38,7 @@ from causurv.predictor import HTEEstimates, HTEPredictor
 __version__ = "0.0.0"
 
 __all__ = [
+    "CausalSurvivalForest",
     "CrossFitNuisances",
     "DRLearner",
     "HTEEstimates",

@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class CopulaContourDisplay:
-    """Result of :func:`contour`.
+    r"""Result of :func:`contour`.
 
     Attributes
     ----------
@@ -48,7 +48,7 @@ class CopulaContourDisplay:
     reference : Line2D or None
         The :math:`u_1 = u_2` diagonal, if drawn.
     tau_annotation : Text or None
-        Kendall's :math:`\\tau` corner annotation, if drawn.
+        Kendall's :math:`\tau` corner annotation, if drawn.
     """
 
     fig: "Figure"
