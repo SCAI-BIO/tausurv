@@ -84,7 +84,7 @@ def auc_over_time(
     r"""Time-dependent cumulative/dynamic AUC vs time.
 
     See :mod:`tausurv.metrics.auc` for the underlying estimator
-    (:func:`~tausurv.metrics.auc.uno`). This function only renders.
+    (:func:`~tausurv.metrics.auc.uno`).
 
     Parameters
     ----------
@@ -119,11 +119,21 @@ def auc_over_time(
     MetricCurveDisplay
     """
     return _render(
-        times=times, values=values, ci=ci, folds=folds, band=band,
+        times=times,
+        values=values,
+        ci=ci,
+        folds=folds,
+        band=band,
         models=models,
-        ax=ax, legend=legend, reference=reference,
-        xlabel=xlabel, ylabel=ylabel, title=title,
-        color=color, label=label, ylim=ylim,
+        ax=ax,
+        legend=legend,
+        reference=reference,
+        xlabel=xlabel,
+        ylabel=ylabel,
+        title=title,
+        color=color,
+        label=label,
+        ylim=ylim,
     )
 
 
@@ -152,11 +162,21 @@ def concordance_over_time(
     ``folds=`` for CV-fold mean +/- SD bands.
     """
     return _render(
-        times=times, values=values, ci=ci, folds=folds, band=band,
+        times=times,
+        values=values,
+        ci=ci,
+        folds=folds,
+        band=band,
         models=models,
-        ax=ax, legend=legend, reference=reference,
-        xlabel=xlabel, ylabel=ylabel, title=title,
-        color=color, label=label, ylim=ylim,
+        ax=ax,
+        legend=legend,
+        reference=reference,
+        xlabel=xlabel,
+        ylabel=ylabel,
+        title=title,
+        color=color,
+        label=label,
+        ylim=ylim,
     )
 
 
@@ -185,11 +205,21 @@ def brier_over_time(
     entry in ``models=``). Supports ``folds=`` for CV-fold mean +/- SD bands.
     """
     return _render(
-        times=times, values=values, ci=ci, folds=folds, band=band,
+        times=times,
+        values=values,
+        ci=ci,
+        folds=folds,
+        band=band,
         models=models,
-        ax=ax, legend=legend, reference=reference,
-        xlabel=xlabel, ylabel=ylabel, title=title,
-        color=color, label=label, ylim=ylim,
+        ax=ax,
+        legend=legend,
+        reference=reference,
+        xlabel=xlabel,
+        ylabel=ylabel,
+        title=title,
+        color=color,
+        label=label,
+        ylim=ylim,
     )
 
 
@@ -214,8 +244,14 @@ def _render(
     import matplotlib.pyplot as plt
 
     curves = _gather_curves(
-        times=times, values=values, ci=ci, folds=folds, band=band,
-        models=models, label=label, color=color,
+        times=times,
+        values=values,
+        ci=ci,
+        folds=folds,
+        band=band,
+        models=models,
+        label=label,
+        color=color,
     )
 
     if ax is None:
@@ -240,7 +276,11 @@ def _render(
         if c["ci"] is not None:
             lo, hi = c["ci"]
             disp.ci_polys[name] = ci_band(
-                ax, c["times"], lo, hi, line.get_color(),
+                ax,
+                c["times"],
+                lo,
+                hi,
+                line.get_color(),
             )
 
     ax.set_xlabel(xlabel)
@@ -278,7 +318,9 @@ def _gather_curves(
                 "(times, folds=...) -- or models= for an overlay, not both"
             )
         if color is not None or label is not None:
-            raise ValueError("color/label are single-curve only; not valid with models=")
+            raise ValueError(
+                "color/label are single-curve only; not valid with models="
+            )
         out: dict[str, dict[str, Any]] = {}
         for name, spec in models.items():
             t = np.asarray(spec["times"], dtype=np.float64)
@@ -286,21 +328,25 @@ def _gather_curves(
                 raise ValueError(
                     f"model {name!r}: times must be a 1d array, got shape {t.shape}"
                 )
-            v, ci_arr = _values_and_ci_from_spec(spec, t.shape, band, where=f"model {name!r}")
+            v, ci_arr = _values_and_ci_from_spec(
+                spec, t.shape, band, where=f"model {name!r}"
+            )
             out[str(name)] = {"times": t, "values": v, "ci": ci_arr, "color": None}
         return out
 
     if times is None:
-        raise ValueError(
-            "either single-curve inputs or models= must be supplied"
-        )
+        raise ValueError("either single-curve inputs or models= must be supplied")
     t = np.asarray(times, dtype=np.float64)
     if t.ndim != 1:
         raise ValueError(f"times must be a 1d array, got shape {t.shape}")
 
     v_arr, ci_arr = _values_and_ci(
-        values=values, ci=ci, folds=folds, band=band,
-        time_shape=t.shape, where="single curve",
+        values=values,
+        ci=ci,
+        folds=folds,
+        band=band,
+        time_shape=t.shape,
+        where="single curve",
     )
     return {label or "": {"times": t, "values": v_arr, "ci": ci_arr, "color": color}}
 
@@ -332,16 +378,12 @@ def _values_and_ci(
 ) -> "tuple[np.ndarray, tuple[np.ndarray, np.ndarray] | None]":
     if folds is not None:
         if values is not None or ci is not None:
-            raise ValueError(
-                f"{where}: folds= is mutually exclusive with values/ci"
-            )
+            raise ValueError(f"{where}: folds= is mutually exclusive with values/ci")
         v, ci_arr = _band_from_folds(folds, time_shape, band, where)
         return v, ci_arr
 
     if values is None:
-        raise ValueError(
-            f"{where}: one of values or folds must be supplied"
-        )
+        raise ValueError(f"{where}: one of values or folds must be supplied")
     v_arr = np.asarray(values, dtype=np.float64)
     if v_arr.shape != time_shape:
         raise ValueError(
@@ -376,9 +418,7 @@ def _band_from_folds(
     elif band == "se":
         half = std / np.sqrt(f.shape[0])
     else:
-        raise ValueError(
-            f"{where}: unknown band {band!r}; expected 'sd' or 'se'"
-        )
+        raise ValueError(f"{where}: unknown band {band!r}; expected 'sd' or 'se'")
     return mean, (mean - half, mean + half)
 
 

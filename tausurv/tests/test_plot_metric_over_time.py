@@ -24,9 +24,11 @@ def grid():
 @pytest.fixture
 def models(grid):
     return {
-        "Cox":     {"times": grid, "values": 0.74 + 0.02 * np.sin(grid),
-                    "ci": (0.71 + 0.02 * np.sin(grid),
-                           0.77 + 0.02 * np.sin(grid))},
+        "Cox": {
+            "times": grid,
+            "values": 0.74 + 0.02 * np.sin(grid),
+            "ci": (0.71 + 0.02 * np.sin(grid), 0.77 + 0.02 * np.sin(grid)),
+        },
         "DeepHit": {"times": grid, "values": 0.79 + 0.01 * np.cos(grid)},
     }
 
@@ -104,8 +106,6 @@ def test_missing_inputs_raise():
         ts.plot.auc_over_time()
 
 
-# ----- folds= input -----
-
 def test_folds_single_curve_renders_mean_and_band(grid):
     rng = np.random.default_rng(0)
     fold_matrix = 0.78 + 0.02 * np.sin(grid) + 0.03 * rng.normal(size=(5, grid.size))
@@ -114,7 +114,9 @@ def test_folds_single_curve_renders_mean_and_band(grid):
     assert list(disp.ci_polys.keys()) == ["Cox"]
     # Rendered line = fold mean
     np.testing.assert_allclose(
-        disp.lines["Cox"].get_ydata(), fold_matrix.mean(axis=0), atol=1e-12,
+        disp.lines["Cox"].get_ydata(),
+        fold_matrix.mean(axis=0),
+        atol=1e-12,
     )
 
 
@@ -146,10 +148,12 @@ def test_folds_band_se_is_narrower_than_sd(grid):
 def test_folds_models_overlay(grid):
     rng = np.random.default_rng(2)
     f_cox = 0.75 + 0.03 * rng.normal(size=(5, grid.size))
-    disp = ts.plot.auc_over_time(models={
-        "Cox":     {"times": grid, "folds": f_cox},
-        "DeepHit": {"times": grid, "values": 0.80 + 0 * grid},
-    })
+    disp = ts.plot.auc_over_time(
+        models={
+            "Cox": {"times": grid, "folds": f_cox},
+            "DeepHit": {"times": grid, "values": 0.80 + 0 * grid},
+        }
+    )
     assert list(disp.lines.keys()) == ["Cox", "DeepHit"]
     # Only Cox has a band -- DeepHit was values-only.
     assert list(disp.ci_polys.keys()) == ["Cox"]
@@ -184,7 +188,9 @@ def test_folds_mutually_exclusive_with_ci(grid):
     v = 0.7 + 0 * grid
     with pytest.raises(ValueError, match="mutually exclusive"):
         ts.plot.auc_over_time(
-            grid, folds=fold_matrix, ci=(v - 0.01, v + 0.01),
+            grid,
+            folds=fold_matrix,
+            ci=(v - 0.01, v + 0.01),
         )
 
 

@@ -10,12 +10,7 @@ from tausurv.linear import FineGray
 
 
 def _cr_data(n=500, n_causes=2, seed=0):
-    return simulations.competing_risk(
-        n=n, n_features=5, n_causes=n_causes, seed=seed
-    )
-
-
-# Architectural / invariant tests
+    return simulations.competing_risk(n=n, n_features=5, n_causes=n_causes, seed=seed)
 
 
 def test_predict_cif_shape_and_bounds():
@@ -92,9 +87,6 @@ def test_cif_competing_risk_complementary():
     assert float(total.mean()) < 1.0
 
 
-# Validation
-
-
 def test_rejects_cause_below_one():
     with pytest.raises(ValueError, match="cause"):
         FineGray(cause=0)
@@ -108,20 +100,9 @@ def test_rejects_missing_cause_at_fit():
         FineGray(cause=1).fit(X, T, E)
 
 
-# sksurv parity (optional)
-
-
 def test_fine_gray_matches_lifelines_if_available():
-    """If `lifelines` is installed, parity check on a small dataset."""
     pytest.importorskip("lifelines")
-    # lifelines has CRCSpline and CompetingRisks but not a direct FG fitter
-    # by default — its FG-equivalent is via crowther's approach. Skipping
-    # parity here, leaving the import-only check as a TODO marker for
-    # when lifelines exposes a direct FG estimator we can compare against.
-    pytest.skip("lifelines's FG-equivalent isn't a direct match; deferred")
-
-
-# Predictor API conformance
+    pytest.skip("lifelines has no direct Fine-Gray fitter for comparison")
 
 
 def test_inherits_survival_predictor_api():
@@ -137,4 +118,6 @@ def test_inherits_survival_predictor_api():
     assert fg.predict_cif(X).shape == (n, fg.times_.shape[0])
     horizon = float(fg.times_.max() * 0.9)
     assert fg.predict_rmst(X, horizon=horizon).shape == (n,)
-    assert fg.predict_risk_at(X, time=float(fg.times_[len(fg.times_) // 2])).shape == (n,)
+    assert fg.predict_risk_at(X, time=float(fg.times_[len(fg.times_) // 2])).shape == (
+        n,
+    )

@@ -1,7 +1,7 @@
 [project]
 name = "tausurv-workspace"
 version = "0.0.0"
-description = "Workspace for tausurv (survival) and causurv (causal survival, renames to dosurv pending team approval)."
+description = "Workspace for tausurv (survival) and causurv (causal survival)."
 requires-python = ">=3.12"
 
 [tool.uv]

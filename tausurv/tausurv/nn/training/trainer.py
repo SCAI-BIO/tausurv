@@ -456,9 +456,9 @@ class Trainer:
                         val_fields.update(val_metrics)
                     logger.log_val(epoch=epoch, **val_fields)
 
-                # Advance the instance scheduler so optimizer.lr is set for the
-                # NEXT epoch. Subsequent checkpoint saves capture this state so
-                # resume continues seamlessly.
+                # Step the scheduler now so optimizer.lr matches the next
+                # epoch; checkpoint saves later in this iteration capture
+                # that state, which is what resume expects to find.
                 if self._lr_scheduler is not None:
                     self._lr_scheduler.step()
 

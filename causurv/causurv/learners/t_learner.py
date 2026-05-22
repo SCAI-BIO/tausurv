@@ -46,13 +46,11 @@ class TLearner(HTEPredictor):
         Works directly with :class:`tausurv.linear.CoxPH`,
         :class:`WeibullAFT`/`LogNormalAFT`/`LogLogisticAFT`,
         :class:`FineGray`, :class:`SurvivalTree`,
-        :class:`RandomSurvivalForest`. For neural tausurv models
-        wrap them with an adapter (planned
-        ``causurv.adapters.*``).
+        :class:`RandomSurvivalForest`.
 
-        Note that — unlike S-learner — the base model is *not* given a
-        treatment column. The factory should produce a model whose
-        ``in_features`` matches ``X.shape[1]`` directly.
+        Unlike S-learner, the base model is *not* given a treatment
+        column. The factory should produce a model whose ``in_features``
+        matches ``X.shape[1]`` directly.
 
     Attributes
     ----------
@@ -122,7 +120,11 @@ class TLearner(HTEPredictor):
         if not self._models:
             raise RuntimeError(f"{type(self).__name__}: call fit() first")
         X = np.asarray(X, dtype=np.float64)
-        times_arr = self._resolve_times(times) if times is None else np.asarray(times, dtype=np.float64)
+        times_arr = (
+            self._resolve_times(times)
+            if times is None
+            else np.asarray(times, dtype=np.float64)
+        )
 
         outs = []
         for a in sorted(self._models):
