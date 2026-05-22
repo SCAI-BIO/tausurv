@@ -3,7 +3,7 @@
 Monorepo containing:
 
 - **tausurv** — survival analysis
-- **causurv** — causal survival analysis (rename to `dosurv` pending team decision)
+- **causurv** — causal survival analysis
 
 ## Setup
 
