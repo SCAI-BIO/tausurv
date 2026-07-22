@@ -6,6 +6,7 @@ import pytest
 from tausurv import simulations
 from tausurv.metrics.concordance import harrell
 from tausurv.trees.random_survival_forest import RandomSurvivalForest
+from tausurv.trees.survival_boost import SurvivalBoost
 from tausurv.trees.survival_tree import SurvivalTree, _log_rank_statistic
 
 
@@ -75,6 +76,22 @@ def test_random_survival_forest_concordance_beats_random():
         n_estimators=20, max_depth=4, min_samples_leaf=10, seed=0
     ).fit(X, T, E)
     c = harrell(T, E, rsf.predict(X))
+    assert c > 0.65  # well above 0.5 random baseline
+
+
+def test_survival_boost_shapes():
+    X, T, E = simulations.competing_risk(n=200, seed=0)
+    sb = SurvivalBoost(seed=0).fit(X, T, E)
+    grid = np.linspace(0.1, 3.0, 8)
+    H = sb.predict_cumulative_hazard(X, grid)
+    assert H.shape == (200, 8)
+    assert (np.diff(H, axis=1) >= 0).all()
+
+
+def test_random_survival_boost_concordance_beats_random():
+    X, T, E = simulations.competing_risk(n=500, censoring_rate=0.3, seed=0)
+    sb = SurvivalBoost(seed=0).fit(X, T, E)
+    c = harrell(T, E, sb.predict(X))
     assert c > 0.65  # well above 0.5 random baseline
 
 

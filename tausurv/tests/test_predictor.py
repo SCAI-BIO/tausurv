@@ -18,6 +18,7 @@ from tausurv.linear import CoxPH, LogLogisticAFT, LogNormalAFT, WeibullAFT
 from tausurv.predictor import CompetingRisksPredictor, SurvivalPredictor
 from tausurv.trees.random_survival_forest import RandomSurvivalForest
 from tausurv.trees.survival_tree import SurvivalTree
+from tausurv.trees.survival_boost import SurvivalBoost
 
 torch = pytest.importorskip("torch")
 
@@ -70,6 +71,11 @@ def _rsf():
     ).fit(X, T, E), X
 
 
+def _survival_boost():
+    X, T, E = _xy()
+    return SurvivalBoost(seed=0).fit(X, T, E), X
+
+
 def _deepsurv():
     """A predictor-API-conformant DeepSurv. Construct + fit_baseline only —
     skip SGD training (these tests check the predict contract, not learning)."""
@@ -107,6 +113,7 @@ ALL_FACTORIES = [
     ("LogLogisticAFT", _loglogistic_aft),
     ("SurvivalTree", _survival_tree),
     ("RandomSurvivalForest", _rsf),
+    ("SurvivalBoost", _survival_boost),
     ("DeepSurv", _deepsurv),
     ("DeepHit", _deephit_single_event),
     ("LogisticHazard", _logistic_hazard),
