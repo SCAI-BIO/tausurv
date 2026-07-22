@@ -47,6 +47,9 @@ class SurvivalBoost(CompetingRisksPredictor):
     ) -> "SurvivalBoost":
         self._impl.fit(X, {"event": event_indicator, "duration": event_time})
         self.times_ = self._impl.time_grid_
+        self.n_causes = len(
+            [event_id for event_id in self._impl.event_ids_ if event_id != 0]
+        )
         return self
 
     def _cif(
