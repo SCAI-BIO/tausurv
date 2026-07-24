@@ -7,26 +7,66 @@ Generic API
 
     from tausurv.datasets import load_dataset, list_datasets, dataset_info
 
-    list_datasets()                    # → ['gbsg', 'pbc', 'rossi']
+    list_datasets()                    # every loadable table
+    list_datasets(base_only=True)      # one name per study
+    list_datasets(tag="competing-risks")
+    list_datasets(access=Access.OPEN)  # the ones that need no setup
+
     info = dataset_info("pbc")         # metadata only, no download
     ds   = load_dataset("pbc")         # SurvivalBunch; downloads on first
                                        # use, hits the cache afterwards
 
-Per-dataset shortcuts (autocomplete-friendly):
+Names and variants
+------------------
+
+A name is ``base`` or ``base:variant``. The base name resolves to the
+reading a survival textbook would call default; a variant names one other
+published processing of the same rows, because the literature does not agree
+on a single canonical table for most cohorts:
+
+.. code-block:: python
+
+    list_variants("pbc")
+    # ['pbc', 'pbc:randomised', 'pbc:transplant']
+
+    load_dataset("pbc")               # all 418 patients, death endpoint
+    load_dataset("pbc:randomised")    # the 312 randomised patients
+    load_dataset("pbc:transplant")    # death vs transplant, competing risks
+
+This matters for comparing numbers. ``gbsg`` is the 686-patient German
+trial; ``gbsg_rotterdam`` is the 2232-row Rotterdam combination that the
+deep-survival literature *also* calls GBSG. ``support`` ships the SUPPORT
+model's own predictions as covariates and ``support:nonleaky`` does not.
+A score is only interpretable against the table it was computed on.
+
+Aliases resolve the names a cohort travels under elsewhere -- ``gbsg2``,
+``actg320``, ``diabetic`` -- but never appear in :func:`list_datasets`, so
+each table has exactly one canonical name.
+
+Gated datasets
+--------------
+
+SEER, UNOS, MIMIC, full METABRIC and Framingham cannot be redistributed.
+Their specs and parsers are registered anyway; loading one raises with the
+steps to obtain it, and succeeds once you pass your own copy:
+
+.. code-block:: python
+
+    load_dataset("seer", path="/path/to/my/seer/export")
+
+Per-dataset shortcuts (autocomplete-friendly) exist for the original twenty
+cohorts:
 
 .. code-block:: python
 
     from tausurv.datasets import load_pbc
     ds = load_pbc()
 
-The two routes are equivalent; both auto-fetch on first use and read from
-the cache thereafter.
-
 Cache resolution priority: ``cache_dir`` kwarg, ``TAUSURV_DATA`` env var,
-then ``platformdirs.user_cache_dir("tausurv")/datasets``. Set
+then ``platformdirs.user_cache_dir("tausurv")/datasets``. The cache is
+content-addressed by SHA256, so variants of a study share one download. Set
 ``TAUSURV_OFFLINE=1`` to make any would-be fetch raise instead.
 """
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -36,6 +76,7 @@ from tausurv.datasets._cache import resolve_cache_dir
 from tausurv.datasets._errors import (
     CredentialedDatasetError,
     DatasetIntegrityError,
+    MissingDependencyError,
     OfflineModeError,
     UnknownDatasetError,
     UserProvidedDatasetError,
@@ -43,7 +84,9 @@ from tausurv.datasets._errors import (
 from tausurv.datasets._registry import (
     dataset_info,
     list_datasets,
+    list_variants,
     load_dataset,
+    resolve_name,
 )
 from tausurv.datasets._spec import Access, DatasetInfo
 
@@ -344,12 +387,14 @@ __all__ = [
     "CredentialedDatasetError",
     "DatasetInfo",
     "DatasetIntegrityError",
+    "MissingDependencyError",
     "OfflineModeError",
     "SurvivalBunch",
     "UnknownDatasetError",
     "UserProvidedDatasetError",
     "dataset_info",
     "list_datasets",
+    "list_variants",
     "load_capacitor",
     "load_colon",
     "load_dataset",
@@ -372,4 +417,5 @@ __all__ = [
     "load_veteran",
     "load_waltons",
     "resolve_cache_dir",
+    "resolve_name",
 ]

@@ -2,14 +2,36 @@
 
 from __future__ import annotations
 
+import difflib
+
 
 class UnknownDatasetError(ValueError):
-    """Requested dataset name is not in the registry."""
+    """Requested dataset name is not in the registry.
+
+    Carries near-miss suggestions, which matter more here than in most
+    registries: several studies are known by more than one name in the
+    literature (``gbsg2`` for ``gbsg``, ``actg320`` for ``aids``), and the
+    variant suffix is easy to misremember.
+    """
 
     def __init__(self, name: str, available: list[str]) -> None:
-        super().__init__(f"unknown dataset {name!r}; available: {sorted(available)}")
+        close = difflib.get_close_matches(name, available, n=4, cutoff=0.6)
+        base = name.partition(":")[0]
+        siblings = sorted(
+            n for n in available if n == base or n.startswith(f"{base}:")
+        )
+        hint = ""
+        if siblings and name not in siblings:
+            hint = f"\n{base!r} exists with variants: {siblings}"
+        elif close:
+            hint = f"\ndid you mean: {close}?"
+        super().__init__(
+            f"unknown dataset {name!r} ({len(available)} registered)."
+            f"{hint}\nlist_datasets() enumerates them all."
+        )
         self.name = name
         self.available = available
+        self.suggestions = tuple(close)
 
 
 class DatasetIntegrityError(RuntimeError):
@@ -50,8 +72,23 @@ class UserProvidedDatasetError(RuntimeError):
 
     def __init__(self, name: str, instructions: str) -> None:
         super().__init__(
-            f"{name!r} cannot be auto-fetched. "
-            f"Use prepare_{name}(path=...).\n\n{instructions}"
+            f"{name!r} cannot be auto-fetched, because its data-use agreement "
+            f"forbids redistribution. Obtain it yourself, then pass the "
+            f"extracted directory:\n\n"
+            f"    load_dataset({name!r}, path=...)\n\n{instructions}"
         )
         self.name = name
         self.instructions = instructions
+
+
+class MissingDependencyError(ImportError):
+    """Parser needs an optional dependency that is not installed."""
+
+    def __init__(self, name: str, module: str, extra: str) -> None:
+        super().__init__(
+            f"{name!r} needs the optional dependency {module!r}.\n\n"
+            f"    pip install 'tausurv[{extra}]'      # or: pip install {module}"
+        )
+        self.name = name
+        self.module = module
+        self.extra = extra

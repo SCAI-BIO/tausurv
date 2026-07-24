@@ -19,6 +19,153 @@ uv pip install torch --index-url https://download.pytorch.org/whl/cu130
 uv sync
 ```
 
+## Datasets
+
+`tausurv.datasets` is a registry of survival cohorts that download on first
+use, verify against a pinned SHA256, and cache content-addressed.
+
+```python
+from tausurv.datasets import load_dataset, list_datasets, list_variants
+
+list_datasets()                     # every loadable table
+list_datasets(base_only=True)       # one name per study
+list_datasets(tag="competing-risks")
+
+X, time, event = load_dataset("pbc")
+```
+
+### Names, variants and aliases
+
+A name is `base` or `base:variant`. The base name resolves to the reading a
+survival textbook would call default; a variant names another published
+processing of the same rows. This matters because the literature does not
+agree on a single canonical table for most cohorts, and a score is only
+interpretable against the table it was computed on.
+
+```python
+list_variants("pbc")
+# ['pbc', 'pbc:randomised', 'pbc:transplant']
+```
+
+Three collisions worth knowing about, all of which have burned somebody:
+
+| you may mean | registry name | what it is |
+|---|---|---|
+| GBSG / GBSG2 | `gbsg` | the 686-patient German trial |
+| GBSG (DeepSurv) | `gbsg_rotterdam` | 2232 rows, Rotterdam + German trial combined |
+| PBC | `pbc` / `pbc:randomised` | all 418 patients / the 312 randomised ones |
+| SUPPORT | `support` / `support:nonleaky` | raw 47 columns / baseline covariates only |
+
+Raw SUPPORT ships the SUPPORT prognostic model's own survival estimates as
+covariates: `surv6m` alone scores c-index 0.72 against the endpoint, above
+published models fitted on real covariates. `support:nonleaky` removes those
+columns. The raw entry stays, so the leak stays inspectable.
+
+Aliases (`gbsg2`, `actg320`, `diabetic`, ...) resolve but never appear in
+`list_datasets()`, so each table has exactly one canonical name.
+
+### Access tiers
+
+Most datasets are `OPEN` and need no setup. SEER, UNOS, MIMIC, full METABRIC
+and Framingham cannot be redistributed; their specs and parsers ship anyway,
+and loading one raises with the steps to obtain it:
+
+```python
+load_dataset("seer", path="/path/to/my/seer/export")
+```
+
+Four benchmark tables are distributed as HDF5 and need `pip install
+'tausurv[deepsurv]'`: `metabric`, `gbsg_rotterdam`, `support:deepsurv`,
+`whas_deepsurv`. Those files carry no column names, so their covariates are
+exposed positionally as `x0`, `x1`, ... rather than under names inferred
+from a paper and impossible to verify against the data.
+
+### Catalogue
+
+| dataset | n | d | events | outcome | tags |
+|---|---|---|---|---|---|
+| aids | 1151 | 11 | 8.3% | single | clinical,trial,benchmark,rare-events |
+| aids:death | 1151 | 11 | 2.3% | single | clinical,trial,rare-events |
+| alloauto | 101 | 1 | 49.5% | single | clinical,transplant,non-proportional |
+| allograft | 34 | 1 | 85.3% | single | clinical,transplant,clustered |
+| aml | 23 | 1 | 78.3% | single | clinical,trial |
+| ashkenazi | 3920 | 1 | 12.1% | single | clinical,genetics,clustered |
+| baboon | 152 | 0 | 38.2% | single | ecology,left-truncated |
+| bfeed | 927 | 8 | 96.2% | single | behavioural,survey |
+| bladder | 85 | 3 | 55.3% | single | clinical,trial,first-event |
+| bmt | 137 | 11 | 60.6% | single | clinical,transplant |
+| bmt:competing | 137 | 11 | 60.6% | 2 causes | clinical,transplant,competing-risks |
+| bnct | 30 | 1 | 90.0% | single | preclinical,trial |
+| breast_cancer_gse7390 | 198 | 80 | 25.8% | single | clinical,genomics,high-dimensional |
+| btrial | 45 | 1 | 53.3% | single | clinical |
+| burn | 154 | 11 | 31.2% | single | clinical,trial |
+| capacitor | 64 | 2 | 50.0% | single | reliability |
+| cgd | 128 | 10 | 34.4% | single | clinical,trial,first-event |
+| channing | 462 | 2 | 38.1% | single | clinical,left-truncated |
+| colon | 929 | 12 | 54.5% | 2 causes | clinical,competing-risks |
+| colon:death | 929 | 12 | 48.7% | single | clinical,trial |
+| colon:recurrence | 929 | 12 | 50.4% | single | clinical,trial |
+| drughiv | 34 | 1 | 79.4% | single | clinical |
+| flchain | 7874 | 8 | 27.5% | single | clinical |
+| flchain:complete | 6524 | 8 | 30.1% | single | clinical |
+| framingham | - | - | - | credentialed | clinical,epidemiology,cardiology,longitudinal |
+| gastric_xelox | 48 | 0 | 66.7% | single | clinical,single-arm |
+| gbsg | 686 | 8 | 43.6% | single | clinical |
+| gbsg_rotterdam | 2232 | 8 | 56.8% | single | clinical,benchmark,breast-cancer |
+| genfan | 70 | 0 | 17.1% | single | reliability |
+| hepatocellular | 227 | 43 | 42.7% | single | clinical,biomarkers |
+| hepatocellular:rfs | 227 | 43 | 63.0% | single | clinical,biomarkers |
+| hodgkins | 43 | 4 | 60.5% | single | clinical,transplant |
+| hoel | 181 | 1 | 100.0% | 3 causes | competing-risks,preclinical |
+| ifluid | 41 | 1 | 100.0% | single | reliability |
+| imotor | 40 | 1 | 42.5% | single | reliability |
+| kidney_catheter | 76 | 3 | 76.3% | single | clinical,frailty,clustered |
+| kidney_infection | 119 | 1 | 21.8% | single | clinical |
+| kidney_transplant | 863 | 4 | 16.2% | single | clinical |
+| larynx | 90 | 3 | 55.6% | single | clinical |
+| lung | 228 | 8 | 72.4% | single | clinical |
+| lung:complete | 168 | 7 | 72.0% | single | clinical |
+| melanoma | 205 | 5 | 34.6% | 2 causes | clinical,competing-risks |
+| metabric | 1904 | 10 | 57.9% | single | clinical,benchmark,breast-cancer |
+| metabric:full | - | - | - | credentialed | clinical,genomics,breast-cancer,high-dimensional |
+| mgus | 241 | 7 | 94.2% | 2 causes | clinical,competing-risks |
+| mgus2 | 1384 | 6 | 70.4% | 2 causes | clinical,competing-risks |
+| mimic | - | - | - | credentialed | clinical,critical-care,ehr,large |
+| myeloid | 646 | 3 | 49.5% | single | clinical,trial |
+| myeloma | 3882 | 2 | 71.3% | single | clinical,left-truncated |
+| nafld | 17549 | 5 | 7.8% | single | clinical,epidemiology |
+| nwtco | 4028 | 6 | 14.2% | single | clinical |
+| ovarian | 26 | 4 | 46.2% | single | clinical |
+| pbc | 418 | 17 | 38.5% | single | clinical |
+| pbc:randomised | 312 | 17 | 40.1% | single | clinical,trial |
+| pbc:transplant | 418 | 17 | 44.5% | 2 causes | clinical,competing-risks |
+| pharmaco_smoking | 125 | 11 | 71.2% | single | clinical,trial,behavioural |
+| pneumon | 3470 | 13 | 2.1% | single | clinical,epidemiology,rare-events |
+| prostate | 14294 | 3 | 28.3% | 2 causes | clinical,competing-risks,registry |
+| psych | 26 | 2 | 53.8% | single | clinical,left-truncated |
+| retinopathy | 394 | 6 | 39.3% | single | clinical,clustered |
+| rossi | 432 | 7 | 26.4% | single | recidivism |
+| rotterdam | 2982 | 10 | 42.7% | single | clinical,breast-cancer |
+| rotterdam:recurrence | 2982 | 10 | 50.9% | single | clinical,breast-cancer |
+| rotterdam:rfs | 2982 | 10 | 57.4% | single | clinical,breast-cancer,benchmark |
+| seer | - | - | - | user_provided | clinical,competing-risks,registry,large |
+| stanford2 | 184 | 2 | 61.4% | single | clinical |
+| std | 877 | 21 | 39.6% | single | clinical,epidemiology |
+| support | 9105 | 45 | 68.1% | single | clinical |
+| support:deepsurv | 8873 | 15 | 68.0% | single | clinical,benchmark,critical-care |
+| support:nonleaky | 9105 | 31 | 68.1% | single | clinical,benchmark |
+| telco_churn | 7043 | 18 | 26.5% | single | churn |
+| tongue | 80 | 1 | 66.2% | single | clinical |
+| transplant | 815 | 4 | 90.7% | 3 causes | clinical,competing-risks |
+| twins | 24 | 1 | 33.3% | single | epidemiology,clustered |
+| udca | 170 | 4 | 42.4% | single | clinical,trial |
+| unos | - | - | - | user_provided | clinical,transplant,registry,large |
+| valve_seat | 41 | 0 | 58.5% | single | reliability,first-event |
+| veteran | 137 | 6 | 93.4% | single | clinical |
+| waltons | 163 | 1 | 95.7% | single | clinical |
+| whas500 | 500 | 14 | 43.0% | single | clinical,benchmark,cardiology |
+| whas_deepsurv | 1638 | 7 | 42.1% | single | clinical,benchmark,cardiology |
+
 ## License
 
 MIT

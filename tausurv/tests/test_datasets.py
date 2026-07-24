@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 from pathlib import Path
 from unittest.mock import patch
@@ -39,44 +40,100 @@ from tausurv.datasets import (
     load_waltons,
 )
 from tausurv.datasets._cache import cached_path, fetch_to_cache, resolve_cache_dir
+from tausurv.datasets._registry import resolve_name
 
 
-def test_list_datasets_returns_sorted_v1_names():
-    assert list_datasets() == [
-        "capacitor",
-        "colon",
-        "flchain",
-        "gbsg",
-        "genfan",
-        "ifluid",
-        "imotor",
-        "kidney_transplant",
-        "larynx",
-        "lung",
-        "melanoma",
-        "mgus2",
-        "nwtco",
-        "pbc",
-        "rossi",
-        "support",
-        "telco_churn",
-        "tongue",
-        "veteran",
-        "waltons",
-    ]
+#: The twenty cohorts the registry shipped with. Later additions must not
+#: rename or drop any of them: a name in this list is a promise, because
+#: results are reported against it.
+V1_NAMES = (
+    "capacitor", "colon", "flchain", "gbsg", "genfan", "ifluid", "imotor",
+    "kidney_transplant", "larynx", "lung", "melanoma", "mgus2", "nwtco",
+    "pbc", "rossi", "support", "telco_churn", "tongue", "veteran", "waltons",
+)
+
+
+def test_v1_names_are_all_still_registered():
+    registered = set(list_datasets())
+    assert set(V1_NAMES) <= registered
+
+
+def test_list_datasets_is_sorted_and_free_of_aliases():
+    names = list_datasets()
+    assert names == sorted(names)
+    assert len(names) == len(set(names))
+    # An alias must resolve but never appear: one canonical name per table.
+    assert "gbsg2" not in names
+    assert resolve_name("gbsg2") == "gbsg"
+    assert "actg320" not in names
+    assert resolve_name("actg320") == "aids"
+
+
+def test_base_only_drops_variants_but_keeps_their_study():
+    every, studies = list_datasets(), list_datasets(base_only=True)
+    assert "pbc:randomised" in every
+    assert "pbc:randomised" not in studies
+    assert "pbc" in studies
+    assert set(studies) <= set(every)
+
+
+def test_every_variant_declares_a_registered_base():
+    """`base:variant` promises another reading of `base`, so `base` must exist.
+
+    A table that merely shares a name with another study is not a variant of
+    it -- `gbsg_rotterdam` combines two cohorts and is deliberately not
+    called `gbsg:deepsurv`, because that would claim it is 686 patients
+    read differently when it is 2232 patients from two trials.
+    """
+    names = set(list_datasets())
+    for name in names:
+        base, sep, _ = name.partition(":")
+        if sep:
+            assert base in names, f"{name} has no registered base {base!r}"
+
+
+def test_variants_of_one_source_file_share_its_digest():
+    """Variants built from a base's file must not drift onto other bytes."""
+    by_url: dict[str, set[str]] = {}
+    for name in list_datasets(access=Access.OPEN):
+        info = dataset_info(name)
+        assert info.url is not None
+        by_url.setdefault(info.url, set()).add(info.sha256 or "")
+    for url, digests in by_url.items():
+        assert len(digests) == 1, f"{url} pinned to several digests: {digests}"
+
+
+def test_every_open_dataset_is_pinned():
+    for name in list_datasets(access=Access.OPEN):
+        info = dataset_info(name)
+        assert info.url, name
+        assert info.sha256 and len(info.sha256) == 64, name
+
+
+def test_gated_datasets_carry_setup_instructions():
+    """A dataset nobody can download is useless without the way to get it."""
+    from tausurv.datasets._registry import _REGISTRY
+
+    gated = [s for s in _REGISTRY.values() if s.access is not Access.OPEN]
+    assert gated, "the gated tier should not be empty"
+    for spec in gated:
+        assert spec.url is None and spec.sha256 is None, spec.name
+        assert spec.access_help and "load_dataset" in spec.access_help, spec.name
+
+
+def test_unknown_name_suggests_variants_of_a_known_base():
+    with pytest.raises(UnknownDatasetError) as excinfo:
+        load_dataset("pbc:nonesuch")
+    assert "pbc:randomised" in str(excinfo.value)
 
 
 def test_list_datasets_filter_by_tag():
-    assert list_datasets(tag="reliability") == [
-        "capacitor",
-        "genfan",
-        "ifluid",
-        "imotor",
-    ]
+    assert {"capacitor", "genfan", "ifluid", "imotor"} <= set(
+        list_datasets(tag="reliability")
+    )
     assert list_datasets(tag="churn") == ["telco_churn"]
-    assert "mgus2" in list_datasets(tag="competing-risks")
-    assert "melanoma" in list_datasets(tag="competing-risks")
-    assert "colon" in list_datasets(tag="competing-risks")
+    for name in ("mgus2", "melanoma", "colon"):
+        assert name in list_datasets(tag="competing-risks")
     assert "pbc" not in list_datasets(tag="competing-risks")
     assert "rossi" in list_datasets(tag="recidivism")
     assert list_datasets(tag="does-not-exist") == []
@@ -501,4 +558,111 @@ def test_load_dataset_cache_hits_on_repeat(network_cache):
     a = load_pbc(cache_dir=network_cache)
     b = load_dataset("pbc", cache_dir=network_cache)
     assert a.n == b.n
-    assert (Path(network_cache) / "pbc" / "pbc.csv").exists()
+    # The cache is content-addressed: <root>/<sha256[:16]>/<filename>.
+    assert cached_path(dataset_info("pbc").sha256, dataset_info("pbc").url,
+                       network_cache).exists()
+
+
+@pytest.mark.network
+def test_variants_of_one_study_share_a_single_download(network_cache):
+    """Three readings of PBC must not cost three copies of the same CSV."""
+    paths = set()
+    for name in ("pbc", "pbc:randomised", "pbc:transplant"):
+        load_dataset(name, cache_dir=network_cache)
+        info = dataset_info(name)
+        assert info.url is not None and info.sha256 is not None
+        paths.add(cached_path(info.sha256, info.url, network_cache))
+    assert len(paths) == 1, f"one CSV expected, got {sorted(paths)}"
+    assert next(iter(paths)).exists()
+
+
+@pytest.mark.network
+@pytest.mark.parametrize("name", list_datasets(access=Access.OPEN))
+def test_every_open_dataset_loads_and_is_well_formed(name, network_cache):
+    """Load every open dataset and check the contract each one promises.
+
+    This is the test that stops a registry of this size from rotting: a
+    parser that silently reads the wrong column, or an upstream file that
+    changes shape, shows up here rather than in someone's results.
+    """
+    if (requires := dataset_info(name).requires) is not None:
+        pytest.importorskip(requires)
+    ds = load_dataset(name, cache_dir=network_cache)
+
+    assert ds.n > 0
+    assert ds.event_time.shape == (ds.n,)
+    assert ds.event_indicator.shape == (ds.n,)
+    assert np.isfinite(ds.event_time).all(), "non-finite event times"
+    assert (ds.event_time >= 0).all(), "negative event times"
+    assert set(np.unique(ds.event_indicator)) <= {0, 1}
+    assert ds.event_indicator.sum() > 0, "no events at all"
+    assert ds.feature_names == tuple(ds.X.columns)
+    if ds.d:
+        assert ds.X.height == ds.n
+    if ds.is_competing_risks:
+        assert ds.cause is not None
+        assert set(np.unique(ds.cause)) <= set(range(ds.n_causes + 1))
+        # event_indicator is the derived any-cause view of cause.
+        assert np.array_equal(ds.event_indicator, (ds.cause > 0).astype(np.int8))
+        if ds.cause_labels is not None:
+            assert len(ds.cause_labels) == ds.n_causes
+
+
+@pytest.mark.network
+def test_endpoint_columns_never_survive_into_covariates(network_cache):
+    """A covariate named like the endpoint is the classic silent leak."""
+    banned = {
+        "time", "status", "delta", "event", "death", "futime", "fustat",
+        "rel", "edrel", "cens", "censor", "d.time", "survtime", "os", "rfs",
+    }
+    for name in list_datasets(access=Access.OPEN):
+        if (requires := dataset_info(name).requires) is not None:
+            if importlib.util.find_spec(requires) is None:
+                continue
+        ds = load_dataset(name, cache_dir=network_cache)
+        overlap = {c for c in ds.feature_names if c.lower() in banned}
+        assert not overlap, f"{name} keeps endpoint-like covariates: {overlap}"
+
+
+# ---- ARFF reader ----
+
+
+ARFF_SAMPLE = """% a comment
+@RELATION DataTable
+@ATTRIBUTE age\tnumeric
+@ATTRIBUTE grade\t{well,poor}
+@ATTRIBUTE fstat\t{0,1}
+
+@DATA
+83.0,well,0
+?,poor,1
+70.0,?,1
+"""
+
+
+def test_read_arff_types_and_missing(tmp_path):
+    from tausurv.datasets._arff import read_arff
+
+    path = tmp_path / "sample.arff"
+    path.write_text(ARFF_SAMPLE)
+    df = read_arff(path)
+
+    assert df.columns == ["age", "grade", "fstat"]
+    assert df.height == 3
+    # Tab-separated declarations must not fold the type into the name.
+    assert df["age"].dtype == pl.Float64
+    # A nominal whose levels are all numeric is a numeric code, not text.
+    assert df["fstat"].dtype == pl.Float64
+    assert df["grade"].dtype == pl.String
+    assert df["age"].null_count() == 1
+    assert df["grade"].null_count() == 1
+    assert df["fstat"].to_list() == [0.0, 1.0, 1.0]
+
+
+def test_read_arff_rejects_a_file_with_no_attributes(tmp_path):
+    from tausurv.datasets._arff import read_arff
+
+    path = tmp_path / "empty.arff"
+    path.write_text("@RELATION x\n@DATA\n1,2\n")
+    with pytest.raises(ValueError, match="no @attribute"):
+        read_arff(path)
