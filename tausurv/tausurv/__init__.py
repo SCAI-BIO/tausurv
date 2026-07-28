@@ -9,6 +9,7 @@ from tausurv import (
     simulations,
     trees,
 )
+from tausurv.discretization import bin_index, time_grid
 from tausurv.linear import (
     CoxPH,
     FineGray,
