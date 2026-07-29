@@ -103,7 +103,9 @@ class DeepHit(CompetingRisksPredictor, PretrainedMixin, nn.Module):
         r"""Set the real-time interpretation of the model's bins.
 
         ``times`` must have length ``n_bins`` and gives the real-time
-        upper-bound of each discrete bin. Stored as ``self.times_`` and
+        upper-bound of each discrete bin — the same array passed as
+        ``time_bins`` to the training loss, typically built with
+        :func:`tausurv.discretization.time_grid`. Stored as ``self.times_`` and
         used by :class:`SurvivalPredictor` predict methods. Round-trips
         through :meth:`save_pretrained` / :meth:`from_pretrained`.
         """
