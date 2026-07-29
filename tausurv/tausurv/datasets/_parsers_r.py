@@ -547,3 +547,26 @@ def parse_baboon(path: Path, spec: DatasetSpec) -> SurvivalBunch:
     descend; troops still in the tree when observation ended are censored.
     """
     return _simple(path, spec, time="time", status="observed", drop=("date",))
+
+
+def parse_gehan(path: Path, spec: DatasetSpec) -> SurvivalBunch:
+    """Gehan's paired leukemia remission trial (n=42).
+
+    21 matched pairs of patients, one given 6-mercaptopurine and one
+    placebo, followed to relapse. The pairing is the design, so ``pair``
+    is kept as a covariate rather than dropped -- it is the stratum a
+    matched analysis conditions on.
+    """
+    return _simple(path, spec, time="time", status="cens")
+
+
+def parse_mgus_death(path: Path, spec: DatasetSpec) -> SurvivalBunch:
+    """Original MGUS cohort, overall survival (``futime``/``death``).
+
+    The plain single-event reading: 225 of 241 patients died, so only 6.6%
+    are censored. Progression to malignancy is ignored here rather than
+    competing -- for that, use ``mgus`` itself.
+    """
+    return _simple(
+        path, spec, time="futime", status="death", drop=("id", "pctime", "pcdx")
+    )

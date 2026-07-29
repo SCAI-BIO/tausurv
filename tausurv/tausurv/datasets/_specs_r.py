@@ -401,6 +401,53 @@ SPECS: dict[str, DatasetSpec] = {
         tags=("clinical", "competing-risks"),
         time_unit="days",
     ),
+    "mgus:death": DatasetSpec(
+        name="mgus:death",
+        access=Access.OPEN,
+        url=f"{_R}/survival/mgus.csv",
+        sha256="84e8aee413989ead6015367c4a8cbe8ef3aeb93b39f774cf176f9029c5b41413",
+        license=_SURVIVAL_LICENSE,
+        citation=(
+            "Kyle, R. A. (1993). Benign monoclonal gammopathy -- after 20 "
+            "to 35 years of follow-up. Mayo Clinic Proceedings 68(1), "
+            "26-36."
+        ),
+        description=(
+            "The MGUS cohort with overall survival as a single endpoint: "
+            "225 of 241 patients died, leaving only 6.6% censored. "
+            "Progression to plasma cell malignancy is ignored rather than "
+            "competing, which is the reading benchmark tables use for this "
+            "cohort; `mgus` itself is the competing-risks form."
+        ),
+        parser=p.parse_mgus_death,
+        tags=("clinical",),
+        time_unit="days",
+    ),
+    "leukemia": DatasetSpec(
+        name="leukemia",
+        access=Access.OPEN,
+        url=f"{_R}/MASS/gehan.csv",
+        sha256="b6dc0c39f7eeec171950104432525393af3950d3f2d802439f63195c2147d8a2",
+        license="GPL-2 | GPL-3 (R MASS via Rdatasets)",
+        citation=(
+            "Gehan, E. A. (1965). A generalized Wilcoxon test for comparing "
+            "arbitrarily singly-censored samples. Biometrika 52(1-2), "
+            "203-224."
+        ),
+        description=(
+            "Freireich's 6-mercaptopurine trial as analysed by Gehan: 21 "
+            "matched pairs of leukemia patients in remission, one of each "
+            "pair given 6-MP and the other placebo, followed to relapse (30 "
+            "relapses in 42 patients). The dataset the generalized Wilcoxon "
+            "test was introduced on, and the standard paired survival "
+            "example. `pair` is kept as a covariate because the matching is "
+            "the design. Distinct from `aml`, R survival's 23-patient "
+            "maintenance trial, which the literature also calls leukemia."
+        ),
+        parser=p.parse_gehan,
+        tags=("clinical", "trial", "clustered"),
+        time_unit="weeks",
+    ),
     "myeloid": DatasetSpec(
         name="myeloid",
         access=Access.OPEN,

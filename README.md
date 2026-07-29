@@ -103,11 +103,14 @@ from a paper and impossible to verify against the data.
 | cgd | 128 | 10 | 34.4% | single | clinical,trial,first-event |
 | channing | 462 | 2 | 38.1% | single | clinical,left-truncated |
 | colon | 929 | 12 | 54.5% | 2 causes | clinical,competing-risks |
+| colon:cause1 | 929 | 12 | 50.4% | single | clinical |
+| colon:cause2 | 929 | 12 | 4.1% | single | clinical |
 | colon:death | 929 | 12 | 48.7% | single | clinical,trial |
 | colon:recurrence | 929 | 12 | 50.4% | single | clinical,trial |
 | drughiv | 34 | 1 | 79.4% | single | clinical |
 | flchain | 7874 | 8 | 27.5% | single | clinical |
 | flchain:complete | 6524 | 8 | 30.1% | single | clinical |
+| flchain:positive | 7871 | 8 | 27.5% | single | clinical |
 | framingham | - | - | - | credentialed | clinical,epidemiology,cardiology,longitudinal |
 | gastric_xelox | 48 | 0 | 66.7% | single | clinical,single-arm |
 | gbsg | 686 | 8 | 43.6% | single | clinical |
@@ -117,19 +120,30 @@ from a paper and impossible to verify against the data.
 | hepatocellular:rfs | 227 | 43 | 63.0% | single | clinical,biomarkers |
 | hodgkins | 43 | 4 | 60.5% | single | clinical,transplant |
 | hoel | 181 | 1 | 100.0% | 3 causes | competing-risks,preclinical |
+| hoel:cause1 | 181 | 1 | 28.2% | single | preclinical |
+| hoel:cause2 | 181 | 1 | 29.3% | single | preclinical |
+| hoel:cause3 | 181 | 1 | 42.5% | single | preclinical |
 | ifluid | 41 | 1 | 100.0% | single | reliability |
 | imotor | 40 | 1 | 42.5% | single | reliability |
 | kidney_catheter | 76 | 3 | 76.3% | single | clinical,frailty,clustered |
 | kidney_infection | 119 | 1 | 21.8% | single | clinical |
 | kidney_transplant | 863 | 4 | 16.2% | single | clinical |
 | larynx | 90 | 3 | 55.6% | single | clinical |
+| leukemia | 42 | 2 | 71.4% | single | clinical,trial,clustered |
 | lung | 228 | 8 | 72.4% | single | clinical |
 | lung:complete | 168 | 7 | 72.0% | single | clinical |
 | melanoma | 205 | 5 | 34.6% | 2 causes | clinical,competing-risks |
+| melanoma:cause1 | 205 | 5 | 27.8% | single | clinical |
+| melanoma:cause2 | 205 | 5 | 6.8% | single | clinical |
 | metabric | 1904 | 10 | 57.9% | single | clinical,benchmark,breast-cancer |
 | metabric:full | - | - | - | credentialed | clinical,genomics,breast-cancer,high-dimensional |
 | mgus | 241 | 7 | 94.2% | 2 causes | clinical,competing-risks |
 | mgus2 | 1384 | 6 | 70.4% | 2 causes | clinical,competing-risks |
+| mgus2:cause1 | 1384 | 6 | 8.3% | single | clinical |
+| mgus2:cause2 | 1384 | 6 | 62.1% | single | clinical |
+| mgus:cause1 | 241 | 7 | 26.6% | single | clinical |
+| mgus:cause2 | 241 | 7 | 67.6% | single | clinical |
+| mgus:death | 241 | 7 | 93.4% | single | clinical |
 | mimic | - | - | - | credentialed | clinical,critical-care,ehr,large |
 | myeloid | 646 | 3 | 49.5% | single | clinical,trial |
 | myeloma | 3882 | 2 | 71.3% | single | clinical,left-truncated |
@@ -142,6 +156,8 @@ from a paper and impossible to verify against the data.
 | pharmaco_smoking | 125 | 11 | 71.2% | single | clinical,trial,behavioural |
 | pneumon | 3470 | 13 | 2.1% | single | clinical,epidemiology,rare-events |
 | prostate | 14294 | 3 | 28.3% | 2 causes | clinical,competing-risks,registry |
+| prostate:cause1 | 14294 | 3 | 5.6% | single | clinical,registry |
+| prostate:cause2 | 14294 | 3 | 22.7% | single | clinical,registry |
 | psych | 26 | 2 | 53.8% | single | clinical,left-truncated |
 | retinopathy | 394 | 6 | 39.3% | single | clinical,clustered |
 | rossi | 432 | 7 | 26.4% | single | recidivism |
@@ -157,6 +173,9 @@ from a paper and impossible to verify against the data.
 | telco_churn | 7043 | 18 | 26.5% | single | churn |
 | tongue | 80 | 1 | 66.2% | single | clinical |
 | transplant | 815 | 4 | 90.7% | 3 causes | clinical,competing-risks |
+| transplant:cause1 | 815 | 4 | 78.0% | single | clinical |
+| transplant:cause2 | 815 | 4 | 4.5% | single | clinical |
+| transplant:cause3 | 815 | 4 | 8.1% | single | clinical |
 | twins | 24 | 1 | 33.3% | single | epidemiology,clustered |
 | udca | 170 | 4 | 42.4% | single | clinical,trial |
 | unos | - | - | - | user_provided | clinical,transplant,registry,large |

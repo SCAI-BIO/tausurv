@@ -7,7 +7,10 @@ be a reading of: ``url`` and ``sha256`` are inherited, never retyped.
 
 from __future__ import annotations
 
+import numpy as np
+
 from tausurv.datasets import _parsers as p
+from tausurv.datasets._build import bunch_from
 from tausurv.datasets._spec import DatasetSpec, Parser
 
 
@@ -34,6 +37,61 @@ def _variant(
         tags=tags if tags is not None else base.tags,
         time_unit=time_unit or base.time_unit,
     )
+
+
+def _cause_specific(base: DatasetSpec, cause: int) -> DatasetSpec:
+    """Single-event view of a competing-risks study: cause ``k`` versus the rest.
+
+    A cause-specific analysis asks "what is the hazard of dying *of this*",
+    treating the other causes as censoring. It is what most papers report on
+    these cohorts -- their headline "Melanoma" number is melanoma death
+    alone, not any death -- so the any-cause reading in the base entry is
+    frequently the wrong one to compare against.
+
+    Naming is mechanical (``:cause1``, ``:cause2``, ...) and follows the
+    order of ``cause_labels``, which the description repeats so the number
+    is never ambiguous.
+    """
+    label = "unknown"
+    parser = base.parser
+
+    def parse(path, spec):  # type: ignore[no-untyped-def]
+        bunch = parser(path, spec)
+        if bunch.cause is None:
+            raise ValueError(f"{base.name} is not a competing-risks dataset")
+        indicator = (np.asarray(bunch.cause) == cause).astype(np.int8)
+        return bunch_from(spec, bunch.X, bunch.event_time, indicator)
+
+    return DatasetSpec(
+        name=f"{base.name}:cause{cause}",
+        access=base.access,
+        url=base.url,
+        sha256=base.sha256,
+        license=base.license,
+        citation=base.citation,
+        description=(
+            f"Cause-specific single-event view of `{base.name}`: cause "
+            f"{cause} is the event and every other cause is treated as "
+            f"censoring. See `{base.name}` for the competing-risks form and "
+            f"for the cause labels, which this variant does not renumber."
+        ),
+        parser=parse,
+        tags=tuple(t for t in base.tags if t != "competing-risks"),
+        time_unit=base.time_unit,
+    )
+
+
+def cause_specific_variants(
+    registry: dict[str, DatasetSpec], n_causes: dict[str, int]
+) -> dict[str, DatasetSpec]:
+    """A ``:causeK`` entry for every cause of every competing-risks study."""
+    out: dict[str, DatasetSpec] = {}
+    for name, count in n_causes.items():
+        base = registry[name]
+        for k in range(1, count + 1):
+            spec = _cause_specific(base, k)
+            out[spec.name] = spec
+    return out
 
 
 def build(registry: dict[str, DatasetSpec]) -> dict[str, DatasetSpec]:
@@ -127,6 +185,19 @@ def build(registry: dict[str, DatasetSpec]) -> dict[str, DatasetSpec]:
                 "`colon` entry into the two marginal analyses."
             ),
             tags=("clinical", "trial"),
+        ),
+        "flchain:positive": _variant(
+            flchain,
+            "positive",
+            parser=p.parse_flchain_positive,
+            description=(
+                "The 7871 FLCHAIN subjects with a strictly positive follow-up "
+                "time. Three are recorded as dying on the day of their assay, "
+                "and a duration of exactly zero is not representable on a "
+                "survival time scale: it sits below every grid, contributes "
+                "no risk-set time, and breaks any log-time transform. This is "
+                "the row count the published benchmark tables use."
+            ),
         ),
         "lung:complete": _variant(
             lung,

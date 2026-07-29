@@ -666,3 +666,42 @@ def test_read_arff_rejects_a_file_with_no_attributes(tmp_path):
     path.write_text("@RELATION x\n@DATA\n1,2\n")
     with pytest.raises(ValueError, match="no @attribute"):
         read_arff(path)
+
+
+def test_cause_specific_variants_exist_for_every_competing_risks_study():
+    """Papers report cause-specific numbers, so the reading must be reachable.
+
+    The base entry of a competing-risks cohort carries the any-cause
+    indicator, which is rarely what a published number means -- "Melanoma"
+    in a benchmark table is melanoma death, not any death. Each cause gets
+    its own single-event entry so the right one can be named.
+    """
+    from tausurv.datasets._registry import _COMPETING_RISKS
+
+    names = set(list_datasets())
+    for study, n_causes in _COMPETING_RISKS.items():
+        assert study in names, study
+        for k in range(1, n_causes + 1):
+            assert f"{study}:cause{k}" in names
+
+
+def test_no_name_carries_two_variant_suffixes():
+    """`base:variant` must stay readable back into exactly two parts."""
+    for name in list_datasets():
+        assert name.count(":") <= 1, name
+
+
+@pytest.mark.network
+def test_cause_specific_partitions_the_competing_risks_events(network_cache):
+    """The causes must add up: summing them recovers the any-cause indicator."""
+    from tausurv.datasets._registry import _COMPETING_RISKS
+
+    for study, n_causes in _COMPETING_RISKS.items():
+        base = load_dataset(study, cache_dir=network_cache)
+        total = np.zeros(base.n, dtype=np.int64)
+        for k in range(1, n_causes + 1):
+            part = load_dataset(f"{study}:cause{k}", cache_dir=network_cache)
+            assert part.n == base.n, study
+            assert not part.is_competing_risks
+            total += part.event_indicator.astype(np.int64)
+        assert np.array_equal(total, base.event_indicator.astype(np.int64)), study

@@ -590,3 +590,19 @@ def parse_lung_complete(path: Path, spec: DatasetSpec) -> SurvivalBunch:
     event_indicator = (df["status"] == 2).cast(pl.Int8).to_numpy()
     X = df.drop("time", "status")
     return _bunch_from(spec, X, event_time, event_indicator)
+
+
+def parse_flchain_positive(path: Path, spec: DatasetSpec) -> SurvivalBunch:
+    """FLCHAIN with the zero-duration rows removed (n=7871).
+
+    Three subjects are recorded as dying on the day of their assay. A
+    duration of exactly zero is not representable on a survival time scale:
+    it sits below every grid, contributes no risk-set time, and breaks any
+    log-time transform. Dropping the three is what the benchmark tables do,
+    and it leaves the event rate unchanged.
+    """
+    df = pl.read_csv(path).filter(pl.col("futime") > 0)
+    event_time = df["futime"].cast(pl.Float64).to_numpy()
+    event_indicator = df["death"].cast(pl.Int8).to_numpy()
+    X = df.drop("rownames", "futime", "death", "chapter")
+    return _bunch_from(spec, X, event_time, event_indicator)

@@ -536,6 +536,25 @@ _REGISTRY: dict[str, DatasetSpec] = {
 
 
 
+#: Competing-risks studies and how many causes each records. Declared rather
+#: than discovered because finding out costs a download: the cause count lives
+#: in the parsed bunch, and the registry must be complete before any fetch.
+#: Each entry gains a ``:causeK`` single-event variant -- the cause-specific
+#: reading most papers actually report.
+_COMPETING_RISKS: dict[str, int] = {
+    "colon": 2,
+    "melanoma": 2,
+    "mgus": 2,
+    "mgus2": 2,
+    "hoel": 3,
+    "transplant": 3,
+    "prostate": 2,
+}
+# `bmt:competing` and `pbc:transplant` are deliberately absent: they are
+# already variants, and a `:causeK` suffix on top would produce a two-colon
+# name that the base/variant split cannot read back.
+
+
 def _merge(target: dict[str, DatasetSpec], extra: dict[str, DatasetSpec]) -> None:
     """Add ``extra`` to ``target``, refusing to silently shadow a name."""
     clash = sorted(set(target) & set(extra))
@@ -556,6 +575,10 @@ def _install_extra_specs() -> None:
     _merge(_REGISTRY, _specs_r.SPECS)
     _merge(_REGISTRY, _specs_bench.SPECS)
     _merge(_REGISTRY, _specs_variants.build(_REGISTRY))
+    _merge(
+        _REGISTRY,
+        _specs_variants.cause_specific_variants(_REGISTRY, _COMPETING_RISKS),
+    )
 
 
 _install_extra_specs()
