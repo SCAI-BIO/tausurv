@@ -25,6 +25,6 @@ from tausurv.nonparametric import (
 )
 from tausurv.predictor import CompetingRisksPredictor, SurvivalPredictor
 from tausurv.step import StepFunction
-from tausurv.trees import RandomSurvivalForest, SurvivalTree, SurvivalBoost
+from tausurv.trees import RandomSurvivalForest, SurvivalBoost, SurvivalTree
 
 __version__ = "0.1.0"

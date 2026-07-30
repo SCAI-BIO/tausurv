@@ -68,3 +68,8 @@ markers = [
 [tool.mypy]
 strict = true
 files = ["tausurv", "causurv"]
+
+# Optional dependency, ships no type information.
+[[tool.mypy.overrides]]
+module = ["hazardous.*"]
+ignore_missing_imports = true

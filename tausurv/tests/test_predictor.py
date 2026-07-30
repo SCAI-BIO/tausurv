@@ -72,8 +72,9 @@ def _rsf():
 
 
 def _survival_boost():
+    pytest.importorskip("hazardous")
     X, T, E = _xy()
-    return SurvivalBoost(seed=0).fit(X, T, E), X
+    return SurvivalBoost(n_iter=20, seed=0).fit(X, T, E), X
 
 
 def _deepsurv():
