@@ -23,7 +23,7 @@ plot = [
     "matplotlib>=3.8",
 ]
 boost = [
-    "hazardous>=0.2.0",
+    "scikit-learn>=1.4",
 ]
 
 [build-system]

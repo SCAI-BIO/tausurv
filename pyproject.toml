@@ -33,6 +33,7 @@ parity = [
     "scikit-survival>=0.24",
     "lifelines>=0.30",
     "pycox>=0.2",
+    "hazardous>=0.2.0",
 ]
 
 [tool.ruff]
@@ -71,5 +72,5 @@ files = ["tausurv", "causurv"]
 
 # Optional dependency, ships no type information.
 [[tool.mypy.overrides]]
-module = ["hazardous.*"]
+module = ["sklearn.*"]
 ignore_missing_imports = true

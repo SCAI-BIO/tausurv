@@ -80,7 +80,7 @@ def test_random_survival_forest_concordance_beats_random():
 
 
 def test_survival_boost_shapes():
-    pytest.importorskip("hazardous")
+    pytest.importorskip("sklearn")
     X, T, E = simulations.competing_risk(n=200, seed=0)
     sb = SurvivalBoost(n_iter=20, seed=0).fit(X, T, E)
     grid = np.linspace(0.1, 3.0, 8)
@@ -90,12 +90,11 @@ def test_survival_boost_shapes():
 
 
 def test_survival_boost_concordance_beats_random():
-    # A ranking check is the only thing that catches the adapter handing
-    # `event_time` and `event_indicator` to hazardous under swapped
-    # {"duration", "event"} keys — shape and monotonicity assertions pass
-    # either way. Performance comparison lives in
-    # scripts/survival_boost_parity.py, not here.
-    pytest.importorskip("hazardous")
+    # A ranking check is the only thing that catches swapped event/time
+    # roles in the IPCW target construction — shape and monotonicity
+    # assertions pass either way. Parity against the reference hazardous
+    # implementation lives in scripts/survival_boost_parity.py, not here.
+    pytest.importorskip("sklearn")
     X, T, E = simulations.competing_risk(n=500, censoring_rate=0.3, seed=0)
     sb = SurvivalBoost(seed=0).fit(X, T, E)
     c = harrell(T, E, sb.predict(X))
