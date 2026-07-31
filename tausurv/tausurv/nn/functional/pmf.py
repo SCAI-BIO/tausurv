@@ -36,7 +36,9 @@ def pmf_nll(
     event_time : (n,) tensor
     event_indicator : (n,) tensor — integer-valued.
     time_bins : (K,) tensor
-        Right edges of the $K$ bins (sorted ascending).
+        Right edges of the $K$ bins (sorted ascending), typically built
+        with :func:`tausurv.discretization.time_grid`. Observed times
+        beyond the last edge fall into the final bin.
     reduction : {"mean", "sum", "none"}, default "mean"
     """
     if not isinstance(time_bins, Tensor):

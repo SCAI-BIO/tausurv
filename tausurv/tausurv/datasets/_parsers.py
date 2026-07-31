@@ -16,6 +16,8 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
+from tausurv.datasets._build import bunch_from as _bunch_from
+from tausurv.datasets._build import bunch_from_competing as _bunch_from_competing
 from tausurv.datasets._bunch import SurvivalBunch
 from tausurv.datasets._spec import DatasetSpec
 
@@ -460,50 +462,147 @@ def parse_telco_churn(path: Path, spec: DatasetSpec) -> SurvivalBunch:
     return _bunch_from(spec, X, event_time, event_indicator)
 
 
-def _bunch_from(
-    spec: DatasetSpec,
-    X: pl.DataFrame,
-    event_time: np.ndarray,
-    event_indicator: np.ndarray,
-) -> SurvivalBunch:
-    return SurvivalBunch(
-        X=X,
-        event_time=event_time,
-        event_indicator=event_indicator,
-        feature_names=tuple(X.columns),
-        name=spec.name,
-        description=spec.description,
-        citation=spec.citation,
-        license=spec.license,
-        url=spec.url or "",
-        time_unit=spec.time_unit,
-        tags=spec.tags,
+# ---- variants: alternative published readings of the cohorts above ----
+#
+# Each of these reproduces a table that appears in the literature under the
+# same study name as its base entry. They exist so that a reported number can
+# be matched to the rows it was computed on, which the base name alone does
+# not pin down.
+
+
+def parse_pbc_randomised(path: Path, spec: DatasetSpec) -> SurvivalBunch:
+    """PBC restricted to the 312 randomised trial patients.
+
+    Therneau & Grambsch's Cox examples use this subset, not all 418: the
+    remaining 106 patients consented to follow-up but not to randomisation,
+    and carry missing values on most lab covariates. Selection is on ``trt``
+    being present, which is exactly what randomisation means here.
+    """
+    df = pl.read_csv(path).filter(pl.col("trt").is_not_null())
+    event_time = df["time"].cast(pl.Float64).to_numpy()
+    event_indicator = (df["status"] == 2).cast(pl.Int8).to_numpy()
+    X = df.drop("rownames", "id", "time", "status")
+    return _bunch_from(spec, X, event_time, event_indicator)
+
+
+def parse_pbc_transplant(path: Path, spec: DatasetSpec) -> SurvivalBunch:
+    """PBC as competing risks: death versus liver transplant.
+
+    The base ``pbc`` entry treats transplant as censoring, which is the
+    right choice when the question is about death. It is the wrong choice
+    when the question is about the disease course, because a transplant
+    removes a patient from risk for a reason correlated with severity.
+    Source ``status``: ``0`` censored, ``1`` transplant, ``2`` death.
+    """
+    df = pl.read_csv(path)
+    event_time = df["time"].cast(pl.Float64).to_numpy()
+    status = df["status"].to_numpy()
+    cause = np.zeros(df.height, dtype=np.int8)
+    cause[status == 2] = 1
+    cause[status == 1] = 2
+    X = df.drop("rownames", "id", "time", "status")
+    return _bunch_from_competing(
+        spec,
+        X,
+        event_time,
+        cause,
+        n_causes=2,
+        cause_labels=("death", "liver transplant"),
     )
 
 
-def _bunch_from_competing(
-    spec: DatasetSpec,
-    X: pl.DataFrame,
-    event_time: np.ndarray,
-    cause: np.ndarray,
-    *,
-    n_causes: int,
-    cause_labels: tuple[str, ...] | None,
-) -> SurvivalBunch:
-    cause = cause.astype(np.int8)
-    return SurvivalBunch(
-        X=X,
-        event_time=event_time,
-        event_indicator=(cause > 0).astype(np.int8),
-        feature_names=tuple(X.columns),
-        name=spec.name,
-        description=spec.description,
-        citation=spec.citation,
-        license=spec.license,
-        url=spec.url or "",
-        cause=cause,
-        n_causes=n_causes,
-        cause_labels=cause_labels,
-        time_unit=spec.time_unit,
-        tags=spec.tags,
+def parse_flchain_complete(path: Path, spec: DatasetSpec) -> SurvivalBunch:
+    """FLCHAIN restricted to complete cases (n=6524).
+
+    Dropping the 1350 subjects with a missing creatinine assay is the
+    processing used by the deep-survival benchmark tables, and it moves the
+    event rate from 27.5% to 30.1% -- missingness here is not at random, so
+    the two tables are not interchangeable.
+    """
+    df = pl.read_csv(path).drop("rownames", "chapter").drop_nulls()
+    event_time = df["futime"].cast(pl.Float64).to_numpy()
+    event_indicator = df["death"].cast(pl.Int8).to_numpy()
+    X = df.drop("futime", "death")
+    return _bunch_from(spec, X, event_time, event_indicator)
+
+
+#: SUPPORT columns that are not baseline covariates. Three kinds of leak:
+#: outcomes in their own right (``hospdead``), quantities accumulated over
+#: the admission being predicted (``slos``, costs, ``dnrday``), and the
+#: SUPPORT prognostic model's own predictions (``surv2m``, ``surv6m``,
+#: ``prg2m``, ``prg6m``). ``surv6m`` alone scores c-index 0.72 against the
+#: endpoint -- higher than published models fitted on the real covariates.
+_SUPPORT_LEAKY = (
+    "hospdead", "slos", "charges", "totcst", "totmcst",
+    "surv2m", "surv6m", "prg2m", "prg6m", "dnr", "dnrday", "sfdm2",
+    "adlp", "adls",
+)
+
+
+def parse_support_nonleaky(path: Path, spec: DatasetSpec) -> SurvivalBunch:
+    """SUPPORT with the outcome-derived columns removed (n=9105, 31 covariates).
+
+    The raw cohort ships the SUPPORT model's own survival estimates and
+    several post-admission quantities alongside the baseline covariates.
+    Any model evaluated on the raw table can read the answer off
+    ``surv6m``; this variant removes that possibility. See
+    ``_SUPPORT_LEAKY`` for the exact list and why each column is on it.
+    """
+    bunch = parse_support(path, spec)
+    keep = [c for c in bunch.X.columns if c not in _SUPPORT_LEAKY]
+    return _bunch_from(
+        spec, bunch.X.select(keep), bunch.event_time, bunch.event_indicator
     )
+
+
+def parse_colon_recurrence(path: Path, spec: DatasetSpec) -> SurvivalBunch:
+    """Colon trial, recurrence endpoint only (``etype == 1``).
+
+    The single-event reading used in most Cox demonstrations of this trial:
+    time to recurrence, with death treated as censoring.
+    """
+    df = pl.read_csv(path).filter(pl.col("etype") == 1)
+    event_time = df["time"].cast(pl.Float64).to_numpy()
+    event_indicator = df["status"].cast(pl.Int8).to_numpy()
+    X = df.drop("rownames", "id", "time", "status", "etype")
+    return _bunch_from(spec, X, event_time, event_indicator)
+
+
+def parse_colon_death(path: Path, spec: DatasetSpec) -> SurvivalBunch:
+    """Colon trial, overall survival endpoint only (``etype == 2``)."""
+    df = pl.read_csv(path).filter(pl.col("etype") == 2)
+    event_time = df["time"].cast(pl.Float64).to_numpy()
+    event_indicator = df["status"].cast(pl.Int8).to_numpy()
+    X = df.drop("rownames", "id", "time", "status", "etype")
+    return _bunch_from(spec, X, event_time, event_indicator)
+
+
+def parse_lung_complete(path: Path, spec: DatasetSpec) -> SurvivalBunch:
+    """NCCTG lung cohort restricted to complete cases (n=167).
+
+    The reading used wherever a method cannot handle missing covariates.
+    ``inst`` (enrolling institution) is dropped first: it is an
+    administrative identifier, and keeping it would drop a further row for
+    no modelling gain.
+    """
+    df = pl.read_csv(path).drop("rownames", "inst").drop_nulls()
+    event_time = df["time"].cast(pl.Float64).to_numpy()
+    event_indicator = (df["status"] == 2).cast(pl.Int8).to_numpy()
+    X = df.drop("time", "status")
+    return _bunch_from(spec, X, event_time, event_indicator)
+
+
+def parse_flchain_positive(path: Path, spec: DatasetSpec) -> SurvivalBunch:
+    """FLCHAIN with the zero-duration rows removed (n=7871).
+
+    Three subjects are recorded as dying on the day of their assay. A
+    duration of exactly zero is not representable on a survival time scale:
+    it sits below every grid, contributes no risk-set time, and breaks any
+    log-time transform. Dropping the three is what the benchmark tables do,
+    and it leaves the event rate unchanged.
+    """
+    df = pl.read_csv(path).filter(pl.col("futime") > 0)
+    event_time = df["futime"].cast(pl.Float64).to_numpy()
+    event_indicator = df["death"].cast(pl.Int8).to_numpy()
+    X = df.drop("rownames", "futime", "death", "chapter")
+    return _bunch_from(spec, X, event_time, event_indicator)

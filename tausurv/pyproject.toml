@@ -25,6 +25,11 @@ plot = [
 boost = [
     "scikit-learn>=1.4",
 ]
+# The DeepSurv benchmark tables (metabric, gbsg:deepsurv, support:deepsurv,
+# whas:deepsurv) are distributed as HDF5 and only those four need this.
+deepsurv = [
+    "h5py>=3.0",
+]
 
 [build-system]
 requires = ["maturin>=1.10,<2"]

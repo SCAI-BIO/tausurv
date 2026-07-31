@@ -2753,12 +2753,16 @@ dependencies = [
 boost = [
     { name = "scikit-learn" },
 ]
+deepsurv = [
+    { name = "h5py" },
+]
 plot = [
     { name = "matplotlib" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "h5py", marker = "extra == 'deepsurv'", specifier = ">=3.0" },
     { name = "matplotlib", marker = "extra == 'plot'", specifier = ">=3.8" },
     { name = "numpy", specifier = ">=2.0" },
     { name = "platformdirs", specifier = ">=4.0" },
@@ -2767,7 +2771,7 @@ requires-dist = [
     { name = "scipy", specifier = ">=1.10" },
     { name = "tqdm", specifier = ">=4.65" },
 ]
-provides-extras = ["plot", "boost"]
+provides-extras = ["plot", "boost", "deepsurv"]
 
 [[package]]
 name = "tausurv-workspace"

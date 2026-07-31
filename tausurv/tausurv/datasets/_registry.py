@@ -2,6 +2,17 @@
 
 The registry is the single source of truth: every per-dataset shortcut in
 ``tausurv.datasets.__init__`` resolves to a :class:`DatasetSpec` from here.
+
+A name is ``base`` or ``base:variant``. The base name always resolves to the
+reading a survival textbook would call default; a variant names one other
+published processing of the same study. Aliases cover the names the same
+cohort travels under in different literatures -- ``gbsg2`` and ``actg320``
+resolve, but do not appear in :func:`list_datasets`, so there is exactly one
+canonical name per table.
+
+Entries are declared across four modules: the core cohorts here, the
+R-ecosystem cohorts in ``_specs_r``, the benchmark and gated cohorts in
+``_specs_bench``, and variants of the core cohorts in ``_specs_variants``.
 """
 
 from __future__ import annotations
@@ -12,6 +23,7 @@ from tausurv.datasets._bunch import SurvivalBunch
 from tausurv.datasets._cache import fetch_to_cache
 from tausurv.datasets._errors import (
     CredentialedDatasetError,
+    MissingDependencyError,
     UnknownDatasetError,
     UserProvidedDatasetError,
 )
@@ -37,7 +49,7 @@ from tausurv.datasets._parsers import (
     parse_veteran,
     parse_waltons,
 )
-from tausurv.datasets._spec import Access, DatasetInfo, DatasetSpec
+from tausurv.datasets._spec import Access, DatasetInfo, DatasetSpec, split_name
 
 _REGISTRY: dict[str, DatasetSpec] = {
     "pbc": DatasetSpec(
@@ -523,19 +535,156 @@ _REGISTRY: dict[str, DatasetSpec] = {
 }
 
 
-def list_datasets(tag: str | None = None) -> list[str]:
-    """Sorted list of registered dataset names.
 
-    Parameters
-    ----------
-    tag : str, optional
-        If given, return only datasets whose registry entry carries this
-        tag. Common tags: ``"clinical"``, ``"reliability"``,
-        ``"competing-risks"``, ``"recidivism"``.
+#: Competing-risks studies and how many causes each records. Declared rather
+#: than discovered because finding out costs a download: the cause count lives
+#: in the parsed bunch, and the registry must be complete before any fetch.
+#: Each entry gains a ``:causeK`` single-event variant -- the cause-specific
+#: reading most papers actually report.
+_COMPETING_RISKS: dict[str, int] = {
+    "colon": 2,
+    "melanoma": 2,
+    "mgus": 2,
+    "mgus2": 2,
+    "hoel": 3,
+    "transplant": 3,
+    "prostate": 2,
+}
+# `bmt:competing` and `pbc:transplant` are deliberately absent: they are
+# already variants, and a `:causeK` suffix on top would produce a two-colon
+# name that the base/variant split cannot read back.
+
+
+def _merge(target: dict[str, DatasetSpec], extra: dict[str, DatasetSpec]) -> None:
+    """Add ``extra`` to ``target``, refusing to silently shadow a name."""
+    clash = sorted(set(target) & set(extra))
+    if clash:
+        raise RuntimeError(f"duplicate dataset names across spec modules: {clash}")
+    target.update(extra)
+
+
+def _install_extra_specs() -> None:
+    """Merge the out-of-module spec tables into the registry.
+
+    Imported here rather than at module scope: the spec modules import
+    parsers, which import nothing from the registry, but variants are built
+    *from* the core entries above and so must run after they exist.
     """
-    if tag is None:
-        return sorted(_REGISTRY)
-    return sorted(name for name, spec in _REGISTRY.items() if tag in spec.tags)
+    from tausurv.datasets import _specs_bench, _specs_r, _specs_variants  # noqa: PLC0415
+
+    _merge(_REGISTRY, _specs_r.SPECS)
+    _merge(_REGISTRY, _specs_bench.SPECS)
+    _merge(_REGISTRY, _specs_variants.build(_REGISTRY))
+    _merge(
+        _REGISTRY,
+        _specs_variants.cause_specific_variants(_REGISTRY, _COMPETING_RISKS),
+    )
+
+
+_install_extra_specs()
+
+
+#: Names the same table travels under elsewhere in the literature, mapped to
+#: the canonical registry name. Aliases resolve in :func:`load_dataset` and
+#: :func:`dataset_info` but are deliberately absent from
+#: :func:`list_datasets`, so that every table has exactly one name here and
+#: results reported against it are unambiguous.
+_ALIASES: dict[str, str] = {
+    # GBSG2 in Rdatasets / TH.data is the 686-patient German trial, which is
+    # what `gbsg` already is. The 2232-row Rotterdam combination that
+    # deep-survival papers *also* call GBSG is `gbsg:deepsurv`.
+    "gbsg2": "gbsg",
+    # The DeepSurv GBSG table is a Rotterdam + German-trial combination, so
+    # it is its own study rather than a `gbsg:` variant. Both the name the
+    # deep-survival literature uses and the variant spelling resolve to it.
+    "gbsg_deepsurv": "gbsg_rotterdam",
+    "gbsg:deepsurv": "gbsg_rotterdam",
+    "whas:deepsurv": "whas_deepsurv",
+    "actg320": "aids",
+    "whas": "whas500",
+    # R survival calls the retinopathy trial `diabetic`; KMsurv and asaur
+    # call the Channing House cohort `ChanningHouse`.
+    "diabetic": "retinopathy",
+    "channinghouse": "channing",
+    "kidtran": "kidney_transplant",
+    # R survival's `cancer` and `lung` are the same NCCTG cohort.
+    "cancer": "lung",
+    "nafld1": "nafld",
+    "udca1": "udca",
+    "leukemia": "aml",
+    "hodg": "hodgkins",
+    "prostatesurvival": "prostate",
+    "hepatocellularcarcinoma": "hepatocellular",
+    "pharmacosmoking": "pharmaco_smoking",
+    "valveseat": "valve_seat",
+    "support2": "support",
+}
+
+
+def resolve_name(name: str) -> str:
+    """Canonical registry name for ``name``, following aliases.
+
+    Matching is case-insensitive and tolerant of ``-`` for ``_``, because
+    dataset names reach this function from command lines as often as from
+    code. An alias on the base part carries its variant through, so
+    ``"gbsg2"`` and ``"actg320:death"`` both resolve.
+    """
+    if name in _REGISTRY:
+        return name
+    key = name.strip().lower().replace("-", "_")
+    if key in _REGISTRY:
+        return key
+    if key in _ALIASES:
+        return _ALIASES[key]
+    base, variant = split_name(key)
+    if variant is not None and base in _ALIASES:
+        candidate = f"{_ALIASES[base]}:{variant}"
+        if candidate in _REGISTRY:
+            return candidate
+    return name
+
+
+def list_datasets(
+    tag: str | None = None,
+    *,
+    base_only: bool = False,
+    access: Access | str | None = None,
+) -> list[str]:
+    """Sorted registry names.
+
+    Args:
+        tag: keep only datasets carrying this tag. Common tags:
+            ``"clinical"``, ``"reliability"``, ``"competing-risks"``,
+            ``"benchmark"``, ``"left-truncated"``, ``"rare-events"``.
+        base_only: drop ``base:variant`` entries, leaving one name per
+            study. Useful for "show me what cohorts exist" as opposed to
+            "show me every table I could load".
+        access: keep only datasets at this access level. Pass
+            ``Access.OPEN`` for the set that needs no manual setup, which
+            is the set a test suite can cover.
+
+    Aliases are never returned; :func:`resolve_name` accepts them.
+    """
+    if access is not None:
+        access = Access(access)
+    names = []
+    for name, spec in _REGISTRY.items():
+        if tag is not None and tag not in spec.tags:
+            continue
+        if base_only and spec.is_variant:
+            continue
+        if access is not None and spec.access is not access:
+            continue
+        names.append(name)
+    return sorted(names)
+
+
+def list_variants(name: str) -> list[str]:
+    """Every registered reading of the study ``name`` belongs to, including it."""
+    base = split_name(resolve_name(name))[0]
+    return sorted(
+        n for n in _REGISTRY if n == base or n.startswith(f"{base}:")
+    )
 
 
 def dataset_info(name: str) -> DatasetInfo:
@@ -551,46 +700,69 @@ def dataset_info(name: str) -> DatasetInfo:
         sha256=spec.sha256,
         tags=spec.tags,
         time_unit=spec.time_unit,
+        requires=spec.requires,
     )
 
 
 def load_dataset(
     name: str,
     *,
+    path: str | Path | None = None,
     cache_dir: str | Path | None = None,
     force_download: bool = False,
 ) -> SurvivalBunch:
     """Load a dataset, downloading and caching it on first use.
 
-    Parameters
-    ----------
-    name : str
-        Registered dataset name. See :func:`list_datasets`.
-    cache_dir : str or Path, optional
-        Override the cache root. Defaults to the ``TAUSURV_DATA`` env var,
-        then ``platformdirs.user_cache_dir("tausurv")/datasets``.
-    force_download : bool, default False
-        Re-download even if the file is already cached. Useful after a
-        registry hash bump.
+    Args:
+        name: registry name or alias; see :func:`list_datasets`. Accepts
+            ``base:variant`` -- :func:`list_variants` shows what a study
+            offers.
+        path: local directory (or file) holding the data. Required for
+            ``USER_PROVIDED`` and ``CREDENTIALED`` datasets, which are
+            never fetched; ignored for open ones.
+        cache_dir: override the cache root. Defaults to the ``TAUSURV_DATA``
+            env var, then ``platformdirs.user_cache_dir("tausurv")/datasets``.
+        force_download: re-download even if the digest is already cached.
+            Useful after a registry hash bump.
+
+    Raises:
+        UnknownDatasetError: no such name, with near-miss suggestions.
+        MissingDependencyError: the parser needs an optional dependency.
+        UserProvidedDatasetError: redistribution-restricted and no ``path``.
+        CredentialedDatasetError: needs credentials and no ``path``.
     """
     spec = _get_spec(name)
+    if spec.requires is not None:
+        _require(spec)
+    if path is not None:
+        return spec.parser(Path(path).expanduser(), spec)
     if spec.access is Access.CREDENTIALED:
-        raise CredentialedDatasetError(name, spec.access_help or "")
+        raise CredentialedDatasetError(spec.name, spec.access_help or "")
     if spec.access is Access.USER_PROVIDED:
-        raise UserProvidedDatasetError(name, spec.access_help or "")
+        raise UserProvidedDatasetError(spec.name, spec.access_help or "")
     assert spec.url is not None and spec.sha256 is not None
-    path = fetch_to_cache(
-        name,
+    cached = fetch_to_cache(
+        spec.name,
         spec.url,
         spec.sha256,
         cache_dir=cache_dir,
         force_download=force_download,
     )
-    return spec.parser(path, spec)
+    return spec.parser(cached, spec)
+
+
+def _require(spec: DatasetSpec) -> None:
+    """Fail early, with install instructions, if an optional dependency is absent."""
+    import importlib.util  # noqa: PLC0415
+
+    assert spec.requires is not None
+    if importlib.util.find_spec(spec.requires) is None:
+        raise MissingDependencyError(spec.name, spec.requires, "deepsurv")
 
 
 def _get_spec(name: str) -> DatasetSpec:
-    spec = _REGISTRY.get(name)
+    resolved = resolve_name(name)
+    spec = _REGISTRY.get(resolved)
     if spec is None:
         raise UnknownDatasetError(name, list(_REGISTRY))
     return spec
