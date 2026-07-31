@@ -81,11 +81,12 @@ class SurvivalBoost(CompetingRisksPredictor):
     times_ : (k,) array
         Default prediction time grid (event-time quantiles).
     n_causes : int
-        Number of competing causes, counted from the causes **present in
-        the training data**. A training split missing a rare cause yields
-        a model with fewer causes, and :meth:`predict_cif` will reject
-        that cause's index. Check it after fitting when working with
-        cross-validation folds or heavily imbalanced causes.
+        Number of competing causes. Cause labels in the training data
+        must be contiguous ``1..J`` (``0`` = censored) — :meth:`fit`
+        raises otherwise, because a missing cause would silently shift
+        what the 1-indexed ``cause`` argument of :meth:`predict_cif`
+        refers to. Re-encode labels before fitting a split that lacks a
+        rare cause.
 
     References
     ----------
@@ -147,6 +148,13 @@ class SurvivalBoost(CompetingRisksPredictor):
 
         event_ids = np.unique(np.append(delta, 0))
         self.n_causes = int((event_ids != 0).sum())
+        if not np.array_equal(event_ids, np.arange(self.n_causes + 1)):
+            raise ValueError(
+                f"cause labels must be contiguous 1..J with 0 for censoring; "
+                f"got {event_ids[event_ids != 0].tolist()}. Re-encode "
+                f"event_indicator — with a gap, predict_cif's 1-indexed "
+                f"causes would silently refer to the wrong cause."
+            )
         any_event = delta > 0
         self.times_ = _default_time_grid(Y[any_event], self.n_time_grid_steps)
 
