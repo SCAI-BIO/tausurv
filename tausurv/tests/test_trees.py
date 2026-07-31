@@ -6,6 +6,12 @@ import pytest
 from tausurv import simulations
 from tausurv.metrics.concordance import harrell
 from tausurv.trees.random_survival_forest import RandomSurvivalForest
+from tausurv.trees.survival_boost import (
+    SurvivalBoost,
+    _default_time_grid,
+    _draw_horizons,
+    _horizon_targets,
+)
 from tausurv.trees.survival_tree import SurvivalTree, _log_rank_statistic
 
 
@@ -76,6 +82,76 @@ def test_random_survival_forest_concordance_beats_random():
     ).fit(X, T, E)
     c = harrell(T, E, rsf.predict(X))
     assert c > 0.65  # well above 0.5 random baseline
+
+
+def test_survival_boost_shapes():
+    pytest.importorskip("sklearn")
+    X, T, E = simulations.competing_risk(n=200, seed=0)
+    sb = SurvivalBoost(n_iter=20, seed=0).fit(X, T, E)
+    grid = np.linspace(0.1, 3.0, 8)
+    H = sb.predict_cumulative_hazard(X, grid)
+    assert H.shape == (200, 8)
+    assert (np.diff(H, axis=1) >= 0).all()
+
+
+def test_survival_boost_concordance_beats_random():
+    # A ranking check is the only thing that catches swapped event/time
+    # roles in the IPCW target construction — shape and monotonicity
+    # assertions pass either way. Parity against the reference hazardous
+    # implementation lives in scripts/survival_boost_parity.py, not here.
+    pytest.importorskip("sklearn")
+    X, T, E = simulations.competing_risk(n=500, censoring_rate=0.3, seed=0)
+    sb = SurvivalBoost(seed=0).fit(X, T, E)
+    c = harrell(T, E, sb.predict(X))
+    assert c > 0.65  # well above 0.5 random baseline
+
+
+def test_survival_boost_horizon_targets_truth_table():
+    # One subject per branch of the IPCW target rule (Alberge et al. 2025,
+    # Algorithm 2). Distinct weight values verify which array each branch
+    # selects from.
+    event = np.array([True, False, True, False, True])
+    Y = np.array([1.0, 2.0, 3.0, 4.0, 4.0])
+    horizons = np.array([2.0, 1.0, 3.0, 5.0, 2.0])
+    ipcw_duration = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
+    ipcw_horizons = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+
+    target, weight = _horizon_targets(event, Y, horizons, ipcw_duration, ipcw_horizons)
+
+    # event by horizon -> 1, weighted at the observed time (index 2 is the
+    # Y == horizon boundary, which counts as observed); still under
+    # observation -> 0, weighted at the horizon; censored before the
+    # horizon -> 0 with weight 0.
+    np.testing.assert_array_equal(target, [True, False, True, False, False])
+    np.testing.assert_array_equal(weight, [10.0, 2.0, 30.0, 0.0, 5.0])
+
+
+def test_survival_boost_draw_horizons_hard_zeros():
+    rng = np.random.RandomState(0)
+    horizons = _draw_horizons(rng, n=200, t_max=7.0, hard_zero_fraction=0.1)
+    assert horizons.shape == (200,)
+    assert ((horizons >= 0.0) & (horizons < 7.0)).all()
+    assert (horizons == 0.0).sum() == 20
+
+
+def test_survival_boost_default_time_grid():
+    observed = np.array([3.0, 1.0, 2.0, 5.0, 4.0])
+    # Fewer observations than steps: the sorted observed times themselves.
+    np.testing.assert_array_equal(
+        _default_time_grid(observed, n_steps=10), [1.0, 2.0, 3.0, 4.0, 5.0]
+    )
+    # More observations than steps: quantile grid spanning the range.
+    grid = _default_time_grid(observed, n_steps=3)
+    np.testing.assert_array_equal(grid, [1.0, 3.0, 5.0])
+    assert (np.diff(grid) >= 0).all()
+
+
+def test_survival_boost_rejects_noncontiguous_causes():
+    X = np.zeros((10, 2))
+    T = np.arange(1.0, 11.0)
+    E = np.array([0, 1, 3, 1, 3, 0, 1, 3, 1, 0])  # cause 2 missing
+    with pytest.raises(ValueError, match="contiguous"):
+        SurvivalBoost().fit(X, T, E)
 
 
 def test_survival_tree_rejects_invalid_max_features():
