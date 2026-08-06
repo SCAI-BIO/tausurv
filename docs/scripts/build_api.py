@@ -1,4 +1,4 @@
-"""Generate API reference MDX from tausurv + causurv source.
+"""Generate API reference MDX from tausurv source.
 
 Walks the packages with griffe, parses Numpy-style docstrings, and emits one
 MDX page per public submodule under ``docs/src/content/docs/api/``.
@@ -22,8 +22,8 @@ DOCS = Path(__file__).resolve().parent.parent
 REPO = DOCS.parent
 API_OUT = DOCS / "src" / "content" / "docs" / "api"
 
-PACKAGES = ["tausurv", "causurv"]
-SEARCH_PATHS = [str(REPO / "tausurv"), str(REPO / "causurv")]
+PACKAGES = ["tausurv"]
+SEARCH_PATHS = [str(REPO / "tausurv")]
 
 NUMPY_SECTIONS = (
     "Parameters",

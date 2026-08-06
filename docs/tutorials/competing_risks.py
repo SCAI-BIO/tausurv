@@ -209,7 +209,7 @@ ts.plot.brier_over_time(
 # - **SHR is not HR.** Austin & Fine (2017) is the canonical reference on the misinterpretation. A SHR is a multiplier on the cumulative-incidence curve under proportional subdistribution hazards; it is not the cause-specific hazard ratio. Always state which scale you are reporting.
 # - **Cause-specific Cox is the other principled choice.** If the question is "what makes patients die at a higher rate while still at risk", cause-specific Cox (transplant treated as censoring within the *modelling* sense, with explicit acknowledgement) is the right tool. Latouche et al. (2013) recommend reporting both cause-specific hazards and cumulative-incidence functions in every competing-risks analysis.
 # - **Multiple Fine-Gray fits can yield inconsistent CIFs.** Independently fitted Fine-Gray models for two or more causes can produce predicted cumulative incidences that sum to more than 1 (Austin, Putter, Lee & Steyerberg 2021). For prediction across causes, prefer the cause-specific Cox approach.
-# - **Treatment is observational here.** PBC was randomised, but our adjusted models are not estimating a causal effect of treatment on death. The causal-survival material (under `causurv`) covers what assumptions are needed before HRs or SHRs become causal contrasts and why RMST contrasts are often a cleaner target.
+# - **Treatment is observational here.** PBC was randomised, but our adjusted models are not estimating a causal effect of treatment on death. The separate `causurv` package covers what assumptions are needed before HRs or SHRs become causal contrasts and why RMST contrasts are often a cleaner target.
 
 # %% [markdown]
 # ## References

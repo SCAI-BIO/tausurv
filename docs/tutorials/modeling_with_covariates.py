@@ -304,7 +304,7 @@ ts.plot.brier_over_time(
 # - **Proportional hazards.** The Cox model assumes the hazard ratio for each covariate is constant over time. PBC arguably violates this for bilirubin and stage at long follow-up. A diagnostic tutorial on Schoenfeld residuals comes later.
 # - **Competing risks.** Liver transplant was treated as censoring in the single-event recoding. That is the standard simplification, but it conflates "we stopped watching" with "the patient received a transplant, which changes their prognosis." The competing-risks tutorial revisits this using `ts.linear.FineGray` and the cause-specific cumulative incidence.
 # - **Honest evaluation.** The 70/30 split here is the simplest possible. A real reporting pipeline uses repeated cross-validation, bootstraps the calibration curves, and reports IBS / time-dependent AUC alongside Brier. The evaluation tutorial covers each.
-# - **Causal interpretation.** A hazard ratio is a population summary, not a causal effect of changing a covariate. The causal-survival pages (under `causurv`) cover what additional assumptions are needed before HRs become causal contrasts and why RMST differences are often a cleaner target.
+# - **Causal interpretation.** A hazard ratio is a population summary, not a causal effect of changing a covariate. The separate `causurv` package covers what additional assumptions are needed before HRs become causal contrasts and why RMST differences are often a cleaner target.
 
 # %% [markdown]
 # ## References
