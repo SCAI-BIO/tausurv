@@ -152,7 +152,7 @@ class Trainer:
         _set_seed(seed)
 
         self.model = model.to(device)
-        self.loss_fn = loss_fn
+        self.loss_fn = loss_fn.to(device) if isinstance(loss_fn, nn.Module) else loss_fn
         self.optimizer = build_optimizer(self.model, optimizer, lr, weight_decay)
 
         # base_lr drives the built-in string-keyed schedules. Read from the
