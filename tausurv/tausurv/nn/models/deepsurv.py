@@ -11,7 +11,7 @@ from torch import Tensor, nn
 
 from tausurv.nn._utils import as_model_tensor
 from tausurv.nn.modules.mlp import MLP
-from tausurv.nn.pretrained import PretrainedMixin
+from tausurv.nn.checkpoint import CheckpointMixin
 from tausurv.predictor import SurvivalPredictor
 
 
@@ -28,7 +28,7 @@ class DeepSurvConfig:
     residual: bool = True
 
 
-class DeepSurv(SurvivalPredictor, PretrainedMixin, nn.Module):
+class DeepSurv(SurvivalPredictor, CheckpointMixin, nn.Module):
     r"""Feed-forward Cox-style risk model (Katzman et al., 2018).
 
     Predicts a scalar log-risk $\theta(x) = f_\theta(x)$ per subject. Pair
@@ -180,9 +180,9 @@ class DeepSurv(SurvivalPredictor, PretrainedMixin, nn.Module):
         )
         return np.exp(-H0_at[None, :] * exp_lp[:, None])
 
-    def save_pretrained(self, path: str | Path) -> None:
+    def save(self, path: str | Path) -> None:
         """Persist config + weights, plus the fitted baseline (if any)."""
-        super().save_pretrained(path)
+        super().save(path)
         if self._times is not None and self._baseline_cumhazard is not None:
             np.savez(
                 Path(path) / "baseline.npz",
@@ -191,8 +191,8 @@ class DeepSurv(SurvivalPredictor, PretrainedMixin, nn.Module):
             )
 
     @classmethod
-    def from_pretrained(cls, path: str | Path) -> "DeepSurv":
-        model: DeepSurv = super().from_pretrained(path)  # type: ignore[assignment]
+    def load(cls, path: str | Path) -> "DeepSurv":
+        model: DeepSurv = super().load(path)  # type: ignore[assignment]
         baseline_path = Path(path) / "baseline.npz"
         if baseline_path.exists():
             data = np.load(baseline_path)

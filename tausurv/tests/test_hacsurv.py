@@ -275,14 +275,14 @@ def test_config_kwarg_form_equivalent_to_dataclass():
     assert m1.config == m2.config
 
 
-def test_save_pretrained_round_trips_config_weights_and_time_grid(tmp_path):
+def test_save_round_trips_config_weights_and_time_grid(tmp_path):
     model = _make_model(family="clayton")
     grid = np.linspace(0.5, 4.0, 8)
     model.set_time_grid(grid)
     theta_before = float(model.theta.detach())
 
-    model.save_pretrained(tmp_path / "hs")
-    restored = HACSurv.from_pretrained(tmp_path / "hs")
+    model.save(tmp_path / "hs")
+    restored = HACSurv.load(tmp_path / "hs")
     assert restored.config == model.config
     assert abs(float(restored.theta.detach()) - theta_before) < 1e-6
     np.testing.assert_array_equal(restored.times_, grid)

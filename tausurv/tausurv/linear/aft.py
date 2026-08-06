@@ -17,11 +17,15 @@ likelihood (L-BFGS-B on $(\beta, \log \sigma)$), reusing the closed-form
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from scipy.optimize import minimize
 
 from tausurv.distributions import LogLogistic, LogNormal, SurvivalDistribution, Weibull
+from tausurv.linear._checkpoint import _check_model_name
 from tausurv.predictor import SurvivalPredictor
 
 
@@ -134,6 +138,43 @@ class AFT(SurvivalPredictor):
         self.scale_ = float(np.exp(params[n_beta]))
         self.times_ = np.unique(Y[is_event])
         return self
+
+    def save(self, path: str | Path) -> None:
+        """Write ``config.json`` and ``state.npz`` to ``path``."""
+        if not hasattr(self, "coef_"):
+            raise RuntimeError(
+                f"{type(self).__name__} is not fitted; call fit() before save()"
+            )
+        path = Path(path)
+        path.mkdir(parents=True, exist_ok=True)
+        config = {
+            "model": type(self).__name__,
+            "fit_intercept": self.fit_intercept,
+            "max_iter": self.max_iter,
+            "tol": self.tol,
+        }
+        (path / "config.json").write_text(json.dumps(config, indent=2))
+        np.savez_compressed(
+            path / "state.npz",
+            coef=self.coef_,
+            intercept=self.intercept_,
+            scale=self.scale_,
+            times=self.times_,
+        )
+
+    @classmethod
+    def load(cls, path: str | Path) -> AFT:
+        """Reconstruct a model saved by `save`; call on the concrete class."""
+        path = Path(path)
+        config = json.loads((path / "config.json").read_text())
+        _check_model_name(config.pop("model"), cls, path)
+        model = cls(**config)
+        with np.load(path / "state.npz") as state:
+            model.coef_ = state["coef"]
+            model.intercept_ = float(state["intercept"])
+            model.scale_ = float(state["scale"])
+            model.times_ = state["times"]
+        return model
 
     def _make_dist(
         self,

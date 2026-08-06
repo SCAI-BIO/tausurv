@@ -179,3 +179,25 @@ def test_times_attribute_populated_after_fit():
     # Default times for predict_*: training event times.
     S = m.predict_survival_function(X[:5])  # times=None
     assert S.shape == (5, m.times_.shape[0])
+
+
+def test_save_load_preserves_predictions(tmp_path):
+    X, T, E, _, _, _ = _simulate_weibull_aft(n=300, seed=0)
+    aft = WeibullAFT().fit(X, T, E)
+    aft.save(tmp_path / "aft")
+    loaded = WeibullAFT.load(tmp_path / "aft")
+
+    assert loaded.fit_intercept == aft.fit_intercept
+    assert loaded.scale_ == aft.scale_ and loaded.intercept_ == aft.intercept_
+    grid = np.linspace(0.1, 3.0, 15)
+    np.testing.assert_allclose(
+        loaded.predict_survival_function(X, grid),
+        aft.predict_survival_function(X, grid),
+    )
+
+
+def test_load_with_wrong_distribution_rejected(tmp_path):
+    X, T, E, _, _, _ = _simulate_weibull_aft(n=200, seed=1)
+    WeibullAFT().fit(X, T, E).save(tmp_path / "aft")
+    with pytest.raises(ValueError, match="written by WeibullAFT"):
+        LogNormalAFT.load(tmp_path / "aft")

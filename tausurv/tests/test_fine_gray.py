@@ -121,3 +121,16 @@ def test_inherits_survival_predictor_api():
     assert fg.predict_risk_at(X, time=float(fg.times_[len(fg.times_) // 2])).shape == (
         n,
     )
+
+
+def test_save_load_preserves_predictions(tmp_path):
+    X, T, E = _cr_data()
+    fg = FineGray(cause=1).fit(X, T, E)
+    fg.save(tmp_path / "fg")
+    loaded = FineGray.load(tmp_path / "fg")
+
+    assert loaded.cause == 1
+    grid = np.linspace(0.1, 3.0, 15)
+    np.testing.assert_allclose(
+        loaded.predict_cif(X, grid, cause=1), fg.predict_cif(X, grid, cause=1)
+    )

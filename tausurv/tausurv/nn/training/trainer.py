@@ -562,11 +562,11 @@ class Trainer:
         extra: dict[str, Any] | None = None,
     ) -> None:
         save_state(path, self.model, self.optimizer, epoch=epoch_idx + 1, extra=extra)
-        # If the model supports PretrainedMixin, also write config.json + model.pt
-        # so the directory is loadable via Model.from_pretrained(path).
-        save_pretrained = getattr(self.model, "save_pretrained", None)
-        if callable(save_pretrained):
-            save_pretrained(path)
+        # If the model supports CheckpointMixin, also write config.json + model.pt
+        # so the directory is loadable via Model.load(path).
+        save_fn = getattr(self.model, "save", None)
+        if callable(save_fn):
+            save_fn(path)
         logger.log_checkpoint(epoch=epoch_idx, path=path, kind=kind)
 
     def _capture_resume_state(

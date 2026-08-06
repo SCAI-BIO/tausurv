@@ -187,8 +187,8 @@ def test_set_time_grid_round_trips_through_save_load(tmp_path):
     model = _make_model()
     grid = np.linspace(0.5, 3.0, 8)
     model.set_time_grid(grid)
-    model.save_pretrained(tmp_path / "cs")
-    restored = CopulaSurv.from_pretrained(tmp_path / "cs")
+    model.save(tmp_path / "cs")
+    restored = CopulaSurv.load(tmp_path / "cs")
     np.testing.assert_array_equal(restored.times_, grid)
 
 
@@ -199,15 +199,15 @@ def test_predict_requires_times_or_times_attribute():
         model.predict_survival_function(X)
 
 
-def test_save_pretrained_round_trips_config_and_theta(tmp_path):
+def test_save_round_trips_config_and_theta(tmp_path):
     X, T, E = _data()
     model = _make_model(family="clayton", copula_theta_init=2.5)
     trainer = CopulaSurvTrainer(model, loss_fn=copula_survival_nll, lr=1e-2)
     trainer.fit((X, T, E), epochs=5, verbose=False)
     theta_before = float(model.theta.detach())
 
-    model.save_pretrained(tmp_path / "cs")
-    restored = CopulaSurv.from_pretrained(tmp_path / "cs")
+    model.save(tmp_path / "cs")
+    restored = CopulaSurv.load(tmp_path / "cs")
     theta_after = float(restored.theta.detach())
     assert abs(theta_after - theta_before) < 1e-6
     assert restored.config.copula_family == "clayton"

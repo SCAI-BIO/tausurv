@@ -46,7 +46,7 @@ from torch import Tensor, nn
 from tausurv.nn._utils import as_model_tensor
 from tausurv.nn.distributions import LogNormal, Weibull
 from tausurv.nn.modules import MLP
-from tausurv.nn.pretrained import PretrainedMixin
+from tausurv.nn.checkpoint import CheckpointMixin
 from tausurv.predictor import SurvivalPredictor
 
 
@@ -68,7 +68,7 @@ class DSMConfig:
             self.hidden_features = tuple(self.hidden_features)
 
 
-class DSM(SurvivalPredictor, PretrainedMixin, nn.Module):
+class DSM(SurvivalPredictor, CheckpointMixin, nn.Module):
     r"""Deep Survival Machines model.
 
     Construct with :class:`DSMConfig` or kwargs (HF-style). After
@@ -189,14 +189,14 @@ class DSM(SurvivalPredictor, PretrainedMixin, nn.Module):
             self.train()
         return S.cpu().numpy().astype(np.float64)
 
-    def save_pretrained(self, path: str | Path) -> None:
-        super().save_pretrained(path)
+    def save(self, path: str | Path) -> None:
+        super().save(path)
         if hasattr(self, "_times"):
             np.savez(Path(path) / "time_grid.npz", times=self._times)
 
     @classmethod
-    def from_pretrained(cls, path: str | Path) -> "DSM":
-        model: DSM = super().from_pretrained(path)  # type: ignore[assignment]
+    def load(cls, path: str | Path) -> "DSM":
+        model: DSM = super().load(path)  # type: ignore[assignment]
         time_grid_path = Path(path) / "time_grid.npz"
         if time_grid_path.exists():
             model._times = np.load(time_grid_path)["times"]

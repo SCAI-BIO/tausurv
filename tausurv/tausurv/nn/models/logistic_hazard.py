@@ -11,7 +11,7 @@ from torch import Tensor, nn
 
 from tausurv.nn._utils import as_model_tensor
 from tausurv.nn.modules.mlp import MLP
-from tausurv.nn.pretrained import PretrainedMixin
+from tausurv.nn.checkpoint import CheckpointMixin
 from tausurv.predictor import SurvivalPredictor
 
 
@@ -34,7 +34,7 @@ class LogisticHazardConfig:
     residual: bool = True
 
 
-class LogisticHazard(SurvivalPredictor, PretrainedMixin, nn.Module):
+class LogisticHazard(SurvivalPredictor, CheckpointMixin, nn.Module):
     r"""Discrete-time hazard-parameterized survival model.
 
     Independently introduced by Gensheimer & Narasimhan (2019) as
@@ -52,8 +52,8 @@ class LogisticHazard(SurvivalPredictor, PretrainedMixin, nn.Module):
     The model's output is bin-indexed (1..``n_bins``). Set the real-time
     interpretation of those bins post-construction with
     :meth:`set_time_grid`; if unset, prediction methods raise. The grid
-    round-trips through :meth:`save_pretrained` /
-    :meth:`from_pretrained`.
+    round-trips through :meth:`save` /
+    :meth:`load`.
 
     Pair with :func:`tausurv.nn.functional.logistic_hazard_nll` for training.
 
@@ -143,16 +143,16 @@ class LogisticHazard(SurvivalPredictor, PretrainedMixin, nn.Module):
             S_at[..., before] = 1.0
         return S_at
 
-    def save_pretrained(self, path: str | Path) -> None:
+    def save(self, path: str | Path) -> None:
         """Persist config + weights, plus the time grid set by
         :meth:`set_time_grid` (if any)."""
-        super().save_pretrained(path)
+        super().save(path)
         if hasattr(self, "_times"):
             np.savez(Path(path) / "time_grid.npz", times=self._times)
 
     @classmethod
-    def from_pretrained(cls, path: str | Path) -> "LogisticHazard":
-        model: LogisticHazard = super().from_pretrained(path)  # type: ignore[assignment]
+    def load(cls, path: str | Path) -> "LogisticHazard":
+        model: LogisticHazard = super().load(path)  # type: ignore[assignment]
         time_grid_path = Path(path) / "time_grid.npz"
         if time_grid_path.exists():
             model._times = np.load(time_grid_path)["times"]

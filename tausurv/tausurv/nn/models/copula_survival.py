@@ -46,7 +46,7 @@ from tausurv.nn import copulas as nn_copulas
 from tausurv.nn._utils import as_model_tensor
 from tausurv.nn.copulas.base import ArchimedeanCopula
 from tausurv.nn.modules import MLP, MonotoneMLP
-from tausurv.nn.pretrained import PretrainedMixin
+from tausurv.nn.checkpoint import CheckpointMixin
 from tausurv.nn.training.trainer import Trainer
 from tausurv.predictor import SurvivalPredictor
 
@@ -122,7 +122,7 @@ def _inverse_constrain_theta(family: str, theta: float) -> float:
     raise ValueError(f"unknown copula family {family!r}")
 
 
-class CopulaSurv(SurvivalPredictor, PretrainedMixin, nn.Module):
+class CopulaSurv(SurvivalPredictor, CheckpointMixin, nn.Module):
     r"""Copula-based deep survival model with dependent censoring (Zhang 2023).
 
     Construct with :class:`CopulaSurvConfig` or kwargs (HF-style). After
@@ -271,7 +271,7 @@ class CopulaSurv(SurvivalPredictor, PretrainedMixin, nn.Module):
         Continuous-time copula models have no natural grid baked into the
         architecture; this lets the caller pin one once after fit instead
         of passing ``times=...`` to every predict call. Round-trips through
-        :meth:`save_pretrained` / :meth:`from_pretrained`.
+        :meth:`save` / :meth:`load`.
         """
         self._times = np.asarray(times, dtype=np.float64)
         return self
@@ -309,16 +309,16 @@ class CopulaSurv(SurvivalPredictor, PretrainedMixin, nn.Module):
             self.train()
         return S_T.cpu().numpy().astype(np.float64)
 
-    def save_pretrained(self, path: str | Path) -> None:
+    def save(self, path: str | Path) -> None:
         """Persist config + weights, plus the time grid set by
         :meth:`set_time_grid` (if any)."""
-        super().save_pretrained(path)
+        super().save(path)
         if hasattr(self, "_times"):
             np.savez(Path(path) / "time_grid.npz", times=self._times)
 
     @classmethod
-    def from_pretrained(cls, path: str | Path) -> "CopulaSurv":
-        model: CopulaSurv = super().from_pretrained(path)  # type: ignore[assignment]
+    def load(cls, path: str | Path) -> "CopulaSurv":
+        model: CopulaSurv = super().load(path)  # type: ignore[assignment]
         time_grid_path = Path(path) / "time_grid.npz"
         if time_grid_path.exists():
             model._times = np.load(time_grid_path)["times"]
