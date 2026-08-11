@@ -285,10 +285,10 @@ def test_deepsurv_baseline_round_trips_through_save_load(tmp_path):
     grid = np.linspace(0.1, 2.0, 6)
     S_before = model.predict_survival_function(X, grid)
 
-    model.save_pretrained(tmp_path / "ds")
+    model.save(tmp_path / "ds")
     assert (tmp_path / "ds" / "baseline.npz").exists()
 
-    restored = DeepSurv.from_pretrained(tmp_path / "ds")
+    restored = DeepSurv.load(tmp_path / "ds")
     restored.eval()
     S_after = restored.predict_survival_function(X, grid)
     np.testing.assert_allclose(S_after, S_before, atol=1e-6)

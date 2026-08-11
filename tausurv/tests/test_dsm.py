@@ -260,15 +260,15 @@ def test_config_kwarg_form_equivalent_to_dataclass():
     assert m1.config == m2.config
 
 
-def test_save_pretrained_round_trips_config_weights_and_time_grid(tmp_path):
+def test_save_round_trips_config_weights_and_time_grid(tmp_path):
     model = _make_model(family="lognormal", n_components=3)
     grid = np.linspace(0.5, 5.0, 6)
     model.set_time_grid(grid)
     X = torch.randn(7, 5)
     S_before = model.predict_survival_function(X)
 
-    model.save_pretrained(tmp_path / "dsm")
-    restored = DSM.from_pretrained(tmp_path / "dsm")
+    model.save(tmp_path / "dsm")
+    restored = DSM.load(tmp_path / "dsm")
     assert restored.config == model.config
     np.testing.assert_array_equal(restored.times_, grid)
 

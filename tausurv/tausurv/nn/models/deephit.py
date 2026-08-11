@@ -12,7 +12,7 @@ from torch import Tensor, nn
 
 from tausurv.nn._utils import as_model_tensor
 from tausurv.nn.modules.mlp import MLP
-from tausurv.nn.pretrained import PretrainedMixin
+from tausurv.nn.checkpoint import CheckpointMixin
 from tausurv.predictor import CompetingRisksPredictor
 
 
@@ -36,7 +36,7 @@ class DeepHitConfig:
     residual: bool = True
 
 
-class DeepHit(CompetingRisksPredictor, PretrainedMixin, nn.Module):
+class DeepHit(CompetingRisksPredictor, CheckpointMixin, nn.Module):
     r"""Discrete-time PMF survival model (Lee et al., 2018).
 
     Predicts logits over $K$ time bins for each of $K_{\text{causes}}$ event
@@ -52,8 +52,8 @@ class DeepHit(CompetingRisksPredictor, PretrainedMixin, nn.Module):
     The model's output is bin-indexed (1..``n_bins``). Set the real-time
     interpretation of those bins post-construction with
     :meth:`set_time_grid`; if unset, prediction methods raise. The grid
-    round-trips through :meth:`save_pretrained` /
-    :meth:`from_pretrained`.
+    round-trips through :meth:`save` /
+    :meth:`load`.
 
     Pair with :func:`tausurv.nn.functional.pmf_nll` and optionally
     :func:`tausurv.nn.functional.deephit_ranking` for training.
@@ -107,7 +107,7 @@ class DeepHit(CompetingRisksPredictor, PretrainedMixin, nn.Module):
         ``time_bins`` to the training loss, typically built with
         :func:`tausurv.discretization.time_grid`. Stored as ``self.times_`` and
         used by :class:`SurvivalPredictor` predict methods. Round-trips
-        through :meth:`save_pretrained` / :meth:`from_pretrained`.
+        through :meth:`save` / :meth:`load`.
         """
         times = np.asarray(times, dtype=np.float64)
         if times.shape != (self.n_bins,):
@@ -159,16 +159,16 @@ class DeepHit(CompetingRisksPredictor, PretrainedMixin, nn.Module):
             cif_at[..., zero] = 0.0
         return cif_at
 
-    def save_pretrained(self, path: str | Path) -> None:
+    def save(self, path: str | Path) -> None:
         """Persist config + weights, plus the time grid set by
         :meth:`set_time_grid` (if any)."""
-        super().save_pretrained(path)
+        super().save(path)
         if hasattr(self, "_times"):
             np.savez(Path(path) / "time_grid.npz", times=self._times)
 
     @classmethod
-    def from_pretrained(cls, path: str | Path) -> "DeepHit":
-        model: DeepHit = super().from_pretrained(path)  # type: ignore[assignment]
+    def load(cls, path: str | Path) -> "DeepHit":
+        model: DeepHit = super().load(path)  # type: ignore[assignment]
         time_grid_path = Path(path) / "time_grid.npz"
         if time_grid_path.exists():
             model._times = np.load(time_grid_path)["times"]

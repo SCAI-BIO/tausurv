@@ -73,3 +73,24 @@ def test_coxph_matches_sksurv():
     sksurv_cph.fit(X, structured)
 
     np.testing.assert_allclose(cph.coef_, sksurv_cph.coef_, atol=5e-3)
+
+
+def test_coxph_save_load_preserves_predictions(tmp_path):
+    X, T, E = simulations.single_risk(n=200, seed=0)
+    cph = CoxPH().fit(X, T, E)
+    cph.save(tmp_path / "cph")
+    loaded = CoxPH.load(tmp_path / "cph")
+
+    assert loaded.max_iter == cph.max_iter and loaded.tol == cph.tol
+    grid = np.linspace(0.05, 5.0, 20)
+    np.testing.assert_array_equal(loaded.times_, cph.times_)
+    np.testing.assert_allclose(
+        loaded.predict_survival_function(X, grid),
+        cph.predict_survival_function(X, grid),
+    )
+    np.testing.assert_allclose(loaded.predict(X), cph.predict(X))
+
+
+def test_coxph_unfitted_save_rejected(tmp_path):
+    with pytest.raises(RuntimeError, match="not fitted"):
+        CoxPH().save(tmp_path / "cph")

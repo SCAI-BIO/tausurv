@@ -8,13 +8,13 @@ from typing import Any, ClassVar
 import torch
 
 
-class PretrainedMixin:
+class CheckpointMixin:
     r"""Save/load a model's typed config + weights together.
 
     Subclasses declare a dataclass :attr:`config_class` and store an instance
-    of it on ``self.config``. :meth:`save_pretrained` writes
+    of it on ``self.config``. :meth:`save` writes
     ``config.json`` + ``model.pt`` to a directory and
-    :meth:`from_pretrained` reconstructs the model by deserializing the
+    :meth:`load` reconstructs the model by deserializing the
     config and loading the state dict.
 
     The dataclass is the single source of truth for what defines a model —
@@ -25,13 +25,13 @@ class PretrainedMixin:
     -------
     >>> model = DeepSurv(in_features=5, hidden_dim=64)
     >>> # ... train ...
-    >>> model.save_pretrained("runs/deepsurv-v1")
-    >>> restored = DeepSurv.from_pretrained("runs/deepsurv-v1")
+    >>> model.save("runs/deepsurv-v1")
+    >>> restored = DeepSurv.load("runs/deepsurv-v1")
 
-    The ``Trainer`` automatically calls :meth:`save_pretrained` alongside its
+    The ``Trainer`` automatically calls :meth:`save` alongside its
     own ``state.pt`` checkpoint when ``out_dir`` is set, so every ``best/``,
     ``final/``, and ``step-NNNNNN/`` directory is both resume-compatible and
-    ``from_pretrained``-compatible.
+    ``load``-compatible.
     """
 
     #: Dataclass type used to validate / round-trip the config. Set by subclass.
@@ -40,7 +40,7 @@ class PretrainedMixin:
     #: The model's typed config instance.
     config: Any
 
-    def save_pretrained(self, path: str | Path) -> None:
+    def save(self, path: str | Path) -> None:
         """Write ``config.json`` and ``model.pt`` to ``path``."""
         if not is_dataclass(self.config):
             raise TypeError(
@@ -53,12 +53,10 @@ class PretrainedMixin:
         torch.save(self.state_dict(), path / "model.pt")
 
     @classmethod
-    def from_pretrained(cls, path: str | Path) -> "PretrainedMixin":
+    def load(cls, path: str | Path) -> "CheckpointMixin":
         """Reconstruct a model from a directory with ``config.json`` + ``model.pt``."""
         if not hasattr(cls, "config_class"):
-            raise TypeError(
-                f"{cls.__name__} must declare a `config_class` to use from_pretrained"
-            )
+            raise TypeError(f"{cls.__name__} must declare a `config_class` to use load")
         path = Path(path)
         config_dict = json.loads((path / "config.json").read_text())
         config = cls.config_class(**config_dict)

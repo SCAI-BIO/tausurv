@@ -15,7 +15,7 @@ from tausurv.nn import (
     modules,
     training,
 )
-from tausurv.nn.pretrained import PretrainedMixin
+from tausurv.nn.checkpoint import CheckpointMixin
 from tausurv.nn.training import Trainer, fit
 from tausurv.nn.losses import (
     CopulaSurvLoss,

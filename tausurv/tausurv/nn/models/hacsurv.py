@@ -47,7 +47,7 @@ from tausurv.nn import copulas as nn_copulas
 from tausurv.nn._utils import as_model_tensor
 from tausurv.nn.copulas.base import ArchimedeanCopula
 from tausurv.nn.modules import MLP, MonotoneMLP
-from tausurv.nn.pretrained import PretrainedMixin
+from tausurv.nn.checkpoint import CheckpointMixin
 from tausurv.nn.training.trainer import Trainer
 from tausurv.predictor import CompetingRisksPredictor
 
@@ -271,7 +271,7 @@ class LearnedGenerator(nn.Module):
             return float(4.0 * c.mean() - 1.0)
 
 
-class HACSurv(CompetingRisksPredictor, PretrainedMixin, nn.Module):
+class HACSurv(CompetingRisksPredictor, CheckpointMixin, nn.Module):
     r"""Copula-based deep survival for dependent competing risks.
 
     See module docstring. After training (via :class:`HACSurvTrainer` +
@@ -486,14 +486,14 @@ class HACSurv(CompetingRisksPredictor, PretrainedMixin, nn.Module):
         cif_array = torch.stack(cifs, dim=1).detach().cpu().numpy().astype(np.float64)
         return cif_array
 
-    def save_pretrained(self, path: str | Path) -> None:
-        super().save_pretrained(path)
+    def save(self, path: str | Path) -> None:
+        super().save(path)
         if hasattr(self, "_times"):
             np.savez(Path(path) / "time_grid.npz", times=self._times)
 
     @classmethod
-    def from_pretrained(cls, path: str | Path) -> "HACSurv":
-        model: HACSurv = super().from_pretrained(path)  # type: ignore[assignment]
+    def load(cls, path: str | Path) -> "HACSurv":
+        model: HACSurv = super().load(path)  # type: ignore[assignment]
         time_grid_path = Path(path) / "time_grid.npz"
         if time_grid_path.exists():
             model._times = np.load(time_grid_path)["times"]

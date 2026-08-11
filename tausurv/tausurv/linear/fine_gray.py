@@ -34,10 +34,14 @@ subdistribution of a competing risk. JASA, 94(446).
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from scipy.optimize import minimize
 
+from tausurv.linear._checkpoint import _check_model_name
 from tausurv.nonparametric import kaplan_meier
 from tausurv.predictor import SurvivalPredictor
 from tausurv.step import StepFunction
@@ -107,8 +111,7 @@ class FineGray(SurvivalPredictor):
 
         if not (delta == k).any():
             raise ValueError(
-                f"no observations with event_indicator == cause={k}; "
-                f"nothing to fit"
+                f"no observations with event_indicator == cause={k}; nothing to fit"
             )
 
         # Sort by Y ascending so prefix/suffix cumsums correspond to
@@ -141,9 +144,9 @@ class FineGray(SurvivalPredictor):
         # for non-tied times. Use searchsorted for correctness under ties.
         start_per_event = np.searchsorted(Y_s, tau_per_event, side="left")
 
-        def _S0_S1(beta: NDArray[np.float64]) -> tuple[
-            NDArray[np.float64], NDArray[np.float64]
-        ]:
+        def _S0_S1(
+            beta: NDArray[np.float64],
+        ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
             r"""Evaluate $S_0(\tau_i, \beta)$ and $S_1(\tau_i, \beta)$
             at every cause-$k$ event time in one pass."""
             lp = X_s @ beta
@@ -179,9 +182,9 @@ class FineGray(SurvivalPredictor):
             )
             return S0, S1
 
-        def neg_log_lik_and_grad(beta: NDArray[np.float64]) -> tuple[
-            float, NDArray[np.float64]
-        ]:
+        def neg_log_lik_and_grad(
+            beta: NDArray[np.float64],
+        ) -> tuple[float, NDArray[np.float64]]:
             S0, S1 = _S0_S1(beta)
             lp_events = X_s[cause_positions] @ beta
             log_lik = float(np.sum(lp_events - np.log(S0)))
@@ -214,6 +217,45 @@ class FineGray(SurvivalPredictor):
         )
         self.times_ = unique_t
         return self
+
+    def save(self, path: str | Path) -> None:
+        """Write ``config.json`` and ``state.npz`` to ``path``."""
+        if not hasattr(self, "coef_"):
+            raise RuntimeError("FineGray is not fitted; call fit() before save()")
+        path = Path(path)
+        path.mkdir(parents=True, exist_ok=True)
+        config = {
+            "model": type(self).__name__,
+            "cause": self.cause,
+            "max_iter": self.max_iter,
+            "tol": self.tol,
+        }
+        (path / "config.json").write_text(json.dumps(config, indent=2))
+        np.savez_compressed(
+            path / "state.npz",
+            coef=self.coef_,
+            times=self.times_,
+            baseline_time=self.baseline_subdist_cumhazard_.time,
+            baseline_value=self.baseline_subdist_cumhazard_.value,
+        )
+
+    @classmethod
+    def load(cls, path: str | Path) -> FineGray:
+        """Reconstruct a model saved by `save`."""
+        path = Path(path)
+        config = json.loads((path / "config.json").read_text())
+        _check_model_name(config.pop("model"), cls, path)
+        model = cls(**config)
+        with np.load(path / "state.npz") as state:
+            model.coef_ = state["coef"]
+            model.times_ = state["times"]
+            model.baseline_subdist_cumhazard_ = StepFunction(
+                time=state["baseline_time"],
+                value=state["baseline_value"],
+                side="right",
+                baseline=0.0,
+            )
+        return model
 
     def predict(self, X: ArrayLike) -> NDArray[np.float64]:
         r"""Linear subdistribution risk $\beta^\top x$ (Cox-style scalar)."""

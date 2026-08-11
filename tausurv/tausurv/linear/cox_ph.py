@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from scipy.optimize import minimize
 
+from tausurv.linear._checkpoint import _check_model_name
 from tausurv.predictor import SurvivalPredictor
 from tausurv.step import StepFunction
 
@@ -139,6 +143,44 @@ class CoxPH(SurvivalPredictor):
             side="right",
             baseline=0.0,
         )
+
+    def save(self, path: str | Path) -> None:
+        """Write ``config.json`` and ``state.npz`` to ``path``."""
+        if not hasattr(self, "coef_"):
+            raise RuntimeError("CoxPH is not fitted; call fit() before save()")
+        path = Path(path)
+        path.mkdir(parents=True, exist_ok=True)
+        config = {
+            "model": type(self).__name__,
+            "max_iter": self.max_iter,
+            "tol": self.tol,
+        }
+        (path / "config.json").write_text(json.dumps(config, indent=2))
+        np.savez_compressed(
+            path / "state.npz",
+            coef=self.coef_,
+            times=self.times_,
+            baseline_time=self.baseline_cumulative_hazard_.time,
+            baseline_value=self.baseline_cumulative_hazard_.value,
+        )
+
+    @classmethod
+    def load(cls, path: str | Path) -> CoxPH:
+        """Reconstruct a model saved by `save`."""
+        path = Path(path)
+        config = json.loads((path / "config.json").read_text())
+        _check_model_name(config.pop("model"), cls, path)
+        model = cls(**config)
+        with np.load(path / "state.npz") as state:
+            model.coef_ = state["coef"]
+            model.times_ = state["times"]
+            model.baseline_cumulative_hazard_ = StepFunction(
+                time=state["baseline_time"],
+                value=state["baseline_value"],
+                side="right",
+                baseline=0.0,
+            )
+        return model
 
     def predict(self, X: ArrayLike) -> NDArray[np.float64]:
         r"""Linear predictor $\beta^\top x$ — Cox's natural risk score."""
