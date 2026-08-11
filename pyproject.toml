@@ -1,18 +1,17 @@
 [project]
 name = "tausurv-workspace"
 version = "0.0.0"
-description = "Workspace for tausurv (survival) and causurv (causal survival)."
+description = "Workspace for tausurv (survival analysis)."
 requires-python = ">=3.12"
 
 [tool.uv]
 package = false
 
 [tool.uv.workspace]
-members = ["tausurv", "causurv"]
+members = ["tausurv"]
 
 [tool.uv.sources]
 tausurv = { workspace = true }
-causurv = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -60,7 +59,7 @@ extend-ignore-names = [
 "docs/tutorials/*.py" = ["E501", "E402", "I001", "B018"]
 
 [tool.pytest.ini_options]
-testpaths = ["tausurv/tests", "causurv/tests"]
+testpaths = ["tausurv/tests"]
 addopts = "-ra --strict-markers --strict-config"
 markers = [
     "network: test hits external URLs; skipped unless --run-network is passed",
@@ -68,7 +67,7 @@ markers = [
 
 [tool.mypy]
 strict = true
-files = ["tausurv", "causurv"]
+files = ["tausurv"]
 
 # Optional dependency, ships no type information.
 [[tool.mypy.overrides]]

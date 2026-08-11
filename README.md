@@ -1,9 +1,6 @@
-# tausurv & causurv
+# tausurv
 
-Monorepo containing:
-
-- **tausurv** — survival analysis
-- **causurv** — causal survival analysis
+Survival analysis.
 
 ## Setup
 

@@ -2,7 +2,6 @@ node_modules/
 dist/
 .astro/
 src/content/docs/api/tausurv/
-src/content/docs/api/causurv/
 src/content/docs/tutorials/*.mdx
 !src/content/docs/tutorials/index.mdx
 public/figures/
