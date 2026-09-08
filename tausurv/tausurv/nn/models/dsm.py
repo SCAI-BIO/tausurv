@@ -33,6 +33,7 @@ Censored Data with Competing Risks. IEEE JBHI 25(8).
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -43,10 +44,12 @@ import torch.nn.functional as F
 from numpy.typing import ArrayLike, NDArray
 from torch import Tensor, nn
 
-from tausurv.nn._utils import as_model_tensor
-from tausurv.nn.distributions import LogNormal, Weibull
-from tausurv.nn.modules import MLP
+from tausurv.nn._utils import as_model_tensor, as_training_tensors, reset_parameters
 from tausurv.nn.checkpoint import CheckpointMixin
+from tausurv.nn.distributions import LogNormal, Weibull
+from tausurv.nn.losses.dsm import DSMLoss
+from tausurv.nn.modules import MLP
+from tausurv.nn.training.fit import fit
 from tausurv.predictor import SurvivalPredictor
 
 
@@ -71,18 +74,19 @@ class DSMConfig:
 class DSM(SurvivalPredictor, CheckpointMixin, nn.Module):
     r"""Deep Survival Machines model.
 
-    Construct with :class:`DSMConfig` or kwargs (HF-style). After
-    training (via the standard :class:`tausurv.nn.Trainer` with
-    :func:`tausurv.nn.functional.dsm_nll`), inherits the unified
-    prediction API from :class:`SurvivalPredictor`.
+    Construct with :class:`DSMConfig` or kwargs (HF-style). Train with
+    :meth:`fit`, or with the standard :class:`tausurv.nn.Trainer` and
+    :func:`tausurv.nn.functional.dsm_nll`; either way the model inherits
+    the unified prediction API from :class:`SurvivalPredictor`.
 
-    Real-time interpretation of the predict grid is data-derived state;
-    set via :meth:`set_time_grid` post-fit or pass ``times=`` explicitly
-    to predict methods.
+    The default predict grid is data-derived state: :meth:`fit` sets it to
+    the training event times, :meth:`set_time_grid` sets it explicitly, and
+    ``times=`` on the predict methods overrides it per call.
     """
 
     config_class = DSMConfig
     config: DSMConfig
+    history_: dict[str, Any]
 
     def __init__(
         self,
@@ -153,6 +157,75 @@ class DSM(SurvivalPredictor, CheckpointMixin, nn.Module):
         if self.config.distribution_family == "weibull":
             return Weibull(p1, p2)
         return LogNormal(p1, p2)
+
+    def fit(
+        self,
+        X: ArrayLike,
+        event_time: ArrayLike,
+        event_indicator: ArrayLike,
+        *,
+        val_data: tuple[ArrayLike, ArrayLike, ArrayLike] | None = None,
+        loss: Callable[..., Tensor] | None = None,
+        epochs: int = 100,
+        batch_size: int | None = None,
+        lr: float = 1e-3,
+        weight_decay: float = 0.0,
+        seed: int = 0,
+        device: str | torch.device | None = None,
+        verbose: bool = False,
+    ) -> "DSM":
+        r"""Train on the mixture likelihood, then set the predict grid.
+
+        A thin wrapper around :func:`tausurv.nn.fit` with
+        :class:`~tausurv.nn.losses.DSMLoss` for the configured family as the
+        default loss. The default predict grid becomes the unique training
+        event times, matching :class:`~tausurv.linear.CoxPH`. Use
+        :class:`~tausurv.nn.Trainer` directly for schedules, early stopping,
+        checkpointing or a custom training step.
+
+        Parameters
+        ----------
+        X : (n, d) array
+        event_time : (n,) array
+        event_indicator : (n,) array
+        val_data : (X, event_time, event_indicator), optional
+            Held-out data; its loss is recorded in ``history_``.
+        loss : callable, optional
+            Replaces the default loss. Called as
+            ``loss(raw, event_time, event_indicator)``.
+        epochs, batch_size, lr, weight_decay, seed, device, verbose
+            Forwarded to :func:`tausurv.nn.fit`.
+
+        Weights are re-initialised under ``seed`` first, so a second call
+        retrains from scratch rather than continuing.
+
+        Returns
+        -------
+        self
+            With ``history_`` and the predict grid set.
+        """
+        reset_parameters(self, seed)
+        train = as_training_tensors(self, X, event_time, event_indicator)
+        val = as_training_tensors(self, *val_data) if val_data is not None else None
+        if loss is None:
+            loss = DSMLoss(distribution=self.config.distribution_family)
+        loss_fn = loss
+        self.history_ = fit(
+            self,
+            loss_fn,
+            train,
+            val,
+            epochs=epochs,
+            batch_size=batch_size,
+            lr=lr,
+            weight_decay=weight_decay,
+            seed=seed,
+            device=device,
+            verbose=verbose,
+        )
+        Y = np.asarray(event_time, dtype=np.float64)
+        delta = np.asarray(event_indicator)
+        return self.set_time_grid(np.unique(Y[delta > 0]))
 
     def set_time_grid(self, times: ArrayLike) -> "DSM":
         """Set the default time grid for the predict API when ``times=None``."""

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -9,9 +10,16 @@ import torch
 from numpy.typing import ArrayLike, NDArray
 from torch import Tensor, nn
 
-from tausurv.nn._utils import as_model_tensor
-from tausurv.nn.modules.mlp import MLP
+from tausurv.nn._utils import (
+    as_model_tensor,
+    as_training_tensors,
+    fit_time_grid,
+    reset_parameters,
+)
 from tausurv.nn.checkpoint import CheckpointMixin
+from tausurv.nn.losses.hazard import LogisticHazardLoss
+from tausurv.nn.modules.mlp import MLP
+from tausurv.nn.training.fit import fit
 from tausurv.predictor import SurvivalPredictor
 
 
@@ -49,11 +57,12 @@ class LogisticHazard(SurvivalPredictor, CheckpointMixin, nn.Module):
     stable on small datasets and avoids the softmax-normalization
     competition between bins.
 
-    The model's output is bin-indexed (1..``n_bins``). Set the real-time
-    interpretation of those bins post-construction with
-    :meth:`set_time_grid`; if unset, prediction methods raise. The grid
-    round-trips through :meth:`save` /
-    :meth:`load`.
+    The model's output is bin-indexed (1..``n_bins``). :meth:`fit` derives
+    the real-time interpretation of those bins from the training data with
+    :func:`tausurv.discretization.time_grid`; when training through
+    :class:`~tausurv.nn.Trainer` instead, set it with :meth:`set_time_grid`.
+    If unset, prediction methods raise. The grid round-trips through
+    :meth:`save` / :meth:`load`.
 
     Pair with :func:`tausurv.nn.functional.logistic_hazard_nll` for training.
 
@@ -67,6 +76,7 @@ class LogisticHazard(SurvivalPredictor, CheckpointMixin, nn.Module):
 
     config_class = LogisticHazardConfig
     config: LogisticHazardConfig
+    history_: dict[str, Any]
 
     def __init__(
         self,
@@ -93,6 +103,77 @@ class LogisticHazard(SurvivalPredictor, CheckpointMixin, nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         return self.backbone(x)
+
+    def fit(
+        self,
+        X: ArrayLike,
+        event_time: ArrayLike,
+        event_indicator: ArrayLike,
+        *,
+        val_data: tuple[ArrayLike, ArrayLike, ArrayLike] | None = None,
+        loss: Callable[..., Tensor] | None = None,
+        epochs: int = 100,
+        batch_size: int | None = None,
+        lr: float = 1e-3,
+        weight_decay: float = 0.0,
+        seed: int = 0,
+        device: str | torch.device | None = None,
+        verbose: bool = False,
+    ) -> "LogisticHazard":
+        r"""Train on the discrete-time hazard likelihood.
+
+        A thin wrapper around :func:`tausurv.nn.fit` with
+        :class:`~tausurv.nn.losses.LogisticHazardLoss` as the default loss.
+        The time grid comes from :func:`tausurv.discretization.time_grid` on
+        the training data unless :meth:`set_time_grid` was called first. Use
+        :class:`~tausurv.nn.Trainer` directly for schedules, early stopping,
+        checkpointing or a custom training step.
+
+        Parameters
+        ----------
+        X : (n, d) array
+        event_time : (n,) array
+        event_indicator : (n,) array
+        val_data : (X, event_time, event_indicator), optional
+            Held-out data; its loss is recorded in ``history_``.
+        loss : callable, optional
+            Replaces the default loss. Called as
+            ``loss(logits, event_time, event_indicator, time_bins)``.
+        epochs, batch_size, lr, weight_decay, seed, device, verbose
+            Forwarded to :func:`tausurv.nn.fit`.
+
+        Weights are re-initialised under ``seed`` first, so a second call
+        retrains from scratch rather than continuing.
+
+        Returns
+        -------
+        self
+            With ``history_`` and the time grid set.
+        """
+        reset_parameters(self, seed)
+        train = as_training_tensors(self, X, event_time, event_indicator)
+        val = as_training_tensors(self, *val_data) if val_data is not None else None
+        fit_time_grid(self, event_time, event_indicator)
+        time_bins = as_model_tensor(self.times_, self)
+        criterion = LogisticHazardLoss() if loss is None else loss
+
+        def loss_fn(logits: Tensor, time: Tensor, indicator: Tensor) -> Tensor:
+            return criterion(logits, time, indicator, time_bins)
+
+        self.history_ = fit(
+            self,
+            loss_fn,
+            train,
+            val,
+            epochs=epochs,
+            batch_size=batch_size,
+            lr=lr,
+            weight_decay=weight_decay,
+            seed=seed,
+            device=device,
+            verbose=verbose,
+        )
+        return self
 
     def set_time_grid(self, times: ArrayLike) -> "LogisticHazard":
         r"""Set the real-time interpretation of the model's bins. See

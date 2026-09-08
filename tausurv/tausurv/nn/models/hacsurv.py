@@ -45,12 +45,11 @@ from torch import Tensor, nn
 
 from tausurv.nn import copulas as nn_copulas
 from tausurv.nn._utils import as_model_tensor
+from tausurv.nn.checkpoint import CheckpointMixin
 from tausurv.nn.copulas.base import ArchimedeanCopula
 from tausurv.nn.modules import MLP, MonotoneMLP
-from tausurv.nn.checkpoint import CheckpointMixin
 from tausurv.nn.training.trainer import Trainer
 from tausurv.predictor import CompetingRisksPredictor
-
 
 _ANALYTICAL_COPULAS: dict[str, type[ArchimedeanCopula]] = {
     "independence": nn_copulas.Independence,

@@ -302,3 +302,17 @@ def test_predict_requires_time_grid():
     X = torch.randn(3, 5)
     with pytest.raises(RuntimeError, match="times_"):
         model.predict_survival_function(X)
+
+
+def test_dsm_fit_sets_grid_to_training_event_times():
+    from tausurv import simulations
+
+    X, T, E = simulations.single_risk(n=120, n_features=5, seed=0)
+    model = DSM(in_features=5, n_components=2, hidden_features=(8,))
+    model.fit(X, T, E, epochs=3)
+
+    assert len(model.history_["train_loss"]) == 3
+    np.testing.assert_array_equal(model.times_, np.unique(T[E > 0]))
+    S = model.predict_survival_function(X[:4])
+    assert S.shape == (4, len(model.times_))
+    assert np.all((S >= 0.0) & (S <= 1.0))
