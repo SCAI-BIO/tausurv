@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-
 from tausurv.model_selection import train_test_split
 
 
@@ -136,3 +135,381 @@ def test_works_with_torch_tensors_via_asarray():
         X.numpy(), T.numpy(), E.numpy(), seed=0
     )
     assert X_tr.shape[0] + X_te.shape[0] == 100
+
+
+from tausurv.linear import CoxPH  # noqa: E402
+from tausurv.metrics import concordance  # noqa: E402
+from tausurv.model_selection import (  # noqa: E402
+    CVResult,
+    Scorer,
+    TuneResult,
+    cross_validate,
+    nested_cv,
+    scoring,
+    stratified_folds,
+    tune,
+)
+from tausurv.trees import RandomSurvivalForest  # noqa: E402
+
+from tausurv import simulations  # noqa: E402
+
+
+def test_stratified_folds_partition_and_stratify():
+    E = np.array([0] * 40 + [1] * 20 + [2] * 10)
+    folds = stratified_folds(E, n_splits=5, seed=0)
+
+    tests = np.concatenate([te for _, te in folds])
+    np.testing.assert_array_equal(np.sort(tests), np.arange(70))
+    for tr, te in folds:
+        assert np.intersect1d(tr, te).size == 0
+        assert (E[te] == 2).sum() == 2
+        assert (E[te] == 1).sum() == 4
+
+
+def test_stratified_folds_reject_single_split():
+    with pytest.raises(ValueError, match="n_splits"):
+        stratified_folds(np.array([0, 1, 1]), n_splits=1)
+
+
+def test_cross_validate_returns_one_row_per_fold_and_scorer():
+    X, T, E = simulations.single_risk(n=300, n_features=4, seed=0)
+    times = np.linspace(0.2, 2.0, 5)
+
+    scores = cross_validate(
+        lambda: CoxPH(),
+        X,
+        T,
+        E,
+        scoring={
+            "harrell": scoring.harrell(),
+            "uno": scoring.uno(tau=2.0),
+            "ibs": scoring.integrated_brier(times),
+        },
+        cv=4,
+        seed=0,
+    )
+
+    assert scores.scores.columns == ["fold", "harrell", "uno", "ibs", "seconds"]
+    assert scores.scores.height == 4
+    assert scores.scores["harrell"].min() > 0.5
+    assert 0.0 < scores.scores["ibs"].max() < 0.5
+    assert len(scores.models) == 4 and len(scores.splits) == 4
+
+
+def test_cross_validate_single_scorer_column_is_score():
+    X, T, E = simulations.single_risk(n=200, n_features=3, seed=1)
+    scores = cross_validate(lambda: CoxPH(), X, T, E, scoring=scoring.harrell(), cv=3)
+    assert scores.scores.columns == ["fold", "harrell_c", "seconds"]
+
+
+def test_cross_validate_custom_scorer_and_train():
+    X, T, E = simulations.single_risk(n=200, n_features=3, seed=2)
+    seen = []
+
+    def train(model, X_tr, T_tr, E_tr, trial=None):
+        seen.append(trial)
+        model.fit(X_tr, T_tr, E_tr)
+
+    def n_test(model, X_te, T_te, E_te, train_fold):
+        assert train_fold.X.shape[0] + X_te.shape[0] == 200
+        return float(X_te.shape[0])
+
+    scores = cross_validate(lambda: CoxPH(), X, T, E, scoring=n_test, train=train, cv=4)
+    assert seen == [None] * 4
+    assert scores.scores["score"].sum() == 200
+
+
+def test_cross_validate_accepts_explicit_index_pairs():
+    X, T, E = simulations.single_risk(n=100, n_features=3, seed=3)
+    idx = np.arange(100)
+    splits = [(idx[:70], idx[70:]), (idx[30:], idx[:30])]
+    scores = cross_validate(
+        lambda: CoxPH(), X, T, E, scoring=scoring.harrell(), cv=splits
+    )
+    assert scores.scores.height == 2
+
+
+def test_tune_samples_in_build_and_train():
+    optuna = pytest.importorskip("optuna")
+    X, T, E = simulations.single_risk(n=200, n_features=3, seed=4)
+
+    def build(trial=None):
+        return CoxPH(
+            tol=trial.suggest_float("tol", 1e-8, 1e-4, log=True) if trial else 1e-6
+        )
+
+    def train(model, X_tr, T_tr, E_tr, trial=None):
+        assert trial is not None
+        trial.suggest_int("unused", 1, 3)
+        model.fit(X_tr, T_tr, E_tr)
+
+    best = tune(
+        build, X, T, E, scoring=scoring.harrell(), train=train, cv=3, n_trials=4
+    )
+
+    assert set(best.params) == {"tol", "unused"}
+    assert isinstance(best.study, optuna.Study)
+    assert len(best.study.trials) == 4
+    assert best.model.tol == best.params["tol"]
+    assert best.model.predict(X).shape == (200,)
+
+
+def test_tune_minimises_when_scorer_says_so():
+    pytest.importorskip("optuna")
+    X, T, E = simulations.single_risk(n=200, n_features=3, seed=5)
+    times = np.linspace(0.2, 2.0, 5)
+    best = tune(
+        lambda trial=None: CoxPH(),
+        X,
+        T,
+        E,
+        scoring=scoring.integrated_brier(times),
+        cv=3,
+        n_trials=2,
+        refit=False,
+    )
+    assert best.study.direction.name == "MINIMIZE"
+    assert best.model is None
+
+
+def test_nested_cv_reports_outer_scores_and_params():
+    pytest.importorskip("optuna")
+    X, T, E = simulations.single_risk(n=240, n_features=3, seed=6)
+
+    def build(trial=None):
+        return CoxPH(
+            tol=trial.suggest_float("tol", 1e-8, 1e-4, log=True) if trial else 1e-6
+        )
+
+    result = nested_cv(
+        build, X, T, E, scoring=scoring.harrell(), outer=3, inner=2, n_trials=3
+    )
+
+    assert result.scores.columns == ["fold", "harrell_c", "seconds"]
+    assert (result.scores["seconds"] > 0).all()
+    assert result.scores.height == 3
+    assert len(result.params) == 3 and all("tol" in p for p in result.params)
+    assert len(result.studies) == 3 and len(result.models) == 3
+    assert all("tol" in t.columns for t in result.trials)
+
+
+def test_tune_with_neural_model_smoke():
+    pytest.importorskip("optuna")
+    pytest.importorskip("torch")
+    from tausurv.nn import DeepSurv
+
+    X, T, E = simulations.single_risk(n=120, n_features=3, seed=7)
+
+    def build(trial=None):
+        hidden = trial.suggest_int("hidden_dim", 4, 8) if trial else 8
+        return DeepSurv(in_features=3, hidden_dim=hidden, n_blocks=1)
+
+    def train(model, X_tr, T_tr, E_tr, trial=None):
+        lr = trial.suggest_float("lr", 1e-3, 1e-2, log=True) if trial else 1e-3
+        model.fit(X_tr, T_tr, E_tr, lr=lr, epochs=2)
+
+    best = tune(
+        build, X, T, E, scoring=scoring.harrell(), train=train, cv=2, n_trials=2
+    )
+    assert set(best.params) == {"hidden_dim", "lr"}
+    assert best.model.predict(X).shape == (120,)
+
+
+def test_cvresult_predicts_out_of_fold_and_refuses_other_sizes():
+    X, T, E = simulations.single_risk(n=120, n_features=3, seed=8)
+    cv = cross_validate(lambda: CoxPH(), X, T, E, scoring=scoring.harrell(), cv=3)
+
+    risk = cv.predict(X)
+    for model, (_, test_idx) in zip(cv.models, cv.splits, strict=True):
+        np.testing.assert_allclose(risk[test_idx], model.predict(X[test_idx]))
+
+    times = np.array([0.5, 1.0])
+    S = cv.predict_survival_function(X, times)
+    assert S.shape == (120, 2)
+    np.testing.assert_allclose(cv.predict_cif(X, times, cause=1), 1 - S)
+
+    with pytest.raises(ValueError, match="ensemble"):
+        cv.predict(X[:10])
+
+
+def test_cvresult_ensemble_averages_fold_models():
+    X, T, E = simulations.single_risk(n=120, n_features=3, seed=9)
+    cv = cross_validate(lambda: CoxPH(), X, T, E, scoring=scoring.harrell(), cv=3)
+    X_new = X[:7]
+
+    expected = np.mean([m.predict(X_new) for m in cv.models], axis=0)
+    np.testing.assert_allclose(cv.ensemble.predict(X_new), expected)
+    S = cv.ensemble.predict_survival_function(X_new, np.array([0.5, 1.0]))
+    assert S.shape == (7, 2)
+
+
+def test_cvresult_save_load_round_trip(tmp_path):
+    X, T, E = simulations.single_risk(n=120, n_features=3, seed=10)
+    cv = cross_validate(lambda: CoxPH(), X, T, E, scoring=scoring.harrell(), cv=3)
+    cv.save(tmp_path / "cv")
+    loaded = CVResult.load(tmp_path / "cv", model=CoxPH)
+
+    assert loaded.scores.equals(cv.scores)
+    for (a, b), (c, d) in zip(loaded.splits, cv.splits, strict=True):
+        np.testing.assert_array_equal(a, c)
+        np.testing.assert_array_equal(b, d)
+    np.testing.assert_allclose(loaded.predict(X), cv.predict(X))
+    assert loaded.params == cv.params and loaded.trials is None
+
+    with pytest.raises(ValueError, match="CoxPH"):
+        CVResult.load(tmp_path / "cv", model=RandomSurvivalForest)
+
+
+def test_cvresult_competing_risks_shapes():
+    pytest.importorskip("torch")
+    from tausurv.nn import DeepHit
+
+    X, T, E = simulations.competing_risk(n=150, n_features=4, n_causes=2, seed=11)
+
+    def train(model, X_tr, T_tr, E_tr, trial=None):
+        model.fit(X_tr, T_tr, E_tr, epochs=2)
+
+    cv = cross_validate(
+        lambda: DeepHit(in_features=4, n_causes=2, n_bins=5, hidden_dim=8, n_blocks=1),
+        X,
+        T,
+        E,
+        train=train,
+        scoring=scoring.harrell(),
+        cv=3,
+    )
+    times = cv.times_
+    assert cv.n_causes == 2
+    assert cv.predict_cif(X, times).shape == (150, 2, len(times))
+    assert cv.predict_cif(X, times, cause=2).shape == (150, len(times))
+    assert cv.ensemble.predict_cif(X[:5], times, cause=1).shape == (5, len(times))
+
+
+def test_tune_result_save_load_round_trip(tmp_path):
+    pytest.importorskip("optuna")
+    X, T, E = simulations.single_risk(n=150, n_features=3, seed=12)
+
+    def build(trial=None):
+        return CoxPH(
+            tol=trial.suggest_float("tol", 1e-8, 1e-4, log=True) if trial else 1e-6
+        )
+
+    best = tune(build, X, T, E, scoring=scoring.harrell(), cv=2, n_trials=3)
+    best.save(tmp_path / "best")
+    loaded = TuneResult.load(tmp_path / "best", model=CoxPH)
+
+    assert loaded.params == best.params and loaded.score == best.score
+    assert loaded.trials.equals(best.trials) and loaded.study is None
+    assert set(best.trials.columns) >= {"number", "value", "state", "tol"}
+    np.testing.assert_allclose(loaded.model.predict(X), best.model.predict(X))
+
+
+def test_tune_with_storage_resumes(tmp_path):
+    pytest.importorskip("optuna")
+    X, T, E = simulations.single_risk(n=150, n_features=3, seed=13)
+    url = f"sqlite:///{tmp_path / 'study.db'}"
+
+    def build(trial=None):
+        return CoxPH(
+            tol=trial.suggest_float("tol", 1e-8, 1e-4, log=True) if trial else 1e-6
+        )
+
+    first = tune(
+        build,
+        X,
+        T,
+        E,
+        scoring=scoring.harrell(),
+        cv=2,
+        n_trials=2,
+        storage=url,
+        study_name="s",
+        refit=False,
+    )
+    second = tune(
+        build,
+        X,
+        T,
+        E,
+        scoring=scoring.harrell(),
+        cv=2,
+        n_trials=2,
+        storage=url,
+        study_name="s",
+        refit=False,
+    )
+    assert first.trials.height == 2 and second.trials.height == 4
+
+
+def test_custom_loss_wrapped_in_scorer_is_minimised():
+    pytest.importorskip("optuna")
+    X, T, E = simulations.single_risk(n=150, n_features=3, seed=14)
+
+    def one_minus_c(model, X_te, T_te, E_te, train_fold):
+        return 1.0 - concordance.harrell(T_te, E_te, model.predict(X_te))
+
+    best = tune(
+        lambda trial=None: CoxPH(),
+        X,
+        T,
+        E,
+        scoring=Scorer(one_minus_c, greater_is_better=False),
+        cv=2,
+        n_trials=2,
+        refit=False,
+    )
+    assert best.study.direction.name == "MINIMIZE"
+
+
+def test_out_of_fold_rows_never_held_out_are_nan():
+    X, T, E = simulations.single_risk(n=60, n_features=3, seed=15)
+    idx = np.arange(60)
+    splits = [(idx[:40], idx[40:50]), (idx[10:], idx[:10])]
+    cv = cross_validate(lambda: CoxPH(), X, T, E, scoring=scoring.harrell(), cv=splits)
+
+    risk = cv.predict(X)
+    held_out = np.r_[0:10, 40:50]
+    assert np.isfinite(risk[held_out]).all()
+    assert np.isnan(np.delete(risk, held_out)).all()
+
+
+def test_evaluate_scalar_and_curve_scorers():
+    X, T, E = simulations.single_risk(n=150, n_features=3, seed=16)
+    cv = cross_validate(lambda: CoxPH(), X, T, E, scoring=scoring.harrell(), cv=3)
+    times = np.linspace(0.2, 1.5, 6)
+
+    c = cv.evaluate(scoring.harrell(), X, T, E)
+    np.testing.assert_allclose(c, cv.scores["harrell_c"].to_numpy())
+
+    aucs = cv.evaluate(scoring.auc_over_time(times), X, T, E)
+    briers = cv.evaluate(scoring.brier_over_time(times), X, T, E)
+    assert aucs.shape == (3, 6) and briers.shape == (3, 6)
+    assert np.all((aucs >= 0) & (aucs <= 1)) and np.all((briers >= 0) & (briers <= 1))
+
+    with pytest.raises(ValueError, match="own data"):
+        cv.evaluate(scoring.harrell(), X[:10], T[:10], E[:10])
+
+
+def test_progress_can_be_switched_off(capsys):
+    X, T, E = simulations.single_risk(n=80, n_features=3, seed=17)
+    cross_validate(
+        lambda: CoxPH(), X, T, E, scoring=scoring.harrell(), cv=2, progress=False
+    )
+    assert "folds" not in capsys.readouterr().err
+
+
+def test_nested_progress_reports_one_bar_of_fits(capsys):
+    pytest.importorskip("optuna")
+    X, T, E = simulations.single_risk(n=120, n_features=3, seed=18)
+    nested_cv(
+        lambda trial=None: CoxPH(),
+        X,
+        T,
+        E,
+        scoring=scoring.harrell(),
+        outer=2,
+        inner=2,
+        n_trials=3,
+    )
+    err = capsys.readouterr().err
+    assert err.count("fits:") >= 1 and "14/14" in err and "outer=2/2" in err

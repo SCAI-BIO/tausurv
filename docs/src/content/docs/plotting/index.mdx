@@ -44,8 +44,8 @@ Every plot supports three usage levels, with consistent parameter names:
 - **Standard parameter names**: `ax`, `ci`, `ci_level`, `legend`, `xlabel`,
   `ylabel`, `title`, `color`, `label`. Same defaults across plots.
 - **Comparison axis**: `group=` for splitting raw subject data;
-  `models=` for precomputed per-model overlays; `folds=` for CV-fold
-  bands.
+  `models=` for precomputed per-model overlays; a `(n_estimates, n_times)`
+  `values` array for a mean and spread band over folds, resamples or runs.
 - **Visual constants**:
   CI bands at `alpha=0.18`, no edge, colour matched to the line.
   Reference lines at `#888888`, dashed, `lw=0.6`, `alpha=0.6`.

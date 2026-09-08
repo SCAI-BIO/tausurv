@@ -30,6 +30,9 @@ boost = [
 deepsurv = [
     "h5py>=3.0",
 ]
+tune = [
+    "optuna>=3.0",
+]
 
 [build-system]
 requires = ["maturin>=1.10,<2"]

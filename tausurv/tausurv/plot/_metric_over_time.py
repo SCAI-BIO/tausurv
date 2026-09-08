@@ -4,14 +4,16 @@ All three share one backbone (:func:`_render`) and one ``Display`` shape so
 that figures compare 1:1 in side-by-side panels. The differences are purely
 cosmetic defaults (y-label, y-limits, reference line, default title).
 
-Input shapes per the API conventions:
+Input shapes follow the seaborn convention: the shape of ``values`` says
+what it is.
 
-- single curve: ``(times, values, ci=(lo, hi))`` for a precomputed CI band,
-  or ``(times, folds=fold_matrix)`` for a CV-fold band where the mean and
-  :math:`\pm 1` SD (default) are computed internally.
-- precomputed multi-model overlay: ``models=`` (a dict keyed by model
-  name). Each model independently picks ``values+ci``, ``folds``, or just
-  ``values`` (no band).
+- ``(times, values)`` with ``values`` of shape ``(n_times,)`` is one curve;
+  ``ci=(lo, hi)`` adds a precomputed band.
+- ``values`` of shape ``(n_estimates, n_times)`` is several estimates of the
+  same curve, from cross-validation folds, bootstrap resamples or repeated
+  runs. The line is their mean and ``band`` is the spread, :math:`\pm 1` SD
+  by default, computed here.
+- ``models=`` overlays several curves, each entry choosing its own form.
 
 A ``from_estimator`` classmethod is intentionally not provided at this layer
 -- computing AUC/Brier/C from a fitted predictor requires a particular
@@ -28,7 +30,7 @@ import numpy as np
 
 from tausurv.plot._primitives import ci_band, reference_line
 
-Band = Literal["sd", "se"]
+Band = Literal["sd", "se"] | None
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -68,7 +70,6 @@ def auc_over_time(
     values: "ArrayLike | None" = None,
     *,
     ci: "tuple[ArrayLike, ArrayLike] | None" = None,
-    folds: "ArrayLike | None" = None,
     band: Band = "sd",
     models: "dict[str, dict[str, Any]] | None" = None,
     ax: "Axes | None" = None,
@@ -88,21 +89,21 @@ def auc_over_time(
 
     Parameters
     ----------
-    times, values : array-like
-        Single-curve input. ``times`` is the x-axis grid; ``values`` are
-        the AUCs at those times.
+    times : (n_times,) array-like
+        The x-axis grid.
+    values : (n_times,) or (n_estimates, n_times) array-like
+        One curve, or several estimates of the same curve (cross-validation
+        folds, bootstrap resamples, repeated runs). With several, the line
+        is their mean and ``band`` draws the spread.
     ci : (array, array), optional
-        Lower / upper bounds for the single-curve band.
-    folds : (n_folds, n_times) array, optional
-        CV-fold matrix. The plot renders the fold mean as the line and a
-        ``mean +/- 1*SD`` band by default (or ``+/- SE`` with
-        ``band="se"``). Mutually exclusive with ``values`` / ``ci``.
-    band : {"sd", "se"}, default "sd"
-        Band semantics when ``folds`` is supplied.
+        Lower / upper bounds for a single curve's band.
+    band : {"sd", "se"} or None, default "sd"
+        Spread drawn around the mean of several estimates: ``mean +/- SD``,
+        ``mean +/- SE``, or no band.
     models : dict[str, dict], optional
-        Precomputed overlay. Each entry has ``"times"`` plus one of
-        ``"values"`` (optionally with ``"ci"``) or ``"folds"`` (with
-        optional per-entry ``"band"`` override).
+        Precomputed overlay. Each entry has ``"times"`` and ``"values"``,
+        optionally ``"ci"`` for a single curve or ``"band"`` for several
+        estimates.
     ax : Axes, optional
     legend : bool, default True
     reference : float, optional
@@ -122,7 +123,6 @@ def auc_over_time(
         times=times,
         values=values,
         ci=ci,
-        folds=folds,
         band=band,
         models=models,
         ax=ax,
@@ -142,7 +142,6 @@ def concordance_over_time(
     values: "ArrayLike | None" = None,
     *,
     ci: "tuple[ArrayLike, ArrayLike] | None" = None,
-    folds: "ArrayLike | None" = None,
     band: Band = "sd",
     models: "dict[str, dict[str, Any]] | None" = None,
     ax: "Axes | None" = None,
@@ -158,14 +157,12 @@ def concordance_over_time(
     r"""Time-dependent concordance vs time.
 
     Same conventions as :func:`auc_over_time`: ``reference=0.5``,
-    ``ylim=(0.4, 1.0)``, single-curve or ``models=`` overlay. Supports
-    ``folds=`` for CV-fold mean +/- SD bands.
+    ``ylim=(0.4, 1.0)``, one curve, several estimates, or ``models=``.
     """
     return _render(
         times=times,
         values=values,
         ci=ci,
-        folds=folds,
         band=band,
         models=models,
         ax=ax,
@@ -185,7 +182,6 @@ def brier_over_time(
     values: "ArrayLike | None" = None,
     *,
     ci: "tuple[ArrayLike, ArrayLike] | None" = None,
-    folds: "ArrayLike | None" = None,
     band: Band = "sd",
     models: "dict[str, dict[str, Any]] | None" = None,
     ax: "Axes | None" = None,
@@ -202,13 +198,12 @@ def brier_over_time(
 
     No default reference line -- there is no universal baseline for a Brier
     curve (a marginal-KM Brier serves the role and is best passed as another
-    entry in ``models=``). Supports ``folds=`` for CV-fold mean +/- SD bands.
+    entry in ``models=``). Inputs as in :func:`auc_over_time`.
     """
     return _render(
         times=times,
         values=values,
         ci=ci,
-        folds=folds,
         band=band,
         models=models,
         ax=ax,
@@ -228,7 +223,6 @@ def _render(
     times: "ArrayLike | None",
     values: "ArrayLike | None",
     ci: "tuple[ArrayLike, ArrayLike] | None",
-    folds: "ArrayLike | None",
     band: Band,
     models: "dict[str, dict[str, Any]] | None",
     ax: "Axes | None",
@@ -247,7 +241,6 @@ def _render(
         times=times,
         values=values,
         ci=ci,
-        folds=folds,
         band=band,
         models=models,
         label=label,
@@ -300,22 +293,15 @@ def _gather_curves(
     times: "ArrayLike | None",
     values: "ArrayLike | None",
     ci: "tuple[ArrayLike, ArrayLike] | None",
-    folds: "ArrayLike | None",
     band: Band,
     models: "dict[str, dict[str, Any]] | None",
     label: str | None,
     color: str | None,
 ) -> dict[str, dict[str, Any]]:
     if models is not None:
-        if (
-            times is not None
-            or values is not None
-            or ci is not None
-            or folds is not None
-        ):
+        if times is not None or values is not None or ci is not None:
             raise ValueError(
-                "pass either single-curve inputs (times, values [, ci]) or "
-                "(times, folds=...) -- or models= for an overlay, not both"
+                "pass either (times, values [, ci]) or models= for an overlay, not both"
             )
         if color is not None or label is not None:
             raise ValueError(
@@ -343,7 +329,6 @@ def _gather_curves(
     v_arr, ci_arr = _values_and_ci(
         values=values,
         ci=ci,
-        folds=folds,
         band=band,
         time_shape=t.shape,
         where="single curve",
@@ -360,7 +345,6 @@ def _values_and_ci_from_spec(
     return _values_and_ci(
         values=spec.get("values"),
         ci=spec.get("ci"),
-        folds=spec.get("folds"),
         band=spec.get("band", default_band),
         time_shape=time_shape,
         where=where,
@@ -371,54 +355,55 @@ def _values_and_ci(
     *,
     values: "ArrayLike | None",
     ci: "tuple[ArrayLike, ArrayLike] | None",
-    folds: "ArrayLike | None",
     band: Band,
     time_shape: tuple[int, ...],
     where: str,
 ) -> "tuple[np.ndarray, tuple[np.ndarray, np.ndarray] | None]":
-    if folds is not None:
-        if values is not None or ci is not None:
-            raise ValueError(f"{where}: folds= is mutually exclusive with values/ci")
-        v, ci_arr = _band_from_folds(folds, time_shape, band, where)
-        return v, ci_arr
-
     if values is None:
-        raise ValueError(f"{where}: one of values or folds must be supplied")
+        raise ValueError(f"{where}: values must be supplied")
     v_arr = np.asarray(values, dtype=np.float64)
+    if v_arr.ndim == 2:
+        if ci is not None:
+            raise ValueError(
+                f"{where}: ci is for a single curve; with several estimates the "
+                f"band is computed from them"
+            )
+        return _mean_and_band(v_arr, time_shape, band, where)
     if v_arr.shape != time_shape:
         raise ValueError(
-            f"{where}: times and values must be 1d arrays of equal length; "
-            f"got {time_shape} and {v_arr.shape}"
+            f"{where}: values must have shape {time_shape} for one curve or "
+            f"(n_estimates, {time_shape[0]}) for several; got {v_arr.shape}"
         )
     ci_arr = _check_ci(ci, time_shape, where)
     return v_arr, ci_arr
 
 
-def _band_from_folds(
-    folds: "ArrayLike",
+def _mean_and_band(
+    estimates: np.ndarray,
     time_shape: tuple[int, ...],
     band: Band,
     where: str,
-) -> "tuple[np.ndarray, tuple[np.ndarray, np.ndarray]]":
-    f = np.asarray(folds, dtype=np.float64)
-    if f.ndim != 2 or f.shape[1:] != time_shape:
+) -> "tuple[np.ndarray, tuple[np.ndarray, np.ndarray] | None]":
+    if estimates.shape[1:] != time_shape:
         raise ValueError(
-            f"{where}: folds must have shape (n_folds, n_times) matching "
-            f"times {time_shape}; got {f.shape}"
+            f"{where}: several estimates must have shape (n_estimates, n_times) "
+            f"matching times {time_shape}; got {estimates.shape}"
         )
-    if f.shape[0] < 2:
+    if estimates.shape[0] < 2:
         raise ValueError(
-            f"{where}: folds must contain at least 2 rows to compute a band; "
-            f"got n_folds={f.shape[0]}"
+            f"{where}: at least 2 estimates are needed for a band; "
+            f"got {estimates.shape[0]}"
         )
-    mean = np.nanmean(f, axis=0)
-    std = np.nanstd(f, axis=0, ddof=1)
+    mean = np.nanmean(estimates, axis=0)
+    if band is None:
+        return mean, None
+    std = np.nanstd(estimates, axis=0, ddof=1)
     if band == "sd":
         half = std
     elif band == "se":
-        half = std / np.sqrt(f.shape[0])
+        half = std / np.sqrt(estimates.shape[0])
     else:
-        raise ValueError(f"{where}: unknown band {band!r}; expected 'sd' or 'se'")
+        raise ValueError(f"{where}: unknown band {band!r}; expected 'sd', 'se' or None")
     return mean, (mean - half, mean + half)
 
 
