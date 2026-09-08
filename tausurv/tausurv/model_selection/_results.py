@@ -31,8 +31,9 @@ class CVResult(CompetingRisksPredictor):
     Attributes
     ----------
     scores : polars.DataFrame
-        One row per fold, one column per scorer. For :func:`nested_cv` these
-        are the outer scores, the honest estimate after tuning.
+        One row per fold, one column per scorer and ``seconds`` of training
+        time. For :func:`nested_cv` these are the outer scores, the honest
+        estimate after tuning, and the seconds cover the inner search.
     models : list
         The fitted model of each fold, in fold order.
     splits : list of (train_idx, test_idx)

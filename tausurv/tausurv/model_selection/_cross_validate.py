@@ -2,6 +2,7 @@ r"""Cross-validation on the model's own ``fit`` and a scorer contract."""
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any
@@ -9,6 +10,7 @@ from typing import Any
 import numpy as np
 import polars as pl
 from numpy.typing import ArrayLike, NDArray
+from tqdm.auto import tqdm
 
 from tausurv.model_selection._fold import Fold
 from tausurv.model_selection._results import CVResult
@@ -25,11 +27,13 @@ class Scorer:
     evaluated on a test fold with ``train`` the training :class:`Fold`. Wrap
     a custom function whose lower values are better in
     ``Scorer(fn, greater_is_better=False)`` so :func:`tune` minimises it;
-    a bare function is taken to be maximised.
+    a bare function is taken to be maximised. ``name`` labels the score's
+    column in :attr:`CVResult.scores`.
     """
 
     fn: ScoreFn
     greater_is_better: bool = True
+    name: str = "score"
 
     def __call__(
         self,
@@ -58,6 +62,7 @@ def cross_validate(
     train: Train | None = None,
     cv: Splits = 5,
     seed: int | None = 0,
+    progress: bool = True,
 ) -> CVResult:
     r"""Fit a fresh model per fold and score it on the held-out fold.
 
@@ -84,25 +89,35 @@ def cross_validate(
         index pairs.
     seed : int, optional
         Seed for the folds.
+    progress : bool, default True
+        Show a progress bar with one step per model fit; a widget in a
+        notebook, text in a terminal.
 
     Returns
     -------
     CVResult
-        Scores per fold (one column per scorer, ``score`` for a single one),
-        the fold models and the splits. Predicts out of fold on the same
-        ``X``; ``.ensemble`` predicts on new data.
+        Scores per fold, one column per scorer named by the dict key or the
+        scorer's ``name``, plus ``seconds`` of training time; the fold models
+        and the splits. Predicts out of fold on the same ``X``; ``.ensemble``
+        predicts on new data.
     """
-    return _cross_validate(
+    splits = _resolve_splits(cv, np.asarray(event_indicator), seed)
+    bar = fit_bar(progress, total=len(splits), leave=False)
+    result = _cross_validate(
         build,
         X,
         event_time,
         event_indicator,
         scoring=scoring,
         train=train,
-        cv=cv,
+        cv=splits,
         seed=seed,
         trial=None,
+        bar=bar,
     )
+    if bar is not None:
+        bar.close()
+    return result
 
 
 def _cross_validate(
@@ -116,23 +131,30 @@ def _cross_validate(
     cv: Splits,
     seed: int | None,
     trial: Any,
+    bar: Any = None,
 ) -> CVResult:
+    """``bar`` is a fit counter shared with the caller, or ``None``."""
     X_arr = np.asarray(X)
     Y = np.asarray(event_time, dtype=np.float64)
     E = np.asarray(event_indicator)
-    scorers = scoring if isinstance(scoring, dict) else {"score": scoring}
+    scorers = scoring if isinstance(scoring, dict) else {scorer_name(scoring): scoring}
 
     splits = _resolve_splits(cv, E, seed)
     rows, models = [], []
     for k, (train_idx, test_idx) in enumerate(splits):
         train_fold = Fold(X_arr[train_idx], Y[train_idx], E[train_idx])
         model = build() if trial is None else build(trial)
+        started = time.perf_counter()
         _train(train, model, train_fold, trial)
+        seconds = time.perf_counter() - started
+        if bar is not None:
+            bar.update(1)
         row: dict[str, Any] = {"fold": k}
         for name, scorer in scorers.items():
             row[name] = float(
                 scorer(model, X_arr[test_idx], Y[test_idx], E[test_idx], train_fold)
             )
+        row["seconds"] = seconds
         rows.append(row)
         models.append(model)
     return CVResult(
@@ -141,6 +163,22 @@ def _cross_validate(
         splits=splits,
         params=[{} for _ in splits],
     )
+
+
+def fit_bar(progress: bool, *, total: int, leave: bool = True) -> Any:
+    """A tqdm bar counting model fits, or ``None`` when ``progress`` is off.
+
+    A widget in a notebook, text in a terminal. Private callers share one
+    bar down the call chain so a whole study reports through it.
+    """
+    if not progress:
+        return None
+    return tqdm(total=total, desc="fits", leave=leave)
+
+
+def scorer_name(scoring: Any) -> str:
+    """Column name for a scorer: its ``name`` when it has one, else ``score``."""
+    return str(getattr(scoring, "name", "score"))
 
 
 def _train(train: Train | None, model: Any, fold: Fold, trial: Any) -> None:

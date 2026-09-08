@@ -37,7 +37,7 @@ def harrell() -> Scorer:
     ) -> float:
         return concordance.harrell(Y, E, model.predict(X))
 
-    return Scorer(score)
+    return Scorer(score, name="harrell_c")
 
 
 def uno(tau: float) -> Scorer:
@@ -53,7 +53,7 @@ def uno(tau: float) -> Scorer:
         G = censoring_distribution(train.event_time, train.event_indicator)
         return concordance.uno(Y, E, model.predict(X), tau=tau, censoring_survival=G)
 
-    return Scorer(score)
+    return Scorer(score, name="uno_c")
 
 
 def antolini(times: ArrayLike) -> Scorer:
@@ -71,7 +71,7 @@ def antolini(times: ArrayLike) -> Scorer:
             Y, E, model.predict_survival_function(X, grid), grid
         )
 
-    return Scorer(score)
+    return Scorer(score, name="antolini_c")
 
 
 def integrated_brier(times: ArrayLike) -> Scorer:
@@ -89,7 +89,7 @@ def integrated_brier(times: ArrayLike) -> Scorer:
         S = model.predict_survival_function(X, grid)
         return brier.integrated(Y, E, S, grid, censoring_survival=G)
 
-    return Scorer(score, greater_is_better=False)
+    return Scorer(score, greater_is_better=False, name="integrated_brier")
 
 
 def d_calibration(times: ArrayLike, *, n_bins: int = 10) -> Scorer:
@@ -106,7 +106,7 @@ def d_calibration(times: ArrayLike, *, n_bins: int = 10) -> Scorer:
         S = model.predict_survival_function(X, grid)
         return calibration.distributional(Y, E, S, grid, n_bins=n_bins)
 
-    return Scorer(score)
+    return Scorer(score, name="d_calibration")
 
 
 def auc_over_time(times: ArrayLike) -> CurveFn:

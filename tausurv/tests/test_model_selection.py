@@ -189,7 +189,7 @@ def test_cross_validate_returns_one_row_per_fold_and_scorer():
         seed=0,
     )
 
-    assert scores.scores.columns == ["fold", "harrell", "uno", "ibs"]
+    assert scores.scores.columns == ["fold", "harrell", "uno", "ibs", "seconds"]
     assert scores.scores.height == 4
     assert scores.scores["harrell"].min() > 0.5
     assert 0.0 < scores.scores["ibs"].max() < 0.5
@@ -199,7 +199,7 @@ def test_cross_validate_returns_one_row_per_fold_and_scorer():
 def test_cross_validate_single_scorer_column_is_score():
     X, T, E = simulations.single_risk(n=200, n_features=3, seed=1)
     scores = cross_validate(lambda: CoxPH(), X, T, E, scoring=scoring.harrell(), cv=3)
-    assert scores.scores.columns == ["fold", "score"]
+    assert scores.scores.columns == ["fold", "harrell_c", "seconds"]
 
 
 def test_cross_validate_custom_scorer_and_train():
@@ -285,7 +285,8 @@ def test_nested_cv_reports_outer_scores_and_params():
         build, X, T, E, scoring=scoring.harrell(), outer=3, inner=2, n_trials=3
     )
 
-    assert result.scores.columns == ["fold", "score"]
+    assert result.scores.columns == ["fold", "harrell_c", "seconds"]
+    assert (result.scores["seconds"] > 0).all()
     assert result.scores.height == 3
     assert len(result.params) == 3 and all("tol" in p for p in result.params)
     assert len(result.studies) == 3 and len(result.models) == 3
@@ -478,7 +479,7 @@ def test_evaluate_scalar_and_curve_scorers():
     times = np.linspace(0.2, 1.5, 6)
 
     c = cv.evaluate(scoring.harrell(), X, T, E)
-    np.testing.assert_allclose(c, cv.scores["score"].to_numpy())
+    np.testing.assert_allclose(c, cv.scores["harrell_c"].to_numpy())
 
     aucs = cv.evaluate(scoring.auc_over_time(times), X, T, E)
     briers = cv.evaluate(scoring.brier_over_time(times), X, T, E)
@@ -487,3 +488,28 @@ def test_evaluate_scalar_and_curve_scorers():
 
     with pytest.raises(ValueError, match="own data"):
         cv.evaluate(scoring.harrell(), X[:10], T[:10], E[:10])
+
+
+def test_progress_can_be_switched_off(capsys):
+    X, T, E = simulations.single_risk(n=80, n_features=3, seed=17)
+    cross_validate(
+        lambda: CoxPH(), X, T, E, scoring=scoring.harrell(), cv=2, progress=False
+    )
+    assert "folds" not in capsys.readouterr().err
+
+
+def test_nested_progress_reports_one_bar_of_fits(capsys):
+    pytest.importorskip("optuna")
+    X, T, E = simulations.single_risk(n=120, n_features=3, seed=18)
+    nested_cv(
+        lambda trial=None: CoxPH(),
+        X,
+        T,
+        E,
+        scoring=scoring.harrell(),
+        outer=2,
+        inner=2,
+        n_trials=3,
+    )
+    err = capsys.readouterr().err
+    assert err.count("fits:") >= 1 and "14/14" in err and "outer=2/2" in err
