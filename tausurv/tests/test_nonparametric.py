@@ -94,3 +94,32 @@ def test_aalen_johansen_competing_risks_hand_computed():
 def test_aalen_johansen_rejects_nonpositive_cause():
     with pytest.raises(ValueError, match="cause"):
         nonparametric.aalen_johansen([1, 2], [1, 1], cause=0)
+
+
+def test_aalen_johansen_variance_single_cause_is_greenwood():
+    rng = np.random.default_rng(0)
+    Y = rng.exponential(1.0, 50)
+    delta = rng.integers(0, 2, 50)
+
+    var = nonparametric.aalen_johansen_variance(Y, delta, cause=1)
+
+    time, inverse = np.unique(np.sort(Y), return_inverse=True)
+    n_at_each = np.bincount(inverse)
+    d = np.bincount(inverse, weights=delta[np.argsort(Y, kind="stable")])
+    n = len(Y) - np.concatenate([[0], np.cumsum(n_at_each[:-1])])
+    S = np.cumprod(1.0 - d / n)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        inc = np.where(n - d > 0, d / (n * (n - d)), 0.0)
+    greenwood = S**2 * np.cumsum(inc)
+
+    np.testing.assert_allclose(var.time, time)
+    np.testing.assert_allclose(var.value, greenwood, atol=1e-12)
+
+
+def test_aalen_johansen_variance_is_zero_before_first_event():
+    Y = np.array([1.0, 2.0, 3.0, 4.0])
+    delta = np.array([0, 0, 1, 2])
+    var = nonparametric.aalen_johansen_variance(Y, delta, cause=1)
+    assert var(0.5) == 0.0
+    assert var(2.5) == 0.0
+    assert var(3.0) > 0.0

@@ -172,3 +172,28 @@ def test_ylim_clamped_to_unit_interval(cr_data):
     lo, hi = disp.ax.get_ylim()
     assert lo == pytest.approx(0.0)
     assert hi == pytest.approx(1.02)
+
+
+def test_cif_ci_polys_present_by_default(cr_data):
+    Y, E = cr_data
+    disp = ts.plot.cif(Y, E, at_risk=False)
+    assert set(disp.ci_polys) == set(disp.lines)
+
+
+def test_cif_no_ci_polys_when_ci_false(cr_data):
+    Y, E = cr_data
+    disp = ts.plot.cif(Y, E, ci=False, at_risk=False)
+    assert disp.ci_polys == {}
+
+
+def test_cif_ci_band_brackets_curve(cr_data):
+    Y, E = cr_data
+    disp = ts.plot.cif(Y, E, causes=1, at_risk=False)
+    verts = disp.ci_polys[""].get_paths()[0].vertices
+    assert verts[:, 1].min() >= 0.0 and verts[:, 1].max() <= 1.0
+
+
+def test_single_cause_label_applied_from_cause_labels(cr_data):
+    Y, E = cr_data
+    disp = ts.plot.cif(Y, E, causes=1, cause_labels={1: "Relapse"}, at_risk=False)
+    assert list(disp.lines) == ["Relapse"]

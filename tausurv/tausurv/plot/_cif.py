@@ -22,9 +22,11 @@ from typing import TYPE_CHECKING, Sequence
 
 import numpy as np
 
-from tausurv.nonparametric import aalen_johansen
+from tausurv.nonparametric import aalen_johansen, aalen_johansen_variance
+from tausurv.plot._km import CIMethod, _km_ci
 from tausurv.plot._primitives import (
     censor_marks,
+    ci_band,
     draw_at_risk_table,
     make_curve_and_table_axes,
     unique_order,
@@ -32,6 +34,7 @@ from tausurv.plot._primitives import (
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
+    from matplotlib.collections import PolyCollection
     from matplotlib.figure import Figure
     from matplotlib.lines import Line2D
     from numpy.typing import ArrayLike
@@ -48,12 +51,15 @@ class CIFDisplay:
     at_risk_ax : Axes or None
     lines : dict[str, Line2D]
         One step curve per (cause or group), keyed by its label.
+    ci_polys : dict[str, PolyCollection]
+        CI band per curve; empty when ``ci=False``.
     """
 
     fig: "Figure"
     ax: "Axes"
     at_risk_ax: "Axes | None" = None
     lines: dict[str, "Line2D"] = field(default_factory=dict)
+    ci_polys: dict[str, "PolyCollection"] = field(default_factory=dict)
 
 
 def cif(
@@ -64,6 +70,9 @@ def cif(
     group: "ArrayLike | None" = None,
     ax: "Axes | None" = None,
     at_risk: bool = True,
+    ci: bool = True,
+    ci_method: CIMethod = "logit",
+    ci_level: float = 0.95,
     legend: bool = True,
     censor_ticks: bool | None = None,
     xlabel: str = "Time",
@@ -88,13 +97,20 @@ def cif(
     at_risk : bool, default True
         Render an at-risk table below the curves. When ``ax`` is supplied the
         table is suppressed (the GridSpec is owned by the caller).
+    ci : bool, default True
+        Render pointwise CI bands from the Aalen-Johansen variance.
+    ci_method : {"logit", "log-log", "wald"}, default "logit"
+        Transformation for the band; ``"logit"`` and ``"log-log"`` keep it
+        inside :math:`[0, 1]`.
+    ci_level : float, default 0.95
     legend : bool, default True
     censor_ticks : bool, optional
         ``None`` auto-enables for subsamples with :math:`n < 100`.
     xlabel, ylabel, title : str
     cause_labels : dict[int, str], optional
         Custom legend labels for each cause, e.g.
-        ``{1: "Relapse", 2: "Death"}``.
+        ``{1: "Relapse", 2: "Death"}``. With a single cause and no group
+        the curve is unlabelled unless its cause appears here.
 
     Returns
     -------
@@ -129,6 +145,12 @@ def cif(
             step_kw["label"] = label
         (line,) = curve_ax.step(rec["times"], rec["values"], **step_kw)
         disp.lines[label] = line
+
+        if ci:
+            lo, hi = _km_ci(rec["values"], rec["variance"], ci_level, ci_method)
+            disp.ci_polys[label] = ci_band(
+                curve_ax, rec["times"], lo, hi, line.get_color(), step="post",
+            )
 
         show_censor = (
             censor_ticks if censor_ticks is not None else rec["raw_t"].size < 100
@@ -214,8 +236,9 @@ def _build_curves(
         curves: dict[str, dict] = {}
         if len(causes_list) == 1:
             c = causes_list[0]
-            curves[""] = _aj_record(Y, E, c)
-            at_risk_rows = {"": Y}
+            lbl = label_for.get(c, "")
+            curves[lbl] = _aj_record(Y, E, c)
+            at_risk_rows = {lbl: Y}
         else:
             for c in causes_list:
                 lbl = label_for.get(c, f"Cause {c}")
@@ -241,9 +264,11 @@ def _build_curves(
 
 def _aj_record(Y: np.ndarray, E: np.ndarray, cause: int) -> dict:
     step = aalen_johansen(Y, E, cause)
+    variance = aalen_johansen_variance(Y, E, cause)
     return {
         "times": np.concatenate([[0.0], step.time]),
         "values": np.concatenate([[0.0], step.value]),
+        "variance": np.concatenate([[0.0], variance.value]),
         "raw_t": Y,
         "raw_e": E.astype(np.int8),
     }

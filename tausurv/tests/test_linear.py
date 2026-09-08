@@ -94,3 +94,53 @@ def test_coxph_save_load_preserves_predictions(tmp_path):
 def test_coxph_unfitted_save_rejected(tmp_path):
     with pytest.raises(RuntimeError, match="not fitted"):
         CoxPH().save(tmp_path / "cph")
+
+
+def test_coxph_standard_errors_match_lifelines():
+    lifelines = pytest.importorskip("lifelines")
+    pd = pytest.importorskip("pandas")
+    # Continuous times, so Breslow and lifelines' Efron tie handling coincide.
+    X, T, E = simulations.single_risk(n=500, n_features=5, censoring_rate=0.3, seed=1)
+
+    cph = CoxPH(tol=1e-9).fit(X, T, E)
+
+    df = pd.DataFrame(X, columns=[f"x{i}" for i in range(X.shape[1])])
+    df["T"], df["E"] = T, E
+    cpf = lifelines.CoxPHFitter().fit(df, duration_col="T", event_col="E")
+
+    np.testing.assert_allclose(cph.coef_, cpf.params_.to_numpy(), atol=1e-4)
+    np.testing.assert_allclose(
+        cph.standard_errors_, cpf.standard_errors_.to_numpy(), rtol=1e-4
+    )
+    np.testing.assert_allclose(
+        cph.covariance_, cpf.variance_matrix_.to_numpy(), rtol=1e-4, atol=1e-8
+    )
+
+
+def test_coxph_confidence_intervals_are_wald():
+    X, T, E = simulations.single_risk(n=300, n_features=3, seed=2)
+    cph = CoxPH().fit(X, T, E)
+
+    lo, hi = cph.confidence_intervals(level=0.95)
+    assert np.all(lo < cph.coef_) and np.all(cph.coef_ < hi)
+    np.testing.assert_allclose(hi - lo, 2 * 1.959963984540054 * cph.standard_errors_)
+
+    lo90, hi90 = cph.confidence_intervals(level=0.90)
+    assert np.all(hi90 - lo90 < hi - lo)
+
+
+def test_coxph_confidence_intervals_reject_bad_level():
+    X, T, E = simulations.single_risk(n=100, n_features=2, seed=3)
+    cph = CoxPH().fit(X, T, E)
+    with pytest.raises(ValueError, match="level"):
+        cph.confidence_intervals(level=1.5)
+
+
+def test_coxph_save_load_preserves_standard_errors(tmp_path):
+    X, T, E = simulations.single_risk(n=200, seed=0)
+    cph = CoxPH().fit(X, T, E)
+    cph.save(tmp_path / "cph")
+    loaded = CoxPH.load(tmp_path / "cph")
+
+    np.testing.assert_allclose(loaded.covariance_, cph.covariance_)
+    np.testing.assert_allclose(loaded.standard_errors_, cph.standard_errors_)

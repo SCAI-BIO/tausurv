@@ -5,10 +5,9 @@ log-scaled with a vertical reference at :math:`x = 1` -- the conventional
 layout for hazard ratios, odds ratios, and risk ratios. Optional per-row
 annotation prints ``estimate (lo, hi)`` to the right of each CI bar.
 
-Accepts precomputed ``(names, estimates, ci=(lo, hi))``. A
-``from_estimator`` classmethod will be added once
-:class:`~tausurv.linear.CoxPH` stores standard errors of its coefficient
-estimates -- the Hessian-based covariance is not yet a fitted attribute.
+Accepts precomputed ``(names, estimates, ci=(lo, hi))``. For a fitted
+:class:`~tausurv.linear.CoxPH`, ``np.exp(model.confidence_intervals())``
+gives the hazard-ratio bounds.
 """
 
 from __future__ import annotations

@@ -62,3 +62,26 @@ def test_aalen_johansen_matches_lifelines():
     # lifelines indexes by time (including time 0 sometimes); evaluate at our grid.
     their_at_ours = np.interp(cif.time, their_cif.index.values, their_cif.values)
     np.testing.assert_allclose(cif.value, their_at_ours, atol=1e-10)
+
+
+def test_aalen_johansen_variance_matches_lifelines():
+    lifelines = pytest.importorskip("lifelines")
+
+    rng = np.random.default_rng(1)
+    n = 200
+    event_time = rng.exponential(2.0, n)
+    event_indicator = rng.choice([0, 1, 2], size=n, p=[0.3, 0.4, 0.3])
+
+    var = nonparametric.aalen_johansen_variance(event_time, event_indicator, cause=1)
+
+    ajf = lifelines.AalenJohansenFitter(calculate_variance=True)
+    ajf.fit(event_time, event_indicator, event_of_interest=1)
+    their_var = ajf.variance_
+
+    their_at_ours = np.interp(var.time, their_var.index.values, their_var.values)
+
+    # lifelines divides by n - d and returns NaN once the risk set is exhausted;
+    # we report 0 there. Compare everywhere lifelines is finite.
+    finite = np.isfinite(their_at_ours)
+    assert finite[:-1].all()
+    np.testing.assert_allclose(var.value[finite], their_at_ours[finite], atol=1e-12)

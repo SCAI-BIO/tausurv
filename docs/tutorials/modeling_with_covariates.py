@@ -124,13 +124,14 @@ coefs
 ts.plot.forest(
     names=feature_names,
     estimates=np.exp(cox.coef_),
+    ci=np.exp(cox.confidence_intervals()),
     xlabel="Hazard ratio (per 1-unit increase)",
 )
 
 # %% [markdown]
 # Reading the strongest effects, every additional unit of **bilirubin** (mg/dL) multiplies the hazard of death by roughly the bilirubin HR shown, holding the other covariates fixed; every step up in **histologic stage** does the same on its own scale; every additional year of **age** is a small multiplier. **Albumin** sits on the other side of one — higher serum albumin is associated with lower mortality, as a marker of preserved liver synthetic function.
 #
-# Confidence intervals will accompany hazard ratios once `CoxPH` exposes standard errors; today the library returns point estimates only. The forest plot will show CIs automatically when they become available.
+# The bars are Wald 95% intervals from the inverse observed information at $\hat\beta$, exponentiated onto the hazard-ratio scale.
 
 # %% [markdown]
 # ## What the model says about specific patients

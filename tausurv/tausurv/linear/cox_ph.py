@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from scipy.optimize import minimize
+from scipy.stats import norm
 
 from tausurv.linear._checkpoint import _check_model_name
 from tausurv.predictor import SurvivalPredictor
@@ -24,8 +25,10 @@ class CoxPH(SurvivalPredictor):
     $$
 
     with L-BFGS-B, then estimates the baseline cumulative hazard
-    $\hat \Lambda_0(t)$ by Breslow. Inherits the unified survival prediction
-    API from :class:`SurvivalPredictor`.
+    $\hat \Lambda_0(t)$ by Breslow. Standard errors come from the inverse of
+    the observed information $-\partial^2 \ell / \partial\beta\,\partial\beta^\top$
+    at $\hat\beta$. Inherits the unified survival prediction API from
+    :class:`SurvivalPredictor`.
 
     Parameters
     ----------
@@ -37,6 +40,10 @@ class CoxPH(SurvivalPredictor):
     ----------
     coef_ : (d,) array
         Estimated $\hat\beta$.
+    covariance_ : (d, d) array
+        Inverse observed information at $\hat\beta$.
+    standard_errors_ : (d,) array
+        Square root of the diagonal of ``covariance_``.
     baseline_cumulative_hazard_ : StepFunction
         Right-continuous $\hat \Lambda_0$; baseline 0.
     times_ : (k,) array
@@ -50,6 +57,8 @@ class CoxPH(SurvivalPredictor):
     """
 
     coef_: NDArray[np.float64]
+    covariance_: NDArray[np.float64]
+    standard_errors_: NDArray[np.float64]
     baseline_cumulative_hazard_: StepFunction
 
     def __init__(self, *, max_iter: int = 100, tol: float = 1e-6) -> None:
@@ -110,6 +119,9 @@ class CoxPH(SurvivalPredictor):
             options={"maxiter": self.max_iter, "gtol": self.tol},
         )
         self.coef_ = result.x
+        information = _observed_information(X_s, delta_s, end_tie, self.coef_)
+        self.covariance_ = np.asarray(np.linalg.inv(information), dtype=np.float64)
+        self.standard_errors_ = np.sqrt(np.diag(self.covariance_))
         self.baseline_cumulative_hazard_ = self._breslow_baseline(X, Y, delta)
         self.times_ = np.asarray(
             self.baseline_cumulative_hazard_.time, dtype=np.float64
@@ -144,6 +156,20 @@ class CoxPH(SurvivalPredictor):
             baseline=0.0,
         )
 
+    def confidence_intervals(
+        self, level: float = 0.95
+    ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+        r"""Wald intervals $\hat\beta \pm z_{1 - \alpha/2}\,\mathrm{se}(\hat\beta)$.
+
+        Returns ``(lower, upper)`` on the coefficient scale; exponentiate for
+        hazard ratios.
+        """
+        if not 0.0 < level < 1.0:
+            raise ValueError(f"level must be in (0, 1), got {level}")
+        z = float(norm.ppf(0.5 + level / 2.0))
+        half_width = z * self.standard_errors_
+        return self.coef_ - half_width, self.coef_ + half_width
+
     def save(self, path: str | Path) -> None:
         """Write ``config.json`` and ``state.npz`` to ``path``."""
         if not hasattr(self, "coef_"):
@@ -159,6 +185,7 @@ class CoxPH(SurvivalPredictor):
         np.savez_compressed(
             path / "state.npz",
             coef=self.coef_,
+            covariance=self.covariance_,
             times=self.times_,
             baseline_time=self.baseline_cumulative_hazard_.time,
             baseline_value=self.baseline_cumulative_hazard_.value,
@@ -173,6 +200,8 @@ class CoxPH(SurvivalPredictor):
         model = cls(**config)
         with np.load(path / "state.npz") as state:
             model.coef_ = state["coef"]
+            model.covariance_ = state["covariance"]
+            model.standard_errors_ = np.sqrt(np.diag(model.covariance_))
             model.times_ = state["times"]
             model.baseline_cumulative_hazard_ = StepFunction(
                 time=state["baseline_time"],
@@ -196,3 +225,43 @@ class CoxPH(SurvivalPredictor):
         exp_lp = np.exp(X @ self.coef_)
         H = self.baseline_cumulative_hazard_(times)
         return np.exp(-H[None, :] * exp_lp[:, None])
+
+
+def _observed_information(
+    X_s: NDArray[np.float64],
+    delta_s: NDArray[np.float64],
+    end_tie: NDArray[np.intp],
+    beta: NDArray[np.float64],
+) -> NDArray[np.float64]:
+    r"""Negative Hessian of the Breslow partial log-likelihood.
+
+    $$
+    \mathcal{I}(\beta) = \sum_{t} d_t \left[
+        \frac{S_2(t)}{S_0(t)} - \frac{S_1(t) S_1(t)^\top}{S_0(t)^2}
+    \right],
+    \qquad
+    S_r(t) = \sum_{j \in R(t)} x_j^{\otimes r} e^{\beta^\top x_j}
+    $$
+
+    over the unique event times $t$ with $d_t$ tied events. Inputs are in
+    descending time order, so the risk set at each tie block is a prefix
+    and $S_2$ accumulates block by block without materialising $n$ outer
+    products.
+    """
+    d = X_s.shape[1]
+    weights = np.exp(X_s @ beta)
+    S0 = np.cumsum(weights)
+    S1 = np.cumsum(X_s * weights[:, None], axis=0)
+
+    block_end, d_t = np.unique(end_tie[delta_s > 0], return_counts=True)
+
+    information = np.zeros((d, d))
+    S2 = np.zeros((d, d))
+    start = 0
+    for end, count in zip(block_end, d_t, strict=True):
+        chunk = slice(start, end + 1)
+        S2 += (X_s[chunk] * weights[chunk, None]).T @ X_s[chunk]
+        start = end + 1
+        mean = S1[end] / S0[end]
+        information += count * (S2 / S0[end] - np.outer(mean, mean))
+    return information
