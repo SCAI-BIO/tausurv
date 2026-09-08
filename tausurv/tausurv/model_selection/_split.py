@@ -1,4 +1,4 @@
-r"""Survival-aware splitting and cross-validation utilities."""
+r"""Survival-aware splits: one hold-out split and stratified folds."""
 
 from __future__ import annotations
 
@@ -98,3 +98,53 @@ def train_test_split(
         E[train_idx],
         E[test_idx],
     )
+
+
+def stratified_folds(
+    event_indicator: ArrayLike,
+    n_splits: int = 5,
+    *,
+    seed: int | None = None,
+) -> list[tuple[NDArray[np.intp], NDArray[np.intp]]]:
+    r"""K folds with every event class spread evenly across them.
+
+    Each unique value of ``event_indicator`` is shuffled and dealt into the
+    folds separately, so censored subjects and each event cause appear in
+    every test fold in the same proportion as in the data. A plain random
+    K-fold on rare-event or competing-risks data can leave a fold without a
+    single event of some cause.
+
+    Parameters
+    ----------
+    event_indicator : (n,) array_like
+        Event class, $\delta = 0$ censored and $\delta = k \ge 1$ event of
+        cause $k$.
+    n_splits : int, default 5
+    seed : int, optional
+
+    Returns
+    -------
+    list of (train_idx, test_idx)
+        ``n_splits`` pairs of index arrays; every subject is in exactly one
+        test fold.
+    """
+    if n_splits < 2:
+        raise ValueError(f"n_splits must be at least 2, got {n_splits}")
+    E = np.asarray(event_indicator)
+    rng = np.random.default_rng(seed)
+
+    test_parts: list[list[NDArray[np.intp]]] = [[] for _ in range(n_splits)]
+    for cls in np.unique(E):
+        idx = np.flatnonzero(E == cls)
+        rng.shuffle(idx)
+        for k, chunk in enumerate(np.array_split(idx, n_splits)):
+            test_parts[k].append(chunk)
+
+    folds = []
+    for parts in test_parts:
+        test_idx = np.concatenate(parts)
+        rng.shuffle(test_idx)
+        train_idx = np.setdiff1d(np.arange(E.shape[0]), test_idx)
+        rng.shuffle(train_idx)
+        folds.append((train_idx, test_idx))
+    return folds
