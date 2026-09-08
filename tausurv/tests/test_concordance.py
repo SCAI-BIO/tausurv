@@ -253,3 +253,17 @@ def test_blanche_no_controls_raises():
     risk_score = np.array([1.0, 2.0, 3.0])
     with pytest.raises(ValueError, match="control"):
         concordance.blanche(event_time, event_indicator, risk_score, tau=10.0)
+
+
+def test_harrell_tie_rules():
+    # A: event at 1, B: censored at 1, C: event at 2, D: event at 2.
+    # Comparable pairs: (A, B) since B was still event-free when A failed,
+    # (A, C), (A, D). Neither (C, D) nor (B, anything) is comparable.
+    Y = np.array([1.0, 1.0, 2.0, 2.0])
+    delta = np.array([1, 0, 1, 1])
+    risk = np.array([3.0, 2.0, 1.0, 0.0])
+    assert concordance.harrell(Y, delta, risk) == 1.0
+
+    # Reverse A and B: the one comparable tied pair is now discordant.
+    risk = np.array([2.0, 3.0, 1.0, 0.0])
+    assert concordance.harrell(Y, delta, risk) == pytest.approx(2 / 3)
