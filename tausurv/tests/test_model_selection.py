@@ -470,3 +470,20 @@ def test_out_of_fold_rows_never_held_out_are_nan():
     held_out = np.r_[0:10, 40:50]
     assert np.isfinite(risk[held_out]).all()
     assert np.isnan(np.delete(risk, held_out)).all()
+
+
+def test_evaluate_scalar_and_curve_scorers():
+    X, T, E = simulations.single_risk(n=150, n_features=3, seed=16)
+    cv = cross_validate(lambda: CoxPH(), X, T, E, scoring=scoring.harrell(), cv=3)
+    times = np.linspace(0.2, 1.5, 6)
+
+    c = cv.evaluate(scoring.harrell(), X, T, E)
+    np.testing.assert_allclose(c, cv.scores["score"].to_numpy())
+
+    aucs = cv.evaluate(scoring.auc_over_time(times), X, T, E)
+    briers = cv.evaluate(scoring.brier_over_time(times), X, T, E)
+    assert aucs.shape == (3, 6) and briers.shape == (3, 6)
+    assert np.all((aucs >= 0) & (aucs <= 1)) and np.all((briers >= 0) & (briers <= 1))
+
+    with pytest.raises(ValueError, match="own data"):
+        cv.evaluate(scoring.harrell(), X[:10], T[:10], E[:10])

@@ -9,7 +9,8 @@ uses them; in :func:`cross_validate` it is ``None``.
 """
 
 from tausurv.model_selection import scoring
-from tausurv.model_selection._cross_validate import Fold, Scorer, cross_validate
+from tausurv.model_selection._cross_validate import Scorer, cross_validate
+from tausurv.model_selection._fold import Fold
 from tausurv.model_selection._results import CVResult, Ensemble, TuneResult
 from tausurv.model_selection._split import stratified_folds, train_test_split
 from tausurv.model_selection._tune import nested_cv, tune

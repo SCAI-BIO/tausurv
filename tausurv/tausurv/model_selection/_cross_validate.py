@@ -4,23 +4,15 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from typing import Any, NamedTuple
+from typing import Any
 
 import numpy as np
 import polars as pl
 from numpy.typing import ArrayLike, NDArray
 
+from tausurv.model_selection._fold import Fold
 from tausurv.model_selection._results import CVResult
 from tausurv.model_selection._split import stratified_folds
-
-
-class Fold(NamedTuple):
-    """One side of a split, handed to scorers as the training fold."""
-
-    X: NDArray[Any]
-    event_time: NDArray[np.float64]
-    event_indicator: NDArray[Any]
-
 
 ScoreFn = Callable[[Any, NDArray[Any], NDArray[np.float64], NDArray[Any], Fold], float]
 

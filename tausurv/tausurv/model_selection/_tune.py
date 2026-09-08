@@ -10,7 +10,6 @@ from numpy.typing import ArrayLike
 
 from tausurv.model_selection._cross_validate import (
     Build,
-    Fold,
     Scoring,
     Splits,
     Train,
@@ -18,6 +17,7 @@ from tausurv.model_selection._cross_validate import (
     _resolve_splits,
     _train,
 )
+from tausurv.model_selection._fold import Fold
 from tausurv.model_selection._results import CVResult, TuneResult, trials_table
 
 Direction = Literal["maximize", "minimize"]

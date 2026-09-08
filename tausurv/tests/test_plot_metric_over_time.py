@@ -92,7 +92,7 @@ def test_user_ax_is_respected(grid):
 
 
 def test_models_and_single_curve_are_mutually_exclusive(grid, models):
-    with pytest.raises(ValueError, match="single-curve"):
+    with pytest.raises(ValueError, match="not both"):
         ts.plot.auc_over_time(grid, 0.7 + 0 * grid, models=models)
 
 
@@ -106,107 +106,91 @@ def test_missing_inputs_raise():
         ts.plot.auc_over_time()
 
 
-def test_folds_single_curve_renders_mean_and_band(grid):
+def test_estimates_render_mean_and_band(grid):
     rng = np.random.default_rng(0)
-    fold_matrix = 0.78 + 0.02 * np.sin(grid) + 0.03 * rng.normal(size=(5, grid.size))
-    disp = ts.plot.auc_over_time(grid, folds=fold_matrix, label="Cox")
+    estimates = 0.78 + 0.02 * np.sin(grid) + 0.03 * rng.normal(size=(5, grid.size))
+    disp = ts.plot.auc_over_time(grid, estimates, label="Cox")
     assert list(disp.lines.keys()) == ["Cox"]
     assert list(disp.ci_polys.keys()) == ["Cox"]
-    # Rendered line = fold mean
     np.testing.assert_allclose(
-        disp.lines["Cox"].get_ydata(),
-        fold_matrix.mean(axis=0),
-        atol=1e-12,
+        disp.lines["Cox"].get_ydata(), estimates.mean(axis=0), atol=1e-12
     )
 
 
-def test_folds_default_band_is_sd(grid):
+def test_estimates_default_band_is_sd(grid):
     rng = np.random.default_rng(0)
-    fold_matrix = 0.75 + 0.05 * rng.normal(size=(6, grid.size))
-    disp = ts.plot.auc_over_time(grid, folds=fold_matrix)
+    estimates = 0.75 + 0.05 * rng.normal(size=(6, grid.size))
+    disp = ts.plot.auc_over_time(grid, estimates)
     verts = disp.ci_polys[""].get_paths()[0].vertices
-    mean = fold_matrix.mean(axis=0)
-    std = fold_matrix.std(axis=0, ddof=1)
-    # The polygon path includes lower edge + reversed upper edge; the y
-    # range of the polygon should encompass mean - std to mean + std.
+    mean = estimates.mean(axis=0)
+    std = estimates.std(axis=0, ddof=1)
     assert verts[:, 1].min() == pytest.approx((mean - std).min(), abs=1e-8)
     assert verts[:, 1].max() == pytest.approx((mean + std).max(), abs=1e-8)
 
 
-def test_folds_band_se_is_narrower_than_sd(grid):
+def test_estimates_band_se_is_narrower_than_sd_and_none_draws_no_band(grid):
     rng = np.random.default_rng(1)
-    fold_matrix = 0.75 + 0.05 * rng.normal(size=(10, grid.size))
-    sd = ts.plot.auc_over_time(grid, folds=fold_matrix, band="sd")
-    se = ts.plot.auc_over_time(grid, folds=fold_matrix, band="se")
+    estimates = 0.75 + 0.05 * rng.normal(size=(10, grid.size))
+    sd = ts.plot.auc_over_time(grid, estimates, band="sd")
+    se = ts.plot.auc_over_time(grid, estimates, band="se")
     sd_verts = sd.ci_polys[""].get_paths()[0].vertices
     se_verts = se.ci_polys[""].get_paths()[0].vertices
-    sd_span = sd_verts[:, 1].max() - sd_verts[:, 1].min()
-    se_span = se_verts[:, 1].max() - se_verts[:, 1].min()
-    assert se_span < sd_span
+    assert (
+        se_verts[:, 1].max() - se_verts[:, 1].min()
+        < sd_verts[:, 1].max() - sd_verts[:, 1].min()
+    )
+    assert ts.plot.auc_over_time(grid, estimates, band=None).ci_polys == {}
 
 
-def test_folds_models_overlay(grid):
+def test_estimates_models_overlay(grid):
     rng = np.random.default_rng(2)
-    f_cox = 0.75 + 0.03 * rng.normal(size=(5, grid.size))
     disp = ts.plot.auc_over_time(
         models={
-            "Cox": {"times": grid, "folds": f_cox},
+            "Cox": {
+                "times": grid,
+                "values": 0.75 + 0.03 * rng.normal(size=(5, grid.size)),
+            },
             "DeepHit": {"times": grid, "values": 0.80 + 0 * grid},
         }
     )
     assert list(disp.lines.keys()) == ["Cox", "DeepHit"]
-    # Only Cox has a band -- DeepHit was values-only.
     assert list(disp.ci_polys.keys()) == ["Cox"]
 
 
-def test_folds_unknown_band_raises(grid):
-    fold_matrix = np.zeros((3, grid.size))
+def test_estimates_unknown_band_raises(grid):
     with pytest.raises(ValueError, match="unknown band"):
-        ts.plot.auc_over_time(grid, folds=fold_matrix, band="iqr")
+        ts.plot.auc_over_time(grid, np.zeros((3, grid.size)), band="iqr")
 
 
-def test_folds_too_few_rows_raises(grid):
-    fold_matrix = np.zeros((1, grid.size))
+def test_estimates_too_few_rows_raises(grid):
     with pytest.raises(ValueError, match="at least 2"):
-        ts.plot.auc_over_time(grid, folds=fold_matrix)
+        ts.plot.auc_over_time(grid, np.zeros((1, grid.size)))
 
 
-def test_folds_wrong_ncols_raises(grid):
-    fold_matrix = np.zeros((4, grid.size + 1))
-    with pytest.raises(ValueError, match=r"\(n_folds, n_times\)"):
-        ts.plot.auc_over_time(grid, folds=fold_matrix)
+def test_estimates_wrong_ncols_raises(grid):
+    with pytest.raises(ValueError, match=r"\(n_estimates, n_times\)"):
+        ts.plot.auc_over_time(grid, np.zeros((4, grid.size + 1)))
 
 
-def test_folds_mutually_exclusive_with_values(grid):
-    fold_matrix = np.zeros((4, grid.size))
-    with pytest.raises(ValueError, match="mutually exclusive"):
-        ts.plot.auc_over_time(grid, 0.7 + 0 * grid, folds=fold_matrix)
-
-
-def test_folds_mutually_exclusive_with_ci(grid):
-    fold_matrix = np.zeros((4, grid.size))
+def test_estimates_reject_ci(grid):
     v = 0.7 + 0 * grid
-    with pytest.raises(ValueError, match="mutually exclusive"):
-        ts.plot.auc_over_time(
-            grid,
-            folds=fold_matrix,
-            ci=(v - 0.01, v + 0.01),
-        )
+    with pytest.raises(ValueError, match="single curve"):
+        ts.plot.auc_over_time(grid, np.zeros((4, grid.size)), ci=(v - 0.01, v + 0.01))
 
 
-def test_folds_works_for_brier_and_concordance(grid):
+def test_estimates_work_for_brier_and_concordance(grid):
     rng = np.random.default_rng(3)
     fold_matrix = 0.12 + 0.02 * rng.normal(size=(5, grid.size))
-    disp_brier = ts.plot.brier_over_time(grid, folds=fold_matrix)
+    disp_brier = ts.plot.brier_over_time(grid, fold_matrix)
     assert list(disp_brier.ci_polys.keys()) == [""]
 
     fold_matrix_c = 0.72 + 0.02 * rng.normal(size=(5, grid.size))
-    disp_c = ts.plot.concordance_over_time(grid, folds=fold_matrix_c)
+    disp_c = ts.plot.concordance_over_time(grid, fold_matrix_c)
     assert list(disp_c.ci_polys.keys()) == [""]
 
 
 def test_times_values_shape_mismatch_raises(grid):
-    with pytest.raises(ValueError, match="equal length"):
+    with pytest.raises(ValueError, match="must have shape"):
         ts.plot.auc_over_time(grid, np.array([0.7, 0.8]))
 
 

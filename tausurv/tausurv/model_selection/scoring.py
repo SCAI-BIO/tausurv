@@ -9,14 +9,20 @@ the censoring distribution on it, never on the test fold.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-from tausurv.metrics import brier, calibration, concordance
-from tausurv.model_selection._cross_validate import Fold, Scorer
+from tausurv.metrics import auc, brier, calibration, concordance
+from tausurv.model_selection._cross_validate import Scorer
+from tausurv.model_selection._fold import Fold
 from tausurv.nonparametric import censoring_distribution
+
+CurveFn = Callable[
+    [Any, NDArray[Any], NDArray[np.float64], NDArray[Any], Fold], NDArray[np.float64]
+]
 
 
 def harrell() -> Scorer:
@@ -101,3 +107,48 @@ def d_calibration(times: ArrayLike, *, n_bins: int = 10) -> Scorer:
         return calibration.distributional(Y, E, S, grid, n_bins=n_bins)
 
     return Scorer(score)
+
+
+def auc_over_time(times: ArrayLike) -> CurveFn:
+    """Uno's dynamic AUC at each of ``times``, a curve rather than a number.
+
+    Returns a bare function: use it with
+    :meth:`~tausurv.model_selection.CVResult.evaluate`, and plot the result
+    with :func:`tausurv.plot.auc_over_time`.
+    """
+    grid = np.asarray(times, dtype=np.float64)
+
+    def score(
+        model: Any,
+        X: NDArray[Any],
+        Y: NDArray[np.float64],
+        E: NDArray[Any],
+        train: Fold,
+    ) -> NDArray[np.float64]:
+        G = censoring_distribution(train.event_time, train.event_indicator)
+        return auc.uno(Y, E, model.predict(X), grid, censoring_survival=G)
+
+    return score
+
+
+def brier_over_time(times: ArrayLike) -> CurveFn:
+    """IPCW Brier score at each of ``times``, a curve rather than a number.
+
+    Returns a bare function for
+    :meth:`~tausurv.model_selection.CVResult.evaluate`; plot the result with
+    :func:`tausurv.plot.brier_over_time`.
+    """
+    grid = np.asarray(times, dtype=np.float64)
+
+    def score(
+        model: Any,
+        X: NDArray[Any],
+        Y: NDArray[np.float64],
+        E: NDArray[Any],
+        train: Fold,
+    ) -> NDArray[np.float64]:
+        G = censoring_distribution(train.event_time, train.event_indicator)
+        S = model.predict_survival_function(X, grid)
+        return brier.score(Y, E, S, grid, censoring_survival=G)
+
+    return score

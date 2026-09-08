@@ -11,6 +11,7 @@ import numpy as np
 import polars as pl
 from numpy.typing import ArrayLike, NDArray
 
+from tausurv.model_selection._fold import Fold
 from tausurv.predictor import CompetingRisksPredictor
 
 Split = tuple[NDArray[np.intp], NDArray[np.intp]]
@@ -69,6 +70,36 @@ class CVResult(CompetingRisksPredictor):
     def ensemble(self) -> Ensemble:
         """Average of the fold models, for data the study did not see."""
         return Ensemble(self.models)
+
+    def evaluate(
+        self,
+        scoring: Any,
+        X: ArrayLike,
+        event_time: ArrayLike,
+        event_indicator: ArrayLike,
+    ) -> NDArray[np.float64]:
+        """Apply a scorer to every fold model on its held-out fold.
+
+        ``scoring`` is any scorer, see :mod:`tausurv.model_selection.scoring`;
+        one returning a curve gives a ``(n_folds, n_times)`` array, one
+        returning a number gives ``(n_folds,)``. Pass the study's own data.
+        Lets a finished study be scored on new metrics without refitting.
+        """
+        X_arr = np.asarray(X)
+        Y = np.asarray(event_time, dtype=np.float64)
+        E = np.asarray(event_indicator)
+        if X_arr.shape[0] != self.n_samples:
+            raise ValueError(
+                f"evaluate needs the study's own data with {self.n_samples} rows, "
+                f"got {X_arr.shape[0]}"
+            )
+        results = []
+        for model, (train_idx, test_idx) in zip(self.models, self.splits, strict=True):
+            train = Fold(X_arr[train_idx], Y[train_idx], E[train_idx])
+            results.append(
+                scoring(model, X_arr[test_idx], Y[test_idx], E[test_idx], train)
+            )
+        return np.asarray(results, dtype=np.float64)
 
     def predict(self, X: ArrayLike) -> NDArray[np.float64]:
         return self._out_of_fold(X, lambda model, rows: model.predict(rows))
