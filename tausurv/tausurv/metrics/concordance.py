@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import numpy as np
-from numpy.typing import ArrayLike
+from numpy.typing import ArrayLike, NDArray
 
 from tausurv.nonparametric import censoring_distribution
 from tausurv.step import StepFunction
@@ -24,10 +26,13 @@ def harrell(
     $$
 
     where $w_{ij} = 1$ if $\hat r_i > \hat r_j$, $\tfrac{1}{2}$ if
-    $\hat r_i = \hat r_j$, $0$ otherwise. Pairs with $Y_i = Y_j$ are
-    excluded; the censored partner is the "later" of a pair, never the
-    indexed one. Biased toward $0.5$ under heavy censoring; use
-    :func:`uno` for an IPCW-corrected estimate.
+    $\hat r_i = \hat r_j$, $0$ otherwise. A pair is comparable when the
+    event order is known: $i$ has an event and $j$ has a later time, or the
+    same time and is censored (still event-free when $i$ failed). Two events
+    at the same time are not comparable. These are Harrell's rules, and the
+    ones scikit-survival, lifelines and R's survival package use; pycox's
+    default additionally scores tied-event pairs. Biased toward $0.5$ under
+    heavy censoring; use :func:`uno` for an IPCW-corrected estimate.
 
     Parameters
     ----------
@@ -58,16 +63,13 @@ def harrell(
     Y_s = Y[order]
     delta_s = delta[order]
     r_s = r[order]
-    partner_start = np.searchsorted(Y_s, Y_s, side="right")
+    comparable = _comparable_partners(Y_s, delta_s)
 
     n_concordant = 0
     n_tied = 0
     n_comparable = 0
     for p in np.flatnonzero(delta_s == 1):
-        s = int(partner_start[p])
-        if s == len(Y_s):
-            continue
-        partners = r_s[s:]
+        partners = r_s[comparable(int(p))]
         r_p = float(r_s[p])
         n_comparable += partners.size
         n_concordant += int((partners < r_p).sum())
@@ -93,9 +95,9 @@ def uno(
     r"""Uno's IPCW concordance index.
 
     Each comparable pair $(i, j)$ — with $Y_i < Y_j$, $Y_i < \tau$, and
-    $\delta_i = 1$ — is weighted by $1 / \hat G(Y_i^-)^2$, where $\hat G$ is
-    the Kaplan-Meier estimator of the censoring distribution
-    $G(t) = P(C > t)$:
+    $\delta_i = 1$, ties in time as in :func:`harrell` — is weighted by
+    $1 / \hat G(Y_i^-)^2$, where $\hat G$ is the Kaplan-Meier estimator of
+    the censoring distribution $G(t) = P(C > t)$:
 
     $$
     \hat C_\tau = \frac{\sum_{i,j} w_{ij}\,\mathbb{1}[Y_i < Y_j,\ Y_i < \tau,\ \delta_i = 1]\,
@@ -150,16 +152,13 @@ def uno(
     delta_s = delta[order]
     r_s = r[order]
     G_s = G_at_Y[order]
-    partner_start = np.searchsorted(Y_s, Y_s, side="right")
+    comparable = _comparable_partners(Y_s, delta_s)
 
     numerator = 0.0
     denominator = 0.0
     eligible = (delta_s == 1) & (Y_s < tau) & (G_s > 0)
     for p in np.flatnonzero(eligible):
-        s = int(partner_start[p])
-        if s == len(Y_s):
-            continue
-        partners = r_s[s:]
+        partners = r_s[comparable(int(p))]
         r_p = float(r_s[p])
         w = 1.0 / float(G_s[p]) ** 2
         n_concordant = int((partners < r_p).sum())
@@ -184,7 +183,8 @@ def antolini(
 ) -> float:
     r"""Antolini's time-dependent C-index.
 
-    A pair $(i, j)$ with $Y_i < Y_j$ and $\delta_i = 1$ is concordant if
+    A pair $(i, j)$ with $Y_i < Y_j$ and $\delta_i = 1$, ties in time as in
+    :func:`harrell`, is concordant if
     $\hat S(Y_i \mid x_i) < \hat S(Y_i \mid x_j)$ — the model predicts lower
     survival probability for the case at its own event time than for the
     later partner at that same time. Ties in $\hat S$ contribute
@@ -226,18 +226,15 @@ def antolini(
     Y_s = Y[order]
     delta_s = delta[order]
     S_s = S[order]
-    partner_start = np.searchsorted(Y_s, Y_s, side="right")
+    comparable = _comparable_partners(Y_s, delta_s)
 
     n_concordant = 0
     n_tied = 0
     n_comparable = 0
     for p in np.flatnonzero(delta_s == 1):
-        s = int(partner_start[p])
-        if s == len(Y_s):
-            continue
         t_idx = int(max(np.searchsorted(t_grid, Y_s[p], side="right") - 1, 0))
         S_case = float(S_s[p, t_idx])
-        partner_S = S_s[s:, t_idx]
+        partner_S = S_s[:, t_idx][comparable(int(p))]
         n_comparable += partner_S.size
         n_concordant += int((partner_S > S_case).sum())
         n_tied += int((partner_S == S_case).sum())
@@ -249,6 +246,26 @@ def antolini(
         )
 
     return (n_concordant + 0.5 * n_tied) / n_comparable
+
+
+def _comparable_partners(
+    Y_s: NDArray[np.float64], delta_s: NDArray[np.int8]
+) -> Callable[[int], NDArray[np.intp]]:
+    """Partner indices of an event at sorted position ``p``, per Harrell.
+
+    Subjects with a later time, plus those censored at the same time: the
+    event order is known for both. Events tied in time are left out.
+    """
+    block_start = np.searchsorted(Y_s, Y_s, side="left")
+    block_end = np.searchsorted(Y_s, Y_s, side="right")
+    n = len(Y_s)
+
+    def partners(p: int) -> NDArray[np.intp]:
+        start, end = int(block_start[p]), int(block_end[p])
+        tied_censored = start + np.flatnonzero(delta_s[start:end] == 0)
+        return np.concatenate([tied_censored, np.arange(end, n)])
+
+    return partners
 
 
 def harrell_cause_specific(
