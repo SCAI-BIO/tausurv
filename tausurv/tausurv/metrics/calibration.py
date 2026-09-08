@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from scipy.stats import chi2
 
-from tausurv.nonparametric import kaplan_meier
+from tausurv.nonparametric import aalen_johansen, kaplan_meier
 
 
 def distributional(
@@ -124,11 +126,75 @@ def curve(
     Y = np.asarray(event_time, dtype=np.float64)
     delta = np.asarray(event_indicator, dtype=np.int8)
     S = np.asarray(survival, dtype=np.float64)
+    pred = S[:, _horizon_index(time_grid, t)]
+
+    def observed(mask: NDArray[np.bool_]) -> float:
+        return float(kaplan_meier(Y[mask], delta[mask])(t))
+
+    return _binned(pred, observed, n_bins, min_bin_size)
+
+
+def curve_cause_specific(
+    event_time: ArrayLike,
+    event_indicator: ArrayLike,
+    cif: ArrayLike,
+    time_grid: ArrayLike,
+    t: float,
+    *,
+    cause: int = 1,
+    n_bins: int = 10,
+    min_bin_size: int = 5,
+) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.int64]]:
+    r"""Cumulative-incidence calibration curve for one cause at horizon $t$.
+
+    Subjects are split into ``n_bins`` quantile-based bins of predicted
+    incidence $\hat F_k(t \mid x_i)$. Within each bin the observed incidence
+    at $t$ is the Aalen-Johansen estimate on the bin's subjects, so competing
+    events count as competing events rather than as censoring.
+
+    Parameters
+    ----------
+    event_time : (n,) array
+    event_indicator : (n,) array
+        Integer-valued: $0$ for censored, $k \ge 1$ for an event of cause $k$.
+    cif : (n, T) array
+        Predicted $\hat F_k(t \mid x_i)$ for ``cause`` on ``time_grid``.
+    time_grid : (T,) array
+    t : float
+        Horizon at which calibration is assessed.
+    cause : int, default 1
+    n_bins : int, default 10
+    min_bin_size : int, default 5
+        Drop bins with fewer subjects than this.
+
+    Returns
+    -------
+    predicted : (K,) array — per-bin mean predicted incidence.
+    observed  : (K,) array — per-bin Aalen-Johansen incidence at $t$.
+    bin_sizes : (K,) int array — per-bin subject count.
+    """
+    Y = np.asarray(event_time, dtype=np.float64)
+    E = np.asarray(event_indicator, dtype=np.int64)
+    F = np.asarray(cif, dtype=np.float64)
+    pred = F[:, _horizon_index(time_grid, t)]
+
+    def observed(mask: NDArray[np.bool_]) -> float:
+        return float(aalen_johansen(Y[mask], E[mask], cause)(t))
+
+    return _binned(pred, observed, n_bins, min_bin_size)
+
+
+def _horizon_index(time_grid: ArrayLike, t: float) -> int:
     t_grid = np.asarray(time_grid, dtype=np.float64)
+    return int(np.maximum(np.searchsorted(t_grid, t, side="right") - 1, 0))
 
-    t_idx = int(np.maximum(np.searchsorted(t_grid, t, side="right") - 1, 0))
-    pred = S[:, t_idx]
 
+def _binned(
+    pred: NDArray[np.float64],
+    observed: Callable[[NDArray[np.bool_]], float],
+    n_bins: int,
+    min_bin_size: int,
+) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.int64]]:
     bin_edges = np.unique(np.quantile(pred, np.linspace(0.0, 1.0, n_bins + 1)))
     if len(bin_edges) < 2:
         return (
@@ -147,8 +213,7 @@ def curve(
         if int(mask.sum()) < min_bin_size:
             continue
         pred_means.append(float(pred[mask].mean()))
-        km = kaplan_meier(Y[mask], delta[mask])
-        obs_means.append(float(km(t)))
+        obs_means.append(observed(mask))
         sizes.append(int(mask.sum()))
 
     return (

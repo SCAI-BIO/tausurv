@@ -252,3 +252,94 @@ def test_loss_classes_match_their_functional_form():
     )
 
 
+
+
+def test_deepsurv_fit_trains_and_fits_baseline():
+    X, T, E = simulations.single_risk(n=120, n_features=5, seed=0)
+    model = DeepSurv(in_features=5, hidden_dim=8, n_blocks=1)
+    model.fit(X, T, E, epochs=3)
+
+    assert len(model.history_["train_loss"]) == 3
+    S = model.predict_survival_function(X[:7], np.array([0.5, 1.0, 2.0]))
+    assert S.shape == (7, 3)
+    assert np.all((S >= 0.0) & (S <= 1.0))
+
+
+def test_fit_accepts_polars_and_integer_inputs():
+    pl = pytest.importorskip("polars")
+    X, T, E = simulations.single_risk(n=80, n_features=3, seed=1)
+    frame = pl.DataFrame((X * 10).astype(np.int64), schema=["a", "b", "c"])
+
+    model = DeepSurv(in_features=3, hidden_dim=8, n_blocks=1)
+    model.fit(frame, T, E.astype(np.int64), val_data=(frame, T, E), epochs=2)
+
+    assert len(model.history_["val_loss"]) == 2
+    assert model.predict(frame).shape == (80,)
+
+
+def test_deephit_fit_sets_time_grid_from_training_data():
+    X, T, E = simulations.competing_risk(n=150, n_features=5, n_causes=2, seed=0)
+    model = DeepHit(
+        in_features=5, n_bins=6, n_causes=2, hidden_dim=8, n_blocks=1
+    )
+    model.fit(X, T, E, epochs=3)
+
+    assert model.times_.shape == (6,)
+    assert model.times_[-1] == pytest.approx(T.max())
+    F1 = model.predict_cif(X[:5], cause=1)
+    assert F1.shape == (5, 6)
+    assert np.all((F1 >= 0.0) & (F1 <= 1.0))
+
+
+def test_deephit_fit_keeps_preset_time_grid():
+    X, T, E = simulations.single_risk(n=100, n_features=5, seed=0)
+    grid = np.linspace(0.5, 3.0, 6)
+    model = DeepHit(in_features=5, n_bins=6, hidden_dim=8, n_blocks=1)
+    model.set_time_grid(grid).fit(X, T, E, epochs=2)
+
+    np.testing.assert_array_equal(model.times_, grid)
+
+
+def test_deephit_fit_accepts_custom_loss():
+    X, T, E = simulations.single_risk(n=100, n_features=5, seed=0)
+    model = DeepHit(in_features=5, n_bins=6, hidden_dim=8, n_blocks=1)
+    model.fit(X, T, E, epochs=2, loss=DeepHitLoss(alpha=1.0))
+
+    assert len(model.history_["train_loss"]) == 2
+
+
+def test_logistic_hazard_fit_predicts_monotone_survival():
+    X, T, E = simulations.single_risk(n=120, n_features=5, seed=0)
+    model = LogisticHazard(in_features=5, n_bins=8, hidden_dim=8, n_blocks=1)
+    model.fit(X, T, E, epochs=3)
+
+    S = model.predict_survival_function(X[:5])
+    assert S.shape == (5, 8)
+    assert np.all(np.diff(S, axis=1) <= 1e-12)
+
+
+def test_deepsurv_fit_then_save_load_round_trips(tmp_path):
+    X, T, E = simulations.single_risk(n=100, n_features=5, seed=0)
+    model = DeepSurv(in_features=5, hidden_dim=8, n_blocks=1)
+    model.fit(X, T, E, epochs=2)
+    model.save(tmp_path / "deepsurv")
+    loaded = DeepSurv.load(tmp_path / "deepsurv")
+
+    grid = np.array([0.5, 1.0, 2.0])
+    np.testing.assert_allclose(
+        loaded.predict_survival_function(X, grid),
+        model.predict_survival_function(X, grid),
+    )
+
+
+def test_fit_is_reproducible_for_a_seed():
+    X, T, E = simulations.single_risk(n=100, n_features=5, seed=0)
+    grid = np.array([0.5, 1.0, 2.0])
+
+    def fitted(seed):
+        model = DeepSurv(in_features=5, hidden_dim=8, n_blocks=1)
+        model.fit(X, T, E, epochs=3, seed=seed)
+        return model.predict_survival_function(X, grid)
+
+    np.testing.assert_array_equal(fitted(0), fitted(0))
+    assert not np.array_equal(fitted(0), fitted(1))

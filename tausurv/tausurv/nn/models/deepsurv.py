@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -9,9 +10,11 @@ import torch
 from numpy.typing import ArrayLike, NDArray
 from torch import Tensor, nn
 
-from tausurv.nn._utils import as_model_tensor
-from tausurv.nn.modules.mlp import MLP
+from tausurv.nn._utils import as_model_tensor, as_training_tensors, reset_parameters
 from tausurv.nn.checkpoint import CheckpointMixin
+from tausurv.nn.losses.cox import CoxPHLoss
+from tausurv.nn.modules.mlp import MLP
+from tausurv.nn.training.fit import fit
 from tausurv.predictor import SurvivalPredictor
 
 
@@ -36,11 +39,12 @@ class DeepSurv(SurvivalPredictor, CheckpointMixin, nn.Module):
     has no notion of survival times or censoring — that lives in the loss.
 
     Producing a survival function $\hat S(t \mid x)$ requires a baseline
-    cumulative hazard. After training, call :meth:`fit_baseline` with the
-    training data to estimate $\hat \Lambda_0$ by Breslow; afterwards
-    :meth:`predict_survival_function`, :meth:`predict_cumulative_hazard`,
-    :meth:`predict_cif`, :meth:`predict_rmst`, and :meth:`predict_risk_at`
-    are all available.
+    cumulative hazard. :meth:`fit` trains the network and then estimates
+    $\hat \Lambda_0$ by Breslow in one call; when training through
+    :class:`~tausurv.nn.Trainer` instead, call :meth:`fit_baseline` with the
+    training data afterwards. Either way :meth:`predict_survival_function`,
+    :meth:`predict_cumulative_hazard`, :meth:`predict_cif`,
+    :meth:`predict_rmst`, and :meth:`predict_risk_at` are then available.
 
     Construction is HF-style — pass a :class:`DeepSurvConfig` or kwargs:
 
@@ -65,6 +69,7 @@ class DeepSurv(SurvivalPredictor, CheckpointMixin, nn.Module):
 
     config_class = DeepSurvConfig
     config: DeepSurvConfig
+    history_: dict[str, Any]
 
     def __init__(
         self,
@@ -92,6 +97,69 @@ class DeepSurv(SurvivalPredictor, CheckpointMixin, nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         return self.backbone(x).squeeze(-1)
+
+    def fit(
+        self,
+        X: ArrayLike,
+        event_time: ArrayLike,
+        event_indicator: ArrayLike,
+        *,
+        val_data: tuple[ArrayLike, ArrayLike, ArrayLike] | None = None,
+        loss: Callable[..., Tensor] | None = None,
+        epochs: int = 100,
+        batch_size: int | None = None,
+        lr: float = 1e-3,
+        weight_decay: float = 0.0,
+        seed: int = 0,
+        device: str | torch.device | None = None,
+        verbose: bool = False,
+    ) -> "DeepSurv":
+        r"""Train on the Cox partial likelihood, then fit the Breslow baseline.
+
+        A thin wrapper around :func:`tausurv.nn.fit` with
+        :class:`~tausurv.nn.losses.CoxPHLoss` as the default loss. Use
+        :class:`~tausurv.nn.Trainer` directly for schedules, early stopping,
+        checkpointing or a custom training step.
+
+        Parameters
+        ----------
+        X : (n, d) array
+        event_time : (n,) array
+        event_indicator : (n,) array
+        val_data : (X, event_time, event_indicator), optional
+            Held-out data; its loss is recorded in ``history_``.
+        loss : callable, optional
+            Replaces the default loss. Called as
+            ``loss(log_risk, event_time, event_indicator)``.
+        epochs, batch_size, lr, weight_decay, seed, device, verbose
+            Forwarded to :func:`tausurv.nn.fit`.
+
+        Weights are re-initialised under ``seed`` first, so a second call
+        retrains from scratch rather than continuing.
+
+        Returns
+        -------
+        self
+            With ``history_`` and the baseline hazard set.
+        """
+        reset_parameters(self, seed)
+        train = as_training_tensors(self, X, event_time, event_indicator)
+        val = as_training_tensors(self, *val_data) if val_data is not None else None
+        loss_fn = CoxPHLoss() if loss is None else loss
+        self.history_ = fit(
+            self,
+            loss_fn,
+            train,
+            val,
+            epochs=epochs,
+            batch_size=batch_size,
+            lr=lr,
+            weight_decay=weight_decay,
+            seed=seed,
+            device=device,
+            verbose=verbose,
+        )
+        return self.fit_baseline(*train)
 
     def fit_baseline(
         self,
