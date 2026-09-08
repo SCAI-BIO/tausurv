@@ -20,6 +20,7 @@ from tausurv.linear import (
 from tausurv.model_selection import train_test_split
 from tausurv.nonparametric import (
     aalen_johansen,
+    aalen_johansen_variance,
     censoring_distribution,
     kaplan_meier,
     nelson_aalen,
