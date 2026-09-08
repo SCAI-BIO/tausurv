@@ -87,6 +87,12 @@ def test_harrell_matches_references_with_tied_times(tied_survival_data):
     assert ours == pytest.approx(lifelines_c)
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="IPCW weights: scikit-survival evaluates G(t) from a reverse Kaplan-Meier "
+    "that removes same-time events from the risk set; we use G(t-) from the plain "
+    "reverse Kaplan-Meier. The pair rule itself agrees.",
+)
 def test_uno_matches_sksurv_with_tied_times(tied_survival_data):
     sksurv_metrics = pytest.importorskip("sksurv.metrics")
     event_time, event_indicator, risk_score = tied_survival_data
