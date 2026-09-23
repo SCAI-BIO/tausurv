@@ -4,7 +4,51 @@ import numpy as np
 import pytest
 
 from tausurv import simulations
-from tausurv.linear import CoxPH
+from tausurv.linear import CoxPH, Coxnet
+
+
+def test_coxnet_matches_sksurv_predictions():
+    sksurv_linear = pytest.importorskip("sksurv.linear_model")
+    sksurv_util = pytest.importorskip("sksurv.util")
+    X, event_time, event_indicator = simulations.single_risk(n=200, seed=0)
+    alphas = [0.01]
+
+    model = Coxnet(alphas=alphas).fit(X, event_time, event_indicator)
+    reference = sksurv_linear.CoxnetSurvivalAnalysis(
+        alphas=alphas,
+        fit_baseline_model=True,
+    ).fit(
+        X,
+        sksurv_util.Surv.from_arrays(event=event_indicator, time=event_time),
+    )
+
+    np.testing.assert_allclose(model.predict(X), reference.predict(X))
+    np.testing.assert_allclose(
+        model.predict_survival_function(X),
+        np.asarray(
+            [fn(model.times_) for fn in reference.predict_survival_function(X)]
+        ),
+    )
+
+
+def test_coxnet_predictor_contract_uses_requested_time_grid():
+    pytest.importorskip("sksurv")
+    X, event_time, event_indicator = simulations.single_risk(n=100, seed=0)
+    model = Coxnet(alphas=[0.01]).fit(X, event_time, event_indicator)
+    times = np.linspace(0.1, 2.0, 5)
+
+    survival = model.predict_survival_function(X, times)
+    cumulative_hazard = model.predict_cumulative_hazard(X, times)
+
+    assert survival.shape == cumulative_hazard.shape == (len(X), len(times))
+    np.testing.assert_allclose(cumulative_hazard, -np.log(survival))
+    assert (np.diff(survival, axis=1) <= 0).all()
+
+
+def test_coxnet_requires_fit_before_prediction():
+    pytest.importorskip("sksurv")
+    with pytest.raises(AssertionError, match="must be fitted"):
+        Coxnet().predict(np.zeros((1, 2)))
 
 
 def test_coxph_recovers_simulated_coefficients():

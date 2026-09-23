@@ -17,6 +17,9 @@ env/
 # uv
 .uv/
 
+# github
+.github/
+
 # Testing & coverage
 .pytest_cache/
 .coverage
