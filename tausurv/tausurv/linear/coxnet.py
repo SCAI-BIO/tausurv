@@ -86,6 +86,7 @@ class Coxnet(SurvivalPredictor):
         if self.standardize:
             self._model = self._create_pipeline(self._model)
         self._model.fit(X, y)
+
         return self
 
     def predict_cumulative_hazard(
@@ -119,7 +120,12 @@ class Coxnet(SurvivalPredictor):
             surv = np.asarray([fn(times) for fn in surv_step_fun], dtype=np.float64)
         return np.asarray(surv, dtype=np.float64)
 
-
+    @property
+    def coef_(self) -> NDArray[np.float64]:
+        assert self._model is not None, "The model must be fitted before accessing coefficients."
+        if self.standardize:
+            return self._model.named_steps['coxnetsurvivalanalysis'].coef_
+        return self._model.coef_
 
     @staticmethod
     def _import_sksurv():
