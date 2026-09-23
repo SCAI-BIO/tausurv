@@ -13,7 +13,9 @@ def test_coxnet_matches_sksurv_predictions():
     X, event_time, event_indicator = simulations.single_risk(n=200, seed=0)
     alphas = [0.01]
 
-    model = Coxnet(alphas=alphas).fit(X, event_time, event_indicator)
+    model = Coxnet(alphas=alphas, standardize=False).fit(
+        X, event_time, event_indicator
+    )
     reference = sksurv_linear.CoxnetSurvivalAnalysis(
         alphas=alphas,
         fit_baseline_model=True,
@@ -29,6 +31,39 @@ def test_coxnet_matches_sksurv_predictions():
             [fn(model.times_) for fn in reference.predict_survival_function(X)]
         ),
     )
+
+
+def test_coxnet_internal_standard_scaling_invariance():
+    pytest.importorskip("sksurv")
+    pytest.importorskip("sklearn")
+    X, event_time, event_indicator = simulations.single_risk(n=200, seed=0)
+
+    scale = np.array([1.0, 10.0, 0.1, 100.0, 0.01])
+    X_rescaled = X * scale
+
+    times = np.linspace(0.1, 2.0, 5)
+
+    model_scaled = Coxnet(alphas=[0.01], standardize=True).fit(
+        X, event_time, event_indicator
+    )
+    model_scaled_r = Coxnet(alphas=[0.01], standardize=True).fit(
+        X_rescaled, event_time, event_indicator
+    )
+
+    model_plain = Coxnet(alphas=[0.01], standardize=False).fit(
+        X, event_time, event_indicator
+    )
+    model_plain_r = Coxnet(alphas=[0.01], standardize=False).fit(
+        X_rescaled, event_time, event_indicator
+    )
+
+    S_scaled = model_scaled.predict_survival_function(X, times)
+    S_scaled_r = model_scaled_r.predict_survival_function(X_rescaled, times)
+    np.testing.assert_allclose(S_scaled, S_scaled_r, atol=1e-6)
+
+    S_plain = model_plain.predict_survival_function(X, times)
+    S_plain_r = model_plain_r.predict_survival_function(X_rescaled, times)
+    assert not np.allclose(S_plain, S_plain_r, atol=1e-6)
 
 
 def test_coxnet_predictor_contract_uses_requested_time_grid():
