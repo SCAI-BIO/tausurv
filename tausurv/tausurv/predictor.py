@@ -19,9 +19,15 @@ The :attr:`times_` attribute is the model's natural time grid (fitted event
 times for KM/Cox/RSF, bin upper-bounds for discrete-time NN models, Breslow
 support for DeepSurv after :meth:`fit_baseline`). Predict methods default
 to it when ``times=None``.
+
+:class:`CauseSpecificPredictor` composes per-cause single-event models into
+a competing-risks predictor via the standard cause-specific-hazard CIF
+(Prentice et al., 1978; https://pubmed.ncbi.nlm.nih.gov/373811/).
 """
 
 from __future__ import annotations
+
+from collections.abc import Callable
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
@@ -185,9 +191,8 @@ class CompetingRisksPredictor(SurvivalPredictor):
         cif = np.clip(cif, 0.0, None)
         # Guarantee the marginal CDF ``sum_k F_k(t | x)`` is bounded by 1 by
         # rescaling float-32 softmax noise (typically ~1e-7 above 1).
-        marginal = cif.sum(axis=1, keepdims=True)
-        scale = np.minimum(1.0, 1.0 / np.maximum(marginal, 1e-12))
-        cif = cif * scale
+        marginal = cif.sum(axis=1).max(axis=-1)[:, None, None]   # (n, 1, 1)
+        cif = cif * np.minimum(1.0, 1.0 / np.maximum(marginal, 1e-12))
         if cause is None:
             return cif
         if not (1 <= cause <= self.n_causes):
@@ -210,3 +215,171 @@ class CompetingRisksPredictor(SurvivalPredictor):
         raise NotImplementedError(
             f"{type(self).__name__} must implement _cif(X, times)."
         )
+
+
+class CauseSpecificPredictor(CompetingRisksPredictor):
+    r"""Composite competing-risks predictor from per-cause hazard models.
+
+    Fits one single-event :class:`SurvivalPredictor` per competing cause
+    $k = 1, \dots, K$, treating events from other causes as censoring. The
+    per-cause cumulative hazards $\hat\Lambda_k(t \mid x)$ give the overall
+    discrete survival
+
+    $$
+    \hat S(t \mid x) = \prod_{t_i \le t}\bigl(1 - \Delta\hat\Lambda(t_i)\bigr),
+    \qquad \Delta\hat\Lambda = \sum_k \Delta\hat\Lambda_k,
+    $$
+
+    and the cause-$k$ cumulative incidence function
+
+    $$
+    \hat F_k(t \mid x) = \sum_{t_i \le t}
+        \hat S(t_i^- \mid x)\, \Delta\hat\Lambda_k(t_i).
+    $$
+
+    Because $\hat S(t_i^-)\, \Delta\hat\Lambda(t_i) = \hat S(t_i^-) - \hat S(t_i)$
+    holds for this discrete product, $\sum_k \hat F_k = 1 - \hat S$ exactly;
+    the marginal survival returned by :meth:`predict_survival_function`
+    is $1 - \sum_k \hat F_k$, consistent with it.
+
+    This is the cause-specific-hazard alternative to the subdistribution
+    approach of :class:`~tausurv.linear.FineGray`; compare FineGray (2021),
+    cause-specific Cox (Prentice et al., 1978).
+
+    The class follows the sklearn-style composition pattern: construction
+    takes a *factory* (any zero-argument callable returning a fresh
+    :class:`SurvivalPredictor`) plus ``n_causes``; :meth:`fit` clones and
+    fits one model per cause, so each instance receives its own independent
+    fit. Any :class:`SurvivalPredictor` subclass works — :class:`~tausurv.linear.CoxPH`,
+    :class:`~tausurv.linear.AFT`, :class:`~tausurv.nn.DeepSurv`,
+    :class:`~tausurv.trees.RandomSurvivalForest`, etc.
+
+    Parameters
+    ----------
+    model_factory : callable
+        Zero-argument callable returning a fresh, unfitted
+        :class:`SurvivalPredictor`. A bare class (``CoxPH``) works; use
+        ``functools.partial`` or a lambda for constructor kwargs.
+    n_causes : int
+        Number of competing causes ($K$). Must be $\ge 1$.
+
+    Attributes
+    ----------
+    models_ : list of :class:`SurvivalPredictor`
+        Fitted per-cause models, indexed ``[0]`` through ``[n_causes - 1]``.
+    times_ : (m,) array
+        Sorted unique event times across all causes — the grid on which the
+        CIFs are computed.
+
+    Notes
+    -----
+    :attr:`n_causes` and :attr:`times_` are set at :meth:`fit` time, following
+    the package's fitted-state convention. No architecturally interesting
+    configuration lives here beyond the factory and the cause count; there is
+    no ``<Model>Config`` dataclass (mirrors the composition predictors in
+    :mod:`tausurv.model_selection`, not the nn architectures that carry
+    large nested config objects).
+    """
+
+    def __init__(
+        self,
+        model_factory: Callable[[], SurvivalPredictor],
+        n_causes: int,
+    ) -> None:
+        if n_causes < 1:
+            raise ValueError(f"n_causes must be >= 1, got {n_causes}")
+        self.model_factory = model_factory
+        self.n_causes = n_causes
+
+    def fit(
+        self,
+        X: ArrayLike,
+        event_time: ArrayLike,
+        event_indicator: ArrayLike,
+    ) -> "CauseSpecificPredictor":
+        r"""Fit one wrapped model per competing cause.
+
+        For cause $k$, the event indicator is collapsed to
+        $\delta_k = \mathbb{1}[\varepsilon = k]$ (0 for censored *and* for
+        competing events). Each wrapped model is a freshly constructed
+        instance from ``model_factory``.
+        """
+        X = np.asarray(X, dtype=np.float64)
+        Y = np.asarray(event_time, dtype=np.float64)
+        eps = np.asarray(event_indicator)
+
+        unique_causes = set(np.unique(eps).tolist())
+        if not unique_causes <= set(range(self.n_causes + 1)):
+            raise ValueError(
+                f"event_indicator must be in [0, {self.n_causes}], "
+                f"got values {sorted(unique_causes)}"
+            )
+
+        self.models_: list[SurvivalPredictor] = []
+        for k in range(1, self.n_causes + 1):
+            delta_k = (eps == k).astype(np.int8)
+            model_k = self.model_factory()
+            model_k.fit(X, Y, delta_k)
+            self.models_.append(model_k)
+
+        event_times = Y[eps > 0]
+        self.times_ = np.unique(event_times) if event_times.size else np.unique(Y)
+        self.times_ = self.times_.astype(np.float64)
+        return self
+
+    def _cif(
+        self,
+        X: ArrayLike,
+        times: NDArray[np.float64],
+    ) -> NDArray[np.float64]:
+        r"""Cause-specific CIFs on ``times``.
+
+        Returns ``(n, n_causes, len(times))``.
+        """
+        # X: (n, d), times: (T,)
+        X = np.asarray(X, dtype=np.float64)
+        n = X.shape[0]
+
+        # Per-cause survival on the internal grid.
+        # S_k_all: (n, n_causes, m)
+        grid = self.times_
+        m = grid.shape[0]
+        S_k_all = np.empty((n, self.n_causes, m), dtype=np.float64)
+        for k, model_k in enumerate(self.models_):
+            S_k_all[:, k, :] = model_k.predict_survival_function(X, grid)
+
+        # Cause-specific cumulative hazards and their increments.
+        # dLam_k: (n, n_causes, m), with zero in the first column.
+        Lam_k = -np.log(np.clip(S_k_all, 1e-12, 1.0))
+        dLam_k = np.diff(Lam_k, axis=-1, prepend=0.0)
+
+        # Overall hazard increment; clip at 1 (rare late-time jumps from
+        # small risk sets) and rescale per-cause increments to match so
+        # sum_k dLam_k equals the clipped total.
+        dLam_raw = dLam_k.sum(axis=1)                            # (n, m)
+        scale = np.where(dLam_raw > 1.0, 1.0 / dLam_raw, 1.0)    # (n, m)
+        dLam_k = dLam_k * scale[:, None, :]
+        dLam = np.clip(dLam_raw, 0.0, 1.0)                       # (n, m)
+
+        # S(t_i) = prod_{j<=i} (1 - dLam(t_j)),  so S(t_i^-) * dLam(t_i) = S(t_i^-) - S(t_i).
+        S = np.cumprod(1.0 - dLam, axis=-1)                      # (n, m)
+
+        # S(t_i^-) = [1, S(t_0), ..., S(t_{m-2})]  -> (n, m)
+        S_before = np.empty((n, m), dtype=np.float64)
+        S_before[:, 0] = 1.0
+        S_before[:, 1:] = S[:, :-1]
+
+        # Standard cause-specific CIF:
+        # F_k(t|x) = sum_{t_i <= t} S(t_i^-) * dLam_k(t_i)
+        # cif_full: (n, n_causes, m)
+        cif_full = np.cumsum(S_before[:, None, :] * dLam_k, axis=-1)
+
+        # Evaluate at requested times.
+        idx = np.searchsorted(grid, times, side="right") - 1
+        below = idx < 0
+        idx_clipped = np.clip(idx, 0, m - 1)
+
+        # cif_at: (n, n_causes, T)
+        cif_at = cif_full[..., idx_clipped]
+        cif_at[..., below] = 0.0
+        return cif_at
