@@ -340,10 +340,17 @@ class CauseSpecificPredictor(CompetingRisksPredictor):
         X = np.asarray(X, dtype=np.float64)
         n = X.shape[0]
 
-        # Per-cause survival on the internal grid.
-        # S_k_all: (n, n_causes, m)
+        # Truncate the internal grid to the prefix needed for the requested
+        # times: the cumulative product / sum must run through every event
+        # up to max(times), but nothing beyond it.
         grid = self.times_
+        last_needed = float(times.max())
+        cut = int(np.searchsorted(grid, last_needed, side="right"))
+        grid = grid[:cut+1]
         m = grid.shape[0]
+
+        # Per-cause survival on the (truncated) internal grid.
+        # S_k_all: (n, n_causes, m)
         S_k_all = np.empty((n, self.n_causes, m), dtype=np.float64)
         for k, model_k in enumerate(self.models_):
             S_k_all[:, k, :] = model_k.predict_survival_function(X, grid)
