@@ -1,6 +1,7 @@
 from tausurv.linear.aft import AFT, LogLogisticAFT, LogNormalAFT, WeibullAFT
 from tausurv.linear.cox_ph import CoxPH
 from tausurv.linear.fine_gray import FineGray
+from tausurv.linear.penalized import PenalizedCoxPH, PenalizedWeibullAFT, PenalizedLogLogisticAFT, PenalizedLogNormalAFT
 
 __all__ = [
     "AFT",
@@ -9,4 +10,8 @@ __all__ = [
     "LogLogisticAFT",
     "LogNormalAFT",
     "WeibullAFT",
+    "PenalizedCoxPH",
+    "PenalizedWeibullAFT",
+    "PenalizedLogLogisticAFT",
+    "PenalizedLogNormalAFT",
 ]

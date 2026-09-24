@@ -16,6 +16,10 @@ from tausurv.linear import (
     LogLogisticAFT,
     LogNormalAFT,
     WeibullAFT,
+    PenalizedCoxPH,
+    PenalizedWeibullAFT,
+    PenalizedLogLogisticAFT,
+    PenalizedLogNormalAFT,
 )
 from tausurv.model_selection import train_test_split
 from tausurv.nonparametric import (

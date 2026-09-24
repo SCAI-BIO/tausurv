@@ -33,6 +33,9 @@ deepsurv = [
 tune = [
     "optuna>=3.0",
 ]
+lifelines = [
+    "lifelines>=0.30.3",
+]
 
 [build-system]
 requires = ["maturin>=1.10,<2"]
