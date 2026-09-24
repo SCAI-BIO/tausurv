@@ -13,15 +13,15 @@ class Coxnet(SurvivalPredictor):
         self,
         *,
         n_alphas: int = 100,
-        alphas: ArrayLike | None = None,
+        alphas: float | ArrayLike | None = None,
         alpha_min_ratio: float | Literal["auto"] = "auto",
         l1_ratio: float = 0.5,
         penalty_factor: ArrayLike | None = None,
         copy_X: bool = True,
         tol: float = 1e-7,
         max_iter: int = 100000,
-        verbose: int = 0,
-        standardize: bool = False,
+        verbose: bool = False,
+        standardize: bool = True,
     ) -> None:
         r"""Coxnet model for survival analysis using scikit-survival's CoxnetSurvivalAnalysis.
 
@@ -29,7 +29,7 @@ class Coxnet(SurvivalPredictor):
         ----------
         n_alphas : int, default=100
             Number of alphas along the regularization path.
-        alphas : ArrayLike or None, default=None
+        alphas : float or ArrayLike or None, default=None
             List of alphas along the regularization path. If None, alphas are set automatically.
         alpha_min_ratio : float or "auto", default="auto"
             Minimum ratio for alpha. If "auto", it is set automatically.
@@ -43,13 +43,18 @@ class Coxnet(SurvivalPredictor):
             Tolerance for the optimization.
         max_iter : int, default=100000
             Maximum number of iterations.
-        verbose : int, default=0
+        verbose : bool, default=False
             Verbosity level.
-        standardize : bool, default=False
+        standardize : bool, default=True
             Whether to apply internal standard scaling to the features when calling `fit` or `predict` methods.
         """
-        self.n_alphas = n_alphas
+        if alphas is not None and isinstance(alphas, (float, int)):
+            alphas = np.array([alphas], dtype=np.float64)
         self.alphas = alphas
+        if alphas is not None:
+            self.n_alphas = len(alphas)
+        else:
+            self.n_alphas = n_alphas
         self.alpha_min_ratio = alpha_min_ratio
         self.l1_ratio = l1_ratio
         self.penalty_factor = penalty_factor
@@ -84,6 +89,8 @@ class Coxnet(SurvivalPredictor):
         )
         y = self._sksurv_surv.from_arrays(event=event_indicator, time=event_time)
         if self.standardize:
+            if self.verbose:
+                print("Features will be standardized internally.")
             self._model = self._create_pipeline(self._model)
         self._model.fit(X, y)
 
