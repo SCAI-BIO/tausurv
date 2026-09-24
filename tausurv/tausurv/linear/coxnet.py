@@ -64,7 +64,6 @@ class Coxnet(SurvivalPredictor):
         self.verbose = verbose
         self.standardize = standardize
 
-        self._sksurv_linear, self._sksurv_surv = self._import_sksurv()
         self._model = None
 
     def fit(
@@ -73,8 +72,9 @@ class Coxnet(SurvivalPredictor):
             event_time: ArrayLike,
             event_indicator: ArrayLike,
         ) -> "Coxnet":
+        sksurv_linear, sksurv_surv = self._import_sksurv()
         self.times_ = np.unique(event_time[event_indicator == 1])
-        self._model = self._sksurv_linear.CoxnetSurvivalAnalysis(
+        self._model = sksurv_linear.CoxnetSurvivalAnalysis(
             n_alphas=self.n_alphas,
             alphas=self.alphas,
             alpha_min_ratio=self.alpha_min_ratio,
@@ -87,7 +87,7 @@ class Coxnet(SurvivalPredictor):
             verbose=self.verbose,
             fit_baseline_model=True,
         )
-        y = self._sksurv_surv.from_arrays(event=event_indicator, time=event_time)
+        y = sksurv_surv.from_arrays(event=event_indicator, time=event_time)
         if self.standardize:
             if self.verbose:
                 print("Features will be standardized internally.")
