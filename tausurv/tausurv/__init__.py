@@ -25,7 +25,11 @@ from tausurv.nonparametric import (
     kaplan_meier,
     nelson_aalen,
 )
-from tausurv.predictor import CompetingRisksPredictor, SurvivalPredictor
+from tausurv.predictor import (
+    CauseSpecificPredictor,
+    CompetingRisksPredictor,
+    SurvivalPredictor,
+)
 from tausurv.step import StepFunction
 from tausurv.trees import RandomSurvivalForest, SurvivalBoost, SurvivalTree
 
