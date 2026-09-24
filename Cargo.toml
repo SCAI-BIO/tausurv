@@ -10,8 +10,8 @@ edition = "2024"
 rust-version = "1.85"
 license = "MIT"
 authors = [
-    "Anna Weller <anna.weller@scai.fraunhofer.de>",
-    "Jannis Guski <jannis.guski@scai.fraunhofer.de>",
+    "Anna Malewski <anna.malewski@scai.fraunhofer.de>",
+    "Jannis Barking <jannis.barking@scai.fraunhofer.de>",
     "Lennart Carstens-Behrens <lennart.carstens-behrens@scai.fraunhofer.de>",
 ]
 

@@ -12,6 +12,7 @@ from tausurv import (
 from tausurv.discretization import bin_index, time_grid
 from tausurv.linear import (
     CoxPH,
+    Coxnet,
     FineGray,
     LogLogisticAFT,
     LogNormalAFT,
@@ -25,7 +26,11 @@ from tausurv.nonparametric import (
     kaplan_meier,
     nelson_aalen,
 )
-from tausurv.predictor import CompetingRisksPredictor, SurvivalPredictor
+from tausurv.predictor import (
+    CauseSpecificPredictor,
+    CompetingRisksPredictor,
+    SurvivalPredictor,
+)
 from tausurv.step import StepFunction
 from tausurv.trees import RandomSurvivalForest, SurvivalBoost, SurvivalTree
 

@@ -6,8 +6,8 @@ readme = "../README.md"
 requires-python = ">=3.12"
 license = "MIT"
 authors = [
-    { name = "Anna Weller", email = "anna.weller@scai.fraunhofer.de" },
-    { name = "Jannis Guski", email = "jannis.guski@scai.fraunhofer.de" },
+    { name = "Anna Malewski", email = "anna.malewski@scai.fraunhofer.de" },
+    { name = "Jannis Barking", email = "jannis.barking@scai.fraunhofer.de" },
     { name = "Lennart Carstens-Behrens", email = "lennart.carstens-behrens@scai.fraunhofer.de" },
 ]
 dependencies = [
@@ -32,6 +32,9 @@ deepsurv = [
 ]
 tune = [
     "optuna>=3.0",
+]
+sksurv = [
+    "scikit-survival>=0.23.0",
 ]
 
 [build-system]
