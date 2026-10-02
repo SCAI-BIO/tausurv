@@ -154,7 +154,7 @@ ts.plot.calibration(
 # %% [markdown]
 # ## AUC, C, Brier over time
 #
-# Three time-axis evaluation plots share one backbone. Each accepts a single $(t, v)$ curve, a precomputed `models=` overlay, or a `(n_folds, n_times)` `folds=` matrix that renders the fold mean as the line and a $\pm 1$ SD band.
+# Three time-axis evaluation plots share one backbone. Each accepts a single $(t, v)$ curve, a precomputed `models=` overlay, or a `(n_folds, n_times)` matrix as `values` that renders the fold mean as the line and a $\pm 1$ SD band.
 
 # %%
 t_eval = np.linspace(0.5, 5.0, 20)
@@ -164,9 +164,9 @@ rsf_folds = 0.76 + 0.015 * np.cos(t_eval) + 0.04 * rng.normal(size=(5, t_eval.si
 
 ts.plot.auc_over_time(
     models={
-        "Cox":     {"times": t_eval, "folds": cox_folds},
-        "DeepHit": {"times": t_eval, "folds": dh_folds},
-        "RSF":     {"times": t_eval, "folds": rsf_folds},
+        "Cox":     {"times": t_eval, "values": cox_folds},
+        "DeepHit": {"times": t_eval, "values": dh_folds},
+        "RSF":     {"times": t_eval, "values": rsf_folds},
     },
     title=r"Time-dependent AUC ($\pm$1 SD across CV folds)",
 )

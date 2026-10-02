@@ -34,18 +34,13 @@ ts.plot.set_style("publication")
 # %% [markdown]
 # ## Bringing the competing event back
 #
-# `ts.datasets.load_pbc()` returns the single-event bunch; the raw three-level status (0 = censored, 1 = transplant, 2 = death) lives in the cached CSV. We re-read it directly and recode for the competing-risks convention used throughout the library: cause 0 is censored, cause 1 is the event of interest (death), cause 2 is the competing event (transplant).
+# `ts.datasets.load_pbc()` returns the single-event bunch. The `pbc:transplant` variant reads the same 418 patients as competing risks, coded with the convention used throughout the library: cause 0 is censored, cause 1 is the event of interest (death), cause 2 is the competing event (transplant).
 
 # %%
-pbc = ts.datasets.load_pbc()
+pbc = ts.datasets.load_dataset("pbc:transplant")
 X_full, Y_full, _ = pbc
 Y_full = Y_full / 365.25  # days -> years
-
-csv_path = ts.datasets.resolve_cache_dir() / "pbc" / "pbc.csv"
-status_raw = pl.read_csv(csv_path)["status"].to_numpy()
-
-# 0=censored, 1=transplant, 2=death  →  0=censored, 1=death, 2=transplant.
-event = np.where(status_raw == 2, 1, np.where(status_raw == 1, 2, 0)).astype(np.int8)
+event = pbc.cause
 
 counts = pl.DataFrame(
     {

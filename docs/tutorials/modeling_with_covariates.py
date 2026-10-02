@@ -270,7 +270,7 @@ ts.plot.calibration(
 # Each point is one of five quantile bins of predicted five-year survival; its x-coordinate is the bin's mean prediction and its y-coordinate is the Kaplan-Meier estimate of survival at five years among the bin's test patients. A perfectly calibrated model would have all points on the dashed identity line.
 
 # %% [markdown]
-# A single test split gives one point estimate of the Brier score at each horizon. With a cohort this size, that estimate is noisy. **5-fold cross-validation** refits the model on each held-out 80% and scores the remaining 20%, giving five estimates per horizon. Passing the resulting `(n_folds, n_horizons)` matrix to `ts.plot.brier_over_time` via the `folds=` keyword draws the mean as the line and a $\pm 1$ standard-deviation band around it.
+# A single test split gives one point estimate of the Brier score at each horizon. With a cohort this size, that estimate is noisy. **5-fold cross-validation** refits the model on each held-out 80% and scores the remaining 20%, giving five estimates per horizon. Passing the resulting `(n_folds, n_horizons)` matrix to `ts.plot.brier_over_time` as `values` draws the mean as the line and a $\pm 1$ standard-deviation band around it.
 
 # %%
 horizons = np.array([1.0, 2.0, 3.0, 5.0, 7.0, 10.0])
@@ -290,7 +290,7 @@ for i, te in enumerate(fold_indices):
 
 ts.plot.brier_over_time(
     horizons,
-    folds=brier_folds,
+    brier_folds,
     xlabel="years from registration",
 )
 

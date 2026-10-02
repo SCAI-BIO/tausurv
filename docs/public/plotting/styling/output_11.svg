@@ -6,7 +6,7 @@
   <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
    <cc:Work>
     <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
-    <dc:date>2026-05-29T10:16:57.077130</dc:date>
+    <dc:date>2026-10-02T13:07:06.921041</dc:date>
     <dc:format>image/svg+xml</dc:format>
     <dc:creator>
      <cc:Agent>
@@ -35,7 +35,7 @@ L 55.234286 25.118437
 L 55.234286 13.038437 
 L 1.44 13.038437 
 z
-" clip-path="url(#p9aa2b2e421)" style="fill: #4477aa"/>
+" clip-path="url(#p54674b1d6c)" style="fill: #4477aa"/>
    </g>
    <g id="patch_3">
     <path d="M 55.234286 25.118437 
@@ -43,7 +43,7 @@ L 109.028571 25.118437
 L 109.028571 13.038437 
 L 55.234286 13.038437 
 z
-" clip-path="url(#p9aa2b2e421)" style="fill: #ee6677"/>
+" clip-path="url(#p54674b1d6c)" style="fill: #ee6677"/>
    </g>
    <g id="patch_4">
     <path d="M 109.028571 25.118437 
@@ -51,7 +51,7 @@ L 162.822857 25.118437
 L 162.822857 13.038437 
 L 109.028571 13.038437 
 z
-" clip-path="url(#p9aa2b2e421)" style="fill: #228833"/>
+" clip-path="url(#p54674b1d6c)" style="fill: #228833"/>
    </g>
    <g id="patch_5">
     <path d="M 162.822857 25.118437 
@@ -59,7 +59,7 @@ L 216.617143 25.118437
 L 216.617143 13.038437 
 L 162.822857 13.038437 
 z
-" clip-path="url(#p9aa2b2e421)" style="fill: #ccbb44"/>
+" clip-path="url(#p54674b1d6c)" style="fill: #ccbb44"/>
    </g>
    <g id="patch_6">
     <path d="M 216.617143 25.118437 
@@ -67,7 +67,7 @@ L 270.411429 25.118437
 L 270.411429 13.038437 
 L 216.617143 13.038437 
 z
-" clip-path="url(#p9aa2b2e421)" style="fill: #66ccee"/>
+" clip-path="url(#p54674b1d6c)" style="fill: #66ccee"/>
    </g>
    <g id="patch_7">
     <path d="M 270.411429 25.118437 
@@ -75,7 +75,7 @@ L 324.205714 25.118437
 L 324.205714 13.038437 
 L 270.411429 13.038437 
 z
-" clip-path="url(#p9aa2b2e421)" style="fill: #aa3377"/>
+" clip-path="url(#p54674b1d6c)" style="fill: #aa3377"/>
    </g>
    <g id="patch_8">
     <path d="M 324.205714 25.118437 
@@ -83,7 +83,7 @@ L 378 25.118437
 L 378 13.038437 
 L 324.205714 13.038437 
 z
-" clip-path="url(#p9aa2b2e421)" style="fill: #bbbbbb"/>
+" clip-path="url(#p54674b1d6c)" style="fill: #bbbbbb"/>
    </g>
    <g id="text_1">
     <!-- Tol Bright -->
@@ -281,7 +281,7 @@ z
   </g>
  </g>
  <defs>
-  <clipPath id="p9aa2b2e421">
+  <clipPath id="p54674b1d6c">
    <rect x="1.44" y="13.038438" width="376.56" height="12.08"/>
   </clipPath>
  </defs>
