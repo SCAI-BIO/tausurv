@@ -3,9 +3,26 @@ import starlight from "@astrojs/starlight";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 
+const base = "/tausurv";
+
+// Astro's `base` does not apply to links written in Markdown, so prefix
+// root-relative link and image URLs here.
+function remarkBasePath() {
+  const walk = (node) => {
+    const linked = node.type === "link" || node.type === "image" || node.type === "definition";
+    if (linked && node.url.startsWith("/") && !node.url.startsWith("//")) {
+      node.url = base + node.url;
+    }
+    node.children?.forEach(walk);
+  };
+  return walk;
+}
+
 export default defineConfig({
+  site: "https://scai-bio.github.io",
+  base,
   markdown: {
-    remarkPlugins: [remarkMath],
+    remarkPlugins: [remarkMath, remarkBasePath],
     rehypePlugins: [[rehypeKatex, {}]],
   },
   integrations: [

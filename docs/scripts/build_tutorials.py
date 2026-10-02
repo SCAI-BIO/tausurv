@@ -80,6 +80,17 @@ def _is_plot_repr(text: str) -> bool:
     return bool(_PLOT_REPR_RE.match(text.strip()))
 
 
+def _finished_progress_bars(text: str) -> str:
+    """Last frame of each completed tqdm bar in a stderr chunk, or ``""``.
+
+    tqdm redraws a bar in place with carriage returns; the final frame of a
+    bar that reached 100% is the one line worth keeping.
+    """
+    frames = [frame.strip() for line in text.split("\n") for frame in line.split("\r")]
+    last_by_bar = {f.split("100%|")[0]: f for f in frames if "100%|" in f}
+    return "\n".join(last_by_bar.values())
+
+
 def _cell_output_html(text: str) -> str:
     """Wrap a text/plain output in a styled <pre> block.
 
@@ -88,6 +99,8 @@ def _cell_output_html(text: str) -> str:
     source-code blocks.
     """
     escaped = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    # MDX reads a bare brace as the start of a JSX expression, even inside <pre>.
+    escaped = escaped.replace("{", "&#123;").replace("}", "&#125;")
     return f'<pre class="cell-output">{escaped}</pre>'
 
 
@@ -103,9 +116,11 @@ def render_output(
     if otype == "stream":
         if output.get("name") == "stderr":
             # Warnings and other stderr noise are not part of the tutorial's
-            # intended output. The kernel's own diagnostics (tqdm fallback,
-            # FutureWarnings, etc.) belong in the build log, not the page.
-            return None
+            # intended output and belong in the build log, not the page. The
+            # one exception is a finished tqdm progress bar, which is part of
+            # what the reader would see: keep its last frame only.
+            bars = _finished_progress_bars(output.get("text", ""))
+            return _cell_output_html(bars) if bars else None
         text = output.get("text", "").rstrip("\n")
         return _cell_output_html(text) if text else None
     if otype in ("execute_result", "display_data"):
@@ -151,7 +166,7 @@ def render_notebook(nb, slug: str, img_dir: Path, chapter: str) -> str:
             parts.append(source)
             parts.append("```")
             parts.append("")
-            for output in cell.outputs:
+            for output in _merge_streams(cell.outputs):
                 rendered = render_output(
                     output, slug, img_dir, output_idx, chapter,
                 )
@@ -162,6 +177,29 @@ def render_notebook(nb, slug: str, img_dir: Path, chapter: str) -> str:
                 output_idx += 1
 
     return "\n".join(parts).rstrip() + "\n"
+
+
+def _merge_streams(outputs: list) -> list:
+    """Join consecutive chunks of the same stream into one output.
+
+    The kernel flushes stdout and stderr in pieces while a cell runs, so a
+    single ``print`` loop or progress bar can arrive as several stream
+    messages. Jupyter front-ends concatenate them; the page should too.
+    """
+    merged: list = []
+    for output in outputs:
+        previous = merged[-1] if merged else None
+        same_stream = (
+            previous is not None
+            and output.get("output_type") == "stream"
+            and previous.get("output_type") == "stream"
+            and previous.get("name") == output.get("name")
+        )
+        if same_stream:
+            merged[-1] = {**previous, "text": previous["text"] + output["text"]}
+        else:
+            merged.append(output)
+    return merged
 
 
 def extract_frontmatter(md: str, fallback_name: str) -> tuple[str, str, str]:
