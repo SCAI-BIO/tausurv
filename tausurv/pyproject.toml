@@ -41,7 +41,7 @@ classifiers = [
 ]
 dependencies = [
     "numpy>=2.0",
-    "scipy>=1.10",
+    "scipy>=1.13",
     "polars>=1.0",
     "platformdirs>=4.0",
     "tqdm>=4.65",
@@ -54,18 +54,18 @@ Issues = "https://github.com/SCAI-BIO/tausurv/issues"
 
 [project.optional-dependencies]
 plot = [
-    "matplotlib>=3.8",
+    "matplotlib>=3.8.4",
 ]
 boost = [
-    "scikit-learn>=1.4",
+    "scikit-learn>=1.4.2",
 ]
 # The DeepSurv benchmark tables (metabric, gbsg:deepsurv, support:deepsurv,
 # whas:deepsurv) are distributed as HDF5 and only those four need this.
 deepsurv = [
-    "h5py>=3.0",
+    "h5py>=3.11",
 ]
 tune = [
-    "optuna>=3.0",
+    "optuna>=3.1",
 ]
 
 [build-system]

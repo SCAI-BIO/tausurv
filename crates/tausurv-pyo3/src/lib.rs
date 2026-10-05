@@ -9,8 +9,8 @@ use numpy::{IntoPyArray, PyArray1, PyArray2, PyReadonlyArray1, PyReadonlyArray2}
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use tausurv_core::{
-    Bootstrap, Forest, ForestConfig, GradientCriterion, HonestyMode, LogRankCriterion,
-    MaxFeatures, StepFunction, SurvivalData, Tree, TreeConfig,
+    Bootstrap, Forest, ForestConfig, GradientCriterion, HonestyMode, LogRankCriterion, MaxFeatures,
+    StepFunction, SurvivalData, Tree, TreeConfig,
 };
 
 #[pyfunction]
@@ -75,8 +75,7 @@ impl PyLogRankSurvivalTree {
         }
         let times_slice = times.as_slice()?;
 
-        let out =
-            py.detach(|| self.inner.predict_cumulative_hazard(x_view, times_slice));
+        let out = py.detach(|| self.inner.predict_cumulative_hazard(x_view, times_slice));
         Ok(out.into_pyarray(py))
     }
 }
@@ -97,7 +96,8 @@ impl PyLogRankSurvivalTree {
     honesty_fraction = 0.5,
     seed = None,
 ))]
-#[allow(non_snake_case)] // `X` is the public Python kwarg name.
+// `X` and the argument list mirror the public Python signature.
+#[allow(non_snake_case, clippy::too_many_arguments)]
 fn fit_log_rank_tree<'py>(
     py: Python<'py>,
     X: PyReadonlyArray2<'py, f64>,
@@ -136,7 +136,9 @@ fn fit_log_rank_tree<'py>(
                 "honesty_fraction must lie in (0, 1), got {honesty_fraction}"
             )));
         }
-        HonestyMode::Split { fraction: honesty_fraction }
+        HonestyMode::Split {
+            fraction: honesty_fraction,
+        }
     } else {
         HonestyMode::None
     };
@@ -145,15 +147,12 @@ fn fit_log_rank_tree<'py>(
     let config = TreeConfig {
         min_samples_leaf,
         max_depth,
-        max_features: parse_max_features(
-            max_features.as_ref(), p as u32, MaxFeatures::All,
-        )?,
+        max_features: parse_max_features(max_features.as_ref(), p as u32, MaxFeatures::All)?,
         honesty,
     };
     let seed = seed.unwrap_or(0);
 
-    let tree =
-        py.detach(|| Tree::fit(data, &LogRankCriterion, &config, seed));
+    let tree = py.detach(|| Tree::fit(data, &LogRankCriterion, &config, seed));
     Ok(PyLogRankSurvivalTree { inner: tree })
 }
 
@@ -205,7 +204,11 @@ fn is_column_major(view: &ArrayView2<f64>) -> bool {
 }
 
 /// Immutable handle to a fitted random survival forest.
-#[pyclass(name = "LogRankSurvivalForest", frozen, module = "tausurv._tausurv_core")]
+#[pyclass(
+    name = "LogRankSurvivalForest",
+    frozen,
+    module = "tausurv._tausurv_core"
+)]
 pub struct PyLogRankSurvivalForest {
     inner: Forest<StepFunction>,
 }
@@ -255,8 +258,7 @@ impl PyLogRankSurvivalForest {
             )));
         }
         let times_slice = times.as_slice()?;
-        let out =
-            py.detach(|| self.inner.predict_cumulative_hazard(x_view, times_slice));
+        let out = py.detach(|| self.inner.predict_cumulative_hazard(x_view, times_slice));
         Ok(out.into_pyarray(py))
     }
 
@@ -325,7 +327,7 @@ impl PyLogRankSurvivalForest {
     honesty_fraction = 0.5,
     seed = None,
 ))]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, clippy::too_many_arguments)]
 fn fit_log_rank_forest<'py>(
     py: Python<'py>,
     X: PyReadonlyArray2<'py, f64>,
@@ -375,7 +377,9 @@ fn fit_log_rank_forest<'py>(
                 "honesty_fraction must lie in (0, 1), got {honesty_fraction}"
             )));
         }
-        HonestyMode::Split { fraction: honesty_fraction }
+        HonestyMode::Split {
+            fraction: honesty_fraction,
+        }
     } else {
         HonestyMode::None
     };
@@ -386,9 +390,7 @@ fn fit_log_rank_forest<'py>(
         tree: TreeConfig {
             min_samples_leaf,
             max_depth,
-            max_features: parse_max_features(
-                max_features.as_ref(), p as u32, MaxFeatures::Sqrt,
-            )?,
+            max_features: parse_max_features(max_features.as_ref(), p as u32, MaxFeatures::Sqrt)?,
             honesty,
         },
         bootstrap: Bootstrap {
@@ -398,8 +400,7 @@ fn fit_log_rank_forest<'py>(
     };
     let seed = seed.unwrap_or(0);
 
-    let forest =
-        py.detach(|| Forest::fit(data, &LogRankCriterion, &config, seed));
+    let forest = py.detach(|| Forest::fit(data, &LogRankCriterion, &config, seed));
     Ok(PyLogRankSurvivalForest { inner: forest })
 }
 
@@ -500,7 +501,7 @@ impl PyGradientForest {
     honesty_fraction = 0.5,
     seed = None,
 ))]
-#[allow(non_snake_case)]
+#[allow(non_snake_case, clippy::too_many_arguments)]
 fn fit_gradient_forest<'py>(
     py: Python<'py>,
     X: PyReadonlyArray2<'py, f64>,
@@ -546,7 +547,9 @@ fn fit_gradient_forest<'py>(
                 "honesty_fraction must lie in (0, 1), got {honesty_fraction}"
             )));
         }
-        HonestyMode::Split { fraction: honesty_fraction }
+        HonestyMode::Split {
+            fraction: honesty_fraction,
+        }
     } else {
         HonestyMode::None
     };
@@ -562,9 +565,7 @@ fn fit_gradient_forest<'py>(
         tree: TreeConfig {
             min_samples_leaf,
             max_depth,
-            max_features: parse_max_features(
-                max_features.as_ref(), p as u32, MaxFeatures::Sqrt,
-            )?,
+            max_features: parse_max_features(max_features.as_ref(), p as u32, MaxFeatures::Sqrt)?,
             honesty,
         },
         bootstrap: Bootstrap {

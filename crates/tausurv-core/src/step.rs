@@ -36,25 +36,43 @@ impl StepFunction {
             time.windows(2).all(|w| w[0] < w[1]),
             "time must be strictly increasing",
         );
-        Self { time, value, side, baseline }
+        Self {
+            time,
+            value,
+            side,
+            baseline,
+        }
     }
 
     /// Empty step function: always returns `baseline`.
     pub fn empty(side: Side, baseline: f64) -> Self {
-        Self { time: Vec::new(), value: Vec::new(), side, baseline }
+        Self {
+            time: Vec::new(),
+            value: Vec::new(),
+            side,
+            baseline,
+        }
     }
 
     /// Grid times.
-    pub fn time(&self) -> &[f64] { &self.time }
+    pub fn time(&self) -> &[f64] {
+        &self.time
+    }
 
     /// Grid values.
-    pub fn value(&self) -> &[f64] { &self.value }
+    pub fn value(&self) -> &[f64] {
+        &self.value
+    }
 
     /// Default continuity.
-    pub fn side(&self) -> Side { self.side }
+    pub fn side(&self) -> Side {
+        self.side
+    }
 
     /// Baseline value returned below `time[0]`.
-    pub fn baseline(&self) -> f64 { self.baseline }
+    pub fn baseline(&self) -> f64 {
+        self.baseline
+    }
 
     /// Evaluate at a single point using the default `side`.
     pub fn at(&self, q: f64) -> f64 {
@@ -108,12 +126,7 @@ mod tests {
     use approx::assert_relative_eq;
 
     fn fixture() -> StepFunction {
-        StepFunction::new(
-            vec![1.0, 2.0, 3.0],
-            vec![0.1, 0.4, 0.9],
-            Side::Right,
-            0.0,
-        )
+        StepFunction::new(vec![1.0, 2.0, 3.0], vec![0.1, 0.4, 0.9], Side::Right, 0.0)
     }
 
     #[test]

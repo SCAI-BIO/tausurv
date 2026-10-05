@@ -1,5 +1,19 @@
 from __future__ import annotations
 
+import os
+
+# Under pytest-xdist every worker is its own process. Uncapped, each would
+# start a BLAS, PyTorch and Rayon thread per core, and the oversubscribed
+# machine runs slower than a single process. Set before numpy is imported.
+if "PYTEST_XDIST_WORKER" in os.environ:
+    for var in (
+        "OMP_NUM_THREADS",
+        "OPENBLAS_NUM_THREADS",
+        "MKL_NUM_THREADS",
+        "RAYON_NUM_THREADS",
+    ):
+        os.environ.setdefault(var, "1")
+
 import numpy as np
 import pytest
 

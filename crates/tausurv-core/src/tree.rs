@@ -278,7 +278,12 @@ impl<L: LeafPayload> Tree<L> {
         loop {
             match &self.nodes[node as usize] {
                 NodeKind::Leaf { hazard_id } => return *hazard_id,
-                NodeKind::Internal { feature, threshold, left, right } => {
+                NodeKind::Internal {
+                    feature,
+                    threshold,
+                    left,
+                    right,
+                } => {
                     node = if x[*feature as usize] <= *threshold {
                         *left
                     } else {
@@ -339,12 +344,7 @@ struct TreeBuilder<'b, 'd, L: LeafPayload, C: SplitCriterion> {
 }
 
 impl<'b, 'd, L: LeafPayload, C: SplitCriterion> TreeBuilder<'b, 'd, L, C> {
-    fn build(
-        &mut self,
-        splitting: &mut [u32],
-        estimation: &mut [u32],
-        depth: u32,
-    ) -> u32 {
+    fn build(&mut self, splitting: &mut [u32], estimation: &mut [u32], depth: u32) -> u32 {
         if self.should_stop(splitting, estimation, depth) {
             return self.make_leaf(estimation);
         }
@@ -397,14 +397,8 @@ impl<'b, 'd, L: LeafPayload, C: SplitCriterion> TreeBuilder<'b, 'd, L, C> {
     /// Criterion-specific "nothing to split on" cases (e.g. all-censored
     /// nodes for log-rank) are handled inside the criterion's
     /// `find_best_split` returning `None`.
-    fn should_stop(
-        &self,
-        splitting: &[u32],
-        estimation: &[u32],
-        depth: u32,
-    ) -> bool {
-        let too_small =
-            splitting.len() < 2 * self.config.min_samples_leaf || estimation.is_empty();
+    fn should_stop(&self, splitting: &[u32], estimation: &[u32], depth: u32) -> bool {
+        let too_small = splitting.len() < 2 * self.config.min_samples_leaf || estimation.is_empty();
         let depth_hit = self.config.max_depth.is_some_and(|cap| depth >= cap);
         too_small || depth_hit
     }
@@ -493,12 +487,13 @@ mod tests {
             max_depth: Some(2),
             ..TreeConfig::default()
         };
-        let tree: Tree<StepFunction> =
-            Tree::fit(data, &LogRankCriterion, &config, 42);
+        let tree: Tree<StepFunction> = Tree::fit(data, &LogRankCriterion, &config, 42);
 
         assert!(tree.n_leaves() >= 2);
         match &tree.nodes[tree.root as usize] {
-            NodeKind::Internal { feature, threshold, .. } => {
+            NodeKind::Internal {
+                feature, threshold, ..
+            } => {
                 assert_eq!(*feature, 0);
                 assert!(*threshold > 0.0 && *threshold < 1.0);
             }
@@ -541,8 +536,7 @@ mod tests {
             min_samples_leaf: 5,
             ..TreeConfig::default()
         };
-        let tree: Tree<StepFunction> =
-            Tree::fit(data, &LogRankCriterion, &config, 1);
+        let tree: Tree<StepFunction> = Tree::fit(data, &LogRankCriterion, &config, 1);
         assert_eq!(tree.n_leaves(), 1);
         assert_eq!(tree.n_nodes(), 1);
         assert_eq!(tree.depth(), 0);
@@ -590,12 +584,12 @@ mod tests {
         assert!(tree.n_leaves() >= 2);
         // Leaf hazards should still distinguish the two groups even after
         // honesty halves the estimation set.
-        let queries = Array2::from_shape_vec((2, 3), vec![
-            0.0, 0.0, 0.0,
-            1.0, 0.0, 0.0,
-        ]).unwrap();
+        let queries = Array2::from_shape_vec((2, 3), vec![0.0, 0.0, 0.0, 1.0, 0.0, 0.0]).unwrap();
         let h = tree.predict_cumulative_hazard(queries.view(), &[5.0]);
-        assert!(h[[0, 0]] > h[[1, 0]], "honest tree should still separate groups: {h:?}");
+        assert!(
+            h[[0, 0]] > h[[1, 0]],
+            "honest tree should still separate groups: {h:?}"
+        );
     }
 
     #[test]
@@ -627,8 +621,7 @@ mod tests {
         let data = SurvivalData::new(x.view(), &y, &delta);
         let survival: Tree<StepFunction> =
             Tree::fit(data, &LogRankCriterion, &TreeConfig::default(), 0);
-        let partition: Tree<()> =
-            Tree::fit(data, &LogRankCriterion, &TreeConfig::default(), 0);
+        let partition: Tree<()> = Tree::fit(data, &LogRankCriterion, &TreeConfig::default(), 0);
         assert_eq!(survival.n_nodes(), partition.n_nodes());
         assert_eq!(survival.n_leaves(), partition.n_leaves());
         assert_eq!(survival.depth(), partition.depth());

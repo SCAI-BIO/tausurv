@@ -1,0 +1,98 @@
+name: tests
+
+# Runs on every push to main and every pull request. Unlike the release
+# workflow this one caches dependencies and Rust builds: it publishes
+# nothing, and fast feedback matters more here.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - name: Formatting
+        run: uvx ruff format --check
+      - name: Workflow security
+        run: uvx zizmor --offline .github/workflows
+
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - name: Formatting
+        run: cargo fmt --all --check
+      - name: Lints
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      # The pyo3 crate builds a Python extension and cannot link a test
+      # binary on its own; the Python suite covers it.
+      - name: Tests
+        run: cargo test -p tausurv-core
+
+  test:
+    name: test py${{ matrix.python }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - name: Install the workspace
+        run: uv sync --locked --all-packages --all-extras --group dev --group parity
+      # PyTorch is not in the lock file: the right build depends on the
+      # hardware. Installed after the sync, which would otherwise remove it.
+      - name: Install PyTorch (CPU)
+        run: uv pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Run the test suite
+        run: uv run --no-sync pytest -n auto
+
+  # The lower bounds in tausurv/pyproject.toml are claims; this job tests
+  # the oldest versions they allow.
+  minimum-versions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - name: Install the oldest allowed versions
+        run: uv sync --resolution lowest-direct --all-packages --all-extras --group dev
+      - name: Install PyTorch (CPU)
+        run: uv pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Show the versions under test
+        run: uv pip list | grep -iE '^(numpy|scipy|polars|platformdirs|tqdm|matplotlib|scikit-learn|optuna|h5py) '
+      - name: Run the test suite
+        run: uv run --no-sync pytest -n auto

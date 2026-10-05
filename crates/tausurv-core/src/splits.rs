@@ -131,7 +131,11 @@ impl SplitCriterion for LogRankCriterion {
                 let score = sorted.log_rank_score(&left_mask);
                 if score > best_score {
                     best_score = score;
-                    best = Some(BestSplit { feature: feat, threshold, score });
+                    best = Some(BestSplit {
+                        feature: feat,
+                        threshold,
+                        score,
+                    });
                 }
             }
         }
@@ -209,8 +213,7 @@ impl SortedNode {
     fn log_rank_score(&self, left_mask: &[u8]) -> f64 {
         debug_assert_eq!(left_mask.len(), self.delta.len());
 
-        let mut at_risk_left =
-            left_mask.iter().map(|&l| l as usize).sum::<usize>();
+        let mut at_risk_left = left_mask.iter().map(|&l| l as usize).sum::<usize>();
         let mut obs_minus_exp = 0.0_f64;
         let mut var_sum = 0.0_f64;
 
@@ -221,11 +224,11 @@ impl SortedNode {
 
             let mut n_at_left = 0_u32;
             let mut d_left = 0_u32;
-            for i in start as usize..end as usize {
-                let l = left_mask[i] as u32;
-                let d = self.delta[i] as u32;
+            let range = start as usize..end as usize;
+            for (&l, &d) in left_mask[range.clone()].iter().zip(&self.delta[range]) {
+                let l = l as u32;
                 n_at_left += l;
-                d_left += d & l;
+                d_left += d as u32 & l;
             }
 
             if d_total > 0 {
@@ -263,8 +266,8 @@ impl SortedNode {
 ///
 /// Used as the inner split criterion for the **causal survival forest**:
 /// the AIPCW pseudo-outcomes from Cui et al. (2023) are fed in as
-/// `pseudo_outcome` and a forest fit under this criterion + honesty
-/// + forest-weight prediction gives the heterogeneous treatment effect
+/// `pseudo_outcome`, and a forest fit under this criterion with honesty
+/// and forest-weight prediction gives the heterogeneous treatment effect
 /// estimator. The criterion ignores `data.y` and `data.delta` — all
 /// censoring/survival information is already absorbed into the
 /// pseudo-outcome by construction.
@@ -341,12 +344,14 @@ impl SplitCriterion for GradientCriterion<'_> {
                 let mu_l = sum_left / count_left as f64;
                 let mu_r = sum_right / count_right as f64;
                 let diff = mu_l - mu_r;
-                let score = (count_left as f64) * (count_right as f64) / n_total
-                    * diff
-                    * diff;
+                let score = (count_left as f64) * (count_right as f64) / n_total * diff * diff;
                 if score > best_score {
                     best_score = score;
-                    best = Some(BestSplit { feature: feat, threshold, score });
+                    best = Some(BestSplit {
+                        feature: feat,
+                        threshold,
+                        score,
+                    });
                 }
             }
         }
@@ -361,11 +366,7 @@ mod tests {
     use approx::assert_relative_eq;
     use ndarray::Array2;
 
-    fn data<'a>(
-        x: &'a Array2<f64>,
-        y: &'a [f64],
-        delta: &'a [u8],
-    ) -> SurvivalData<'a> {
+    fn data<'a>(x: &'a Array2<f64>, y: &'a [f64], delta: &'a [u8]) -> SurvivalData<'a> {
         SurvivalData::new(x.view(), y, delta)
     }
 
@@ -402,7 +403,11 @@ mod tests {
         let idx: Vec<u32> = (0..n as u32).collect();
         let split = LogRankCriterion.find_best_split(data(&x, &y, &delta), &idx, &[0], 5);
         if let Some(s) = split {
-            assert!(s.score < 5.0, "no-signal score unexpectedly high: {}", s.score);
+            assert!(
+                s.score < 5.0,
+                "no-signal score unexpectedly high: {}",
+                s.score
+            );
         }
     }
 
@@ -416,7 +421,10 @@ mod tests {
 
         let idx: Vec<u32> = (0..(n / 2) as u32).collect();
         let split = LogRankCriterion.find_best_split(data(&x, &y, &delta), &idx, &[0], 1);
-        assert!(split.is_none(), "single-valued feature should give no split");
+        assert!(
+            split.is_none(),
+            "single-valued feature should give no split"
+        );
     }
 
     #[test]
@@ -485,8 +493,8 @@ mod tests {
         let y = vec![1.0; n];
         let delta = vec![1_u8; n];
         let idx: Vec<u32> = (0..n as u32).collect();
-        let split = GradientCriterion::new(&pseudo)
-            .find_best_split(data(&x, &y, &delta), &idx, &[0], 1);
+        let split =
+            GradientCriterion::new(&pseudo).find_best_split(data(&x, &y, &delta), &idx, &[0], 1);
         if let Some(s) = split {
             assert_relative_eq!(s.score, 0.0);
         }
@@ -501,8 +509,8 @@ mod tests {
         let y = vec![1.0; n];
         let delta = vec![1_u8; n];
         let idx: Vec<u32> = (0..n as u32).collect();
-        let split = GradientCriterion::new(&pseudo)
-            .find_best_split(data(&x, &y, &delta), &idx, &[0], 1);
+        let split =
+            GradientCriterion::new(&pseudo).find_best_split(data(&x, &y, &delta), &idx, &[0], 1);
         assert!(split.is_none());
     }
 
@@ -536,8 +544,8 @@ mod tests {
         let y = vec![1.0; n];
         let delta = vec![1_u8; n];
         let idx: Vec<u32> = (0..n as u32).collect();
-        let split = GradientCriterion::new(&pseudo)
-            .find_best_split(data(&x, &y, &delta), &idx, &[0], 8);
+        let split =
+            GradientCriterion::new(&pseudo).find_best_split(data(&x, &y, &delta), &idx, &[0], 8);
         assert!(split.is_none());
     }
 }

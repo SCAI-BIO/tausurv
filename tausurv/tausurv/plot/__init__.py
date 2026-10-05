@@ -1,11 +1,8 @@
-"""Publication-grade plotting for tausurv.
+"""Plotting for tausurv.
 
 Matplotlib is an optional dependency (``tausurv[plot]``) and is loaded lazily
 when a plotting function is called -- importing :mod:`tausurv` does not import
 matplotlib.
-
-See ``docs/plots.md`` in the workspace for the design memo (palette choices,
-named styles, build order).
 """
 
 from tausurv.plot import colors, copula, shap

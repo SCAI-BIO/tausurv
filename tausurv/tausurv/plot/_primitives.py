@@ -1,8 +1,6 @@
 r"""Internal rendering primitives shared by tausurv plots.
 
-Centralises the visual constants from the API conventions section of
-``docs/plots.md`` so that every plot inherits the same defaults from a single
-source of truth:
+Holds the visual constants every plot shares, so they are defined once:
 
 - CI bands: ``alpha=0.18``, no edge, colour matches the line.
 - Reference lines: ``#888888``, dashed, ``linewidth=0.6``, ``alpha=0.6``.

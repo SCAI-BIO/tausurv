@@ -1,10 +1,9 @@
 """Color palettes for tausurv plots.
 
-The defaults are research-grounded: Okabe-Ito for categorical (CVD-safe,
-grayscale-distinguishable, the most-cited science palette), Tol's qualitative
-schemes as alternates, viridis-family for sequential, and ColorBrewer's RdBu
-for diverging (hazard ratios, risk differences). See ``docs/plots.md`` in the
-workspace for citations and rationale.
+Okabe-Ito for categorical data (safe under colour-vision deficiency and
+distinguishable in grayscale), Paul Tol's qualitative schemes as alternates,
+the viridis family for sequential data, and ColorBrewer's RdBu for diverging
+data (hazard ratios, risk differences).
 """
 
 from __future__ import annotations

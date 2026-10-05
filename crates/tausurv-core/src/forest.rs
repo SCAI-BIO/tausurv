@@ -34,7 +34,10 @@ pub struct Bootstrap {
 impl Default for Bootstrap {
     /// Classical RSF default: bootstrap with replacement, `n` samples.
     fn default() -> Self {
-        Bootstrap { with_replacement: true, fraction: 1.0 }
+        Bootstrap {
+            with_replacement: true,
+            fraction: 1.0,
+        }
     }
 }
 
@@ -85,12 +88,7 @@ impl<L: LeafPayload> Forest<L> {
     /// Per-tree seeds are derived from `seed` in a single-threaded
     /// pre-pass, so the result is invariant to the number of rayon worker
     /// threads.
-    pub fn fit<C>(
-        data: SurvivalData<'_>,
-        criterion: &C,
-        config: &ForestConfig,
-        seed: u64,
-    ) -> Self
+    pub fn fit<C>(data: SurvivalData<'_>, criterion: &C, config: &ForestConfig, seed: u64) -> Self
     where
         C: SplitCriterion + Sync,
     {
@@ -305,10 +303,7 @@ mod tests {
         let forest: Forest<StepFunction> = Forest::fit(data, &LogRankCriterion, &config, 42);
         assert_eq!(forest.n_trees(), 20);
 
-        let queries = Array2::from_shape_vec((2, 3), vec![
-            0.0, 0.0, 0.0,
-            1.0, 0.0, 0.0,
-        ]).unwrap();
+        let queries = Array2::from_shape_vec((2, 3), vec![0.0, 0.0, 0.0, 1.0, 0.0, 0.0]).unwrap();
         let h = forest.predict_cumulative_hazard(queries.view(), &[5.0]);
         // Group A (x[0]=0) is the high-hazard group, B (x[0]=1) is low.
         assert!(h[[0, 0]] > h[[1, 0]], "rows: {h:?}");
@@ -329,14 +324,20 @@ mod tests {
         };
 
         let h_a = {
-            let pool = rayon::ThreadPoolBuilder::new().num_threads(1).build().unwrap();
+            let pool = rayon::ThreadPoolBuilder::new()
+                .num_threads(1)
+                .build()
+                .unwrap();
             pool.install(|| {
                 let forest: Forest<StepFunction> = Forest::fit(data, &LogRankCriterion, &config, 7);
                 forest.predict_cumulative_hazard(x.view(), &[1.0, 5.0, 12.0])
             })
         };
         let h_b = {
-            let pool = rayon::ThreadPoolBuilder::new().num_threads(4).build().unwrap();
+            let pool = rayon::ThreadPoolBuilder::new()
+                .num_threads(4)
+                .build()
+                .unwrap();
             pool.install(|| {
                 let forest: Forest<StepFunction> = Forest::fit(data, &LogRankCriterion, &config, 7);
                 forest.predict_cumulative_hazard(x.view(), &[1.0, 5.0, 12.0])
@@ -361,7 +362,10 @@ mod tests {
                 max_features: MaxFeatures::All,
                 ..TreeConfig::default()
             },
-            bootstrap: Bootstrap { with_replacement: false, fraction: 1.0 },
+            bootstrap: Bootstrap {
+                with_replacement: false,
+                fraction: 1.0,
+            },
         };
         let forest: Forest<StepFunction> = Forest::fit(data, &LogRankCriterion, &forest_config, 0);
         // For sample 0, query at X[0]; weight for sample 0 should be > 0.
@@ -384,7 +388,10 @@ mod tests {
                 max_features: MaxFeatures::All,
                 ..TreeConfig::default()
             },
-            bootstrap: Bootstrap { with_replacement: false, fraction: 1.0 },
+            bootstrap: Bootstrap {
+                with_replacement: false,
+                fraction: 1.0,
+            },
         };
         let forest: Forest<StepFunction> = Forest::fit(data, &LogRankCriterion, &forest_config, 0);
         let query = Array2::from_shape_vec((1, 3), vec![0.5, 0.0, 0.0]).unwrap();
@@ -400,16 +407,17 @@ mod tests {
         let data = SurvivalData::new(x.view(), &y, &delta);
         let forest_config = ForestConfig {
             n_trees: 8,
-            tree: TreeConfig { min_samples_leaf: 5, ..TreeConfig::default() },
+            tree: TreeConfig {
+                min_samples_leaf: 5,
+                ..TreeConfig::default()
+            },
             ..ForestConfig::default()
         };
         let forest: Forest<StepFunction> = Forest::fit(data, &LogRankCriterion, &forest_config, 11);
 
-        let queries = Array2::from_shape_vec(
-            (3, 3),
-            vec![0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.5, 1.0, 0.5],
-        )
-        .unwrap();
+        let queries =
+            Array2::from_shape_vec((3, 3), vec![0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.5, 1.0, 0.5])
+                .unwrap();
         let batched = forest.forest_weights_batch(queries.view());
         for i in 0..3 {
             let w = forest.forest_weights(queries.row(i));
@@ -434,12 +442,14 @@ mod tests {
                 max_features: MaxFeatures::All,
                 ..TreeConfig::default()
             },
-            bootstrap: Bootstrap { with_replacement: false, fraction: 1.0 },
+            bootstrap: Bootstrap {
+                with_replacement: false,
+                fraction: 1.0,
+            },
         };
         let survival: Forest<StepFunction> =
             Forest::fit(data, &LogRankCriterion, &forest_config, 17);
-        let partition: Forest<()> =
-            Forest::fit(data, &LogRankCriterion, &forest_config, 17);
+        let partition: Forest<()> = Forest::fit(data, &LogRankCriterion, &forest_config, 17);
         assert_eq!(survival.n_trees(), partition.n_trees());
         assert_eq!(survival.n_train_samples(), partition.n_train_samples());
 
@@ -466,7 +476,10 @@ mod tests {
         let forest_config = ForestConfig {
             n_trees: 5,
             tree: tree_config,
-            bootstrap: Bootstrap { with_replacement: false, fraction: 1.0 },
+            bootstrap: Bootstrap {
+                with_replacement: false,
+                fraction: 1.0,
+            },
         };
         let forest: Forest<StepFunction> = Forest::fit(data, &LogRankCriterion, &forest_config, 0);
         let single = Tree::fit(data, &LogRankCriterion, &tree_config, 0);

@@ -180,21 +180,27 @@ def test_blanche_perfect_concordance_no_censoring():
     event_time = np.array([1.0, 2.0, 3.0, 4.0])
     event_indicator = np.array([1, 1, 1, 1])
     risk_score = np.array([4.0, 3.0, 2.0, 1.0])
-    assert concordance.blanche(event_time, event_indicator, risk_score, horizon=2.5) == 1.0
+    assert (
+        concordance.blanche(event_time, event_indicator, risk_score, horizon=2.5) == 1.0
+    )
 
 
 def test_blanche_perfect_anticoncordance():
     event_time = np.array([1.0, 2.0, 3.0, 4.0])
     event_indicator = np.array([1, 1, 1, 1])
     risk_score = np.array([1.0, 2.0, 3.0, 4.0])
-    assert concordance.blanche(event_time, event_indicator, risk_score, horizon=2.5) == 0.0
+    assert (
+        concordance.blanche(event_time, event_indicator, risk_score, horizon=2.5) == 0.0
+    )
 
 
 def test_blanche_all_tied_is_half():
     event_time = np.array([1.0, 2.0, 3.0, 4.0])
     event_indicator = np.array([1, 1, 1, 1])
     risk_score = np.array([1.0, 1.0, 1.0, 1.0])
-    assert concordance.blanche(event_time, event_indicator, risk_score, horizon=2.5) == 0.5
+    assert (
+        concordance.blanche(event_time, event_indicator, risk_score, horizon=2.5) == 0.5
+    )
 
 
 def test_blanche_ipcw_weighting_hand_computed():

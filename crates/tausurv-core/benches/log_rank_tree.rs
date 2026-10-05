@@ -3,7 +3,9 @@
 use ndarray::Array2;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
-use tausurv_core::{LogRankCriterion, SplitCriterion, SurvivalData, Tree, TreeConfig};
+use tausurv_core::{
+    LogRankCriterion, SplitCriterion, StepFunction, SurvivalData, Tree, TreeConfig,
+};
 
 fn main() {
     divan::main();
@@ -21,7 +23,9 @@ fn synth(n: usize, p: usize, seed: u64) -> (Array2<f64>, Vec<f64>, Vec<u8>) {
         })
         .collect();
     // 20% censoring
-    let delta: Vec<u8> = (0..n).map(|_| u8::from(rng.random::<f64>() > 0.2)).collect();
+    let delta: Vec<u8> = (0..n)
+        .map(|_| u8::from(rng.random::<f64>() > 0.2))
+        .collect();
     (x, y, delta)
 }
 
@@ -33,7 +37,7 @@ fn fit_tree(bencher: divan::Bencher, dims: (usize, usize)) {
     let config = TreeConfig::default();
     bencher
         .with_inputs(|| 0_u64)
-        .bench_values(|seed| Tree::fit(data, &LogRankCriterion, &config, seed));
+        .bench_values(|seed| Tree::<StepFunction>::fit(data, &LogRankCriterion, &config, seed));
 }
 
 #[divan::bench(args = [200, 1_000, 5_000])]
@@ -41,7 +45,7 @@ fn predict_cumulative_hazard(bencher: divan::Bencher, n: usize) {
     let p = 10;
     let (x, y, delta) = synth(n, p, 42);
     let data = SurvivalData::new(x.view(), &y, &delta);
-    let tree = Tree::fit(data, &LogRankCriterion, &TreeConfig::default(), 0);
+    let tree = Tree::<StepFunction>::fit(data, &LogRankCriterion, &TreeConfig::default(), 0);
     let times: Vec<f64> = (1..=20).map(|i| i as f64 * 0.5).collect();
     bencher.bench(|| tree.predict_cumulative_hazard(x.view(), &times));
 }
@@ -54,7 +58,5 @@ fn find_best_split(bencher: divan::Bencher, dims: (usize, usize)) {
     let data = SurvivalData::new(x.view(), &y, &delta);
     let sample_idx: Vec<u32> = (0..n as u32).collect();
     let features: Vec<u32> = (0..p as u32).collect();
-    bencher.bench(|| {
-        LogRankCriterion.find_best_split(data, &sample_idx, &features, 15)
-    });
+    bencher.bench(|| LogRankCriterion.find_best_split(data, &sample_idx, &features, 15));
 }
