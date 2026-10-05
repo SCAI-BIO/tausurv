@@ -1,14 +1,43 @@
 [project]
 name = "tausurv"
 version = "0.1.0"
-description = "Survival analysis."
+description = "A complete survival analysis library for Python: nonparametric estimators, regression models, tree ensembles and neural networks, with support for competing risks."
 readme = "../README.md"
 requires-python = ">=3.12"
 license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "Anna Malewski", email = "anna.malewski@scai.fraunhofer.de" },
     { name = "Jannis Barking", email = "jannis.barking@scai.fraunhofer.de" },
     { name = "Lennart Carstens-Behrens", email = "lennart.carstens-behrens@scai.fraunhofer.de" },
+]
+keywords = [
+    "survival analysis",
+    "time-to-event",
+    "competing risks",
+    "censoring",
+    "kaplan-meier",
+    "cox regression",
+    "random survival forest",
+    "deep learning",
+    "biostatistics",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Healthcare Industry",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "Typing :: Typed",
 ]
 dependencies = [
     "numpy>=2.0",
@@ -17,6 +46,11 @@ dependencies = [
     "platformdirs>=4.0",
     "tqdm>=4.65",
 ]
+
+[project.urls]
+Documentation = "https://scai-bio.github.io/tausurv/"
+Repository = "https://github.com/SCAI-BIO/tausurv"
+Issues = "https://github.com/SCAI-BIO/tausurv/issues"
 
 [project.optional-dependencies]
 plot = [
