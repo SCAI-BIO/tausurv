@@ -201,8 +201,12 @@ def curves(
     if show_others:
         for idx in others:
             (line,) = ax.plot(
-                t, arr[idx],
-                color="#cccccc", linewidth=0.6, alpha=0.55, zorder=1,
+                t,
+                arr[idx],
+                color="#cccccc",
+                linewidth=0.6,
+                alpha=0.55,
+                zorder=1,
             )
             disp.faded_lines.append(line)
 
@@ -309,8 +313,14 @@ def local_decomposition(
     if fig is None:
         fig = plt.figure(figsize=figsize or (7.0, 5.0))
     gs = fig.add_gridspec(
-        2, 1, height_ratios=[3.0, 4.5], hspace=0.08,
-        left=0.10, right=0.80 if legend else 0.96, top=0.92, bottom=0.10,
+        2,
+        1,
+        height_ratios=[3.0, 4.5],
+        hspace=0.08,
+        left=0.10,
+        right=0.80 if legend else 0.96,
+        top=0.92,
+        bottom=0.10,
     )
     ax_curve = fig.add_subplot(gs[0])
     ax_decomp = fig.add_subplot(gs[1], sharex=ax_curve)
@@ -319,11 +329,18 @@ def local_decomposition(
     predicted = baseline + delta
 
     (baseline_line,) = ax_curve.plot(
-        t, baseline, color="#888888", linestyle="--", linewidth=0.8,
+        t,
+        baseline,
+        color="#888888",
+        linestyle="--",
+        linewidth=0.8,
         label="Baseline",
     )
     (prediction_line,) = ax_curve.plot(
-        t, predicted, color="#0072B2", linewidth=1.8,
+        t,
+        predicted,
+        color="#0072B2",
+        linewidth=1.8,
         label="Predicted",
     )
     ax_curve.set_ylabel(r"$\hat S(t)$")
@@ -351,8 +368,11 @@ def local_decomposition(
     pos_stack = np.zeros_like(t)
     neg_stack = np.zeros_like(t)
     disp = ShapDecompositionDisplay(
-        fig=fig, ax_curve=ax_curve, ax=ax_decomp,
-        baseline_line=baseline_line, prediction_line=prediction_line,
+        fig=fig,
+        ax_curve=ax_curve,
+        ax=ax_decomp,
+        baseline_line=baseline_line,
+        prediction_line=prediction_line,
     )
 
     for idx in top:
@@ -364,8 +384,12 @@ def local_decomposition(
         pos_j = np.where(cj > 0, cj, 0.0)
         if pos_j.any():
             poly = ax_decomp.fill_between(
-                t, pos_stack, pos_stack + pos_j,
-                color=col, linewidth=0, label=name,
+                t,
+                pos_stack,
+                pos_stack + pos_j,
+                color=col,
+                linewidth=0,
+                label=name,
             )
             bands.append(poly)
         pos_stack = pos_stack + pos_j
@@ -374,8 +398,11 @@ def local_decomposition(
         if neg_j.any():
             label = None if name in {b.get_label() for b in bands} else name
             poly = ax_decomp.fill_between(
-                t, neg_stack, neg_stack + neg_j,
-                color=col, linewidth=0,
+                t,
+                neg_stack,
+                neg_stack + neg_j,
+                color=col,
+                linewidth=0,
                 **({"label": label} if label and not pos_j.any() else {}),
             )
             bands.append(poly)
@@ -389,19 +416,23 @@ def local_decomposition(
         bands = disp.bands.setdefault("Other", [])
         if pos_other.any():
             poly = ax_decomp.fill_between(
-                t, pos_stack, pos_stack + pos_other,
-                color=col, linewidth=0, label=f"Other ({other.size})",
+                t,
+                pos_stack,
+                pos_stack + pos_other,
+                color=col,
+                linewidth=0,
+                label=f"Other ({other.size})",
             )
             bands.append(poly)
             pos_stack = pos_stack + pos_other
         if neg_other.any():
             poly = ax_decomp.fill_between(
-                t, neg_stack, neg_stack + neg_other,
-                color=col, linewidth=0,
-                **(
-                    {"label": f"Other ({other.size})"}
-                    if not pos_other.any() else {}
-                ),
+                t,
+                neg_stack,
+                neg_stack + neg_other,
+                color=col,
+                linewidth=0,
+                **({"label": f"Other ({other.size})"} if not pos_other.any() else {}),
             )
             bands.append(poly)
             neg_stack = neg_stack + neg_other
@@ -409,7 +440,11 @@ def local_decomposition(
     ax_decomp.axhline(0.0, color="#444444", linewidth=0.6, zorder=2)
     if show_total:
         (disp.delta_line,) = ax_decomp.plot(
-            t, delta, color="#111111", linewidth=1.6, zorder=4,
+            t,
+            delta,
+            color="#111111",
+            linewidth=1.6,
+            zorder=4,
             label=r"$\Delta \hat S(t)$",
         )
 
@@ -417,8 +452,11 @@ def local_decomposition(
     ax_decomp.set_ylabel(r"$\Delta \hat S(t)$ contribution")
     if legend:
         ax_decomp.legend(
-            loc="upper left", bbox_to_anchor=(1.01, 1.0),
-            fontsize=8, frameon=False, borderaxespad=0.0,
+            loc="upper left",
+            bbox_to_anchor=(1.01, 1.0),
+            fontsize=8,
+            frameon=False,
+            borderaxespad=0.0,
         )
 
     return disp
@@ -488,15 +526,12 @@ def feature_time_heatmap(
             agg = np.mean(arr, axis=0)
         else:
             raise ValueError(
-                f"unknown aggregate {aggregate!r}; expected 'abs_mean' or "
-                "'signed_mean'"
+                f"unknown aggregate {aggregate!r}; expected 'abs_mean' or 'signed_mean'"
             )
     elif arr.ndim == 2:
         agg = arr
     else:
-        raise ValueError(
-            f"values must be 2D or 3D; got shape {arr.shape}"
-        )
+        raise ValueError(f"values must be 2D or 3D; got shape {arr.shape}")
 
     t = _check_1d(times, "times")
     if agg.shape[1] != t.size:
@@ -518,8 +553,7 @@ def feature_time_heatmap(
         order = np.argsort(features)
     else:
         raise ValueError(
-            f"unknown sort_by {sort_by!r}; expected 'total', 'peak_time', "
-            "or 'name'"
+            f"unknown sort_by {sort_by!r}; expected 'total', 'peak_time', or 'name'"
         )
 
     if top_k is not None:
@@ -550,7 +584,12 @@ def feature_time_heatmap(
     disp = ShapHeatmapDisplay(fig=fig, ax=ax, feature_order=sorted_names)
     y = np.arange(len(sorted_names))
     disp.mesh = ax.pcolormesh(
-        t, y, sorted_agg, cmap=cmap, norm=norm, shading="nearest",
+        t,
+        y,
+        sorted_agg,
+        cmap=cmap,
+        norm=norm,
+        shading="nearest",
     )
 
     ax.set_yticks(y)
@@ -572,7 +611,9 @@ def feature_time_heatmap(
 
 
 def _select_2d(
-    values: "ArrayLike", subject: int | None, where: str,
+    values: "ArrayLike",
+    subject: int | None,
+    where: str,
 ) -> np.ndarray:
     arr = np.asarray(values, dtype=np.float64)
     if arr.ndim == 3:
@@ -583,20 +624,16 @@ def _select_2d(
             )
         if not -arr.shape[0] <= subject < arr.shape[0]:
             raise ValueError(
-                f"subject index {subject} out of range for "
-                f"{arr.shape[0]} subjects"
+                f"subject index {subject} out of range for {arr.shape[0]} subjects"
             )
         return arr[subject]
     if arr.ndim == 2:
         if subject is not None:
             raise ValueError(
-                f"{where} is 2D; subject= is not valid (already a single "
-                "subject)"
+                f"{where} is 2D; subject= is not valid (already a single subject)"
             )
         return arr
-    raise ValueError(
-        f"{where} must be 2D or 3D; got shape {arr.shape}"
-    )
+    raise ValueError(f"{where} must be 2D or 3D; got shape {arr.shape}")
 
 
 def _check_1d(x: "ArrayLike", where: str) -> np.ndarray:
@@ -620,7 +657,10 @@ def _direct_label_at_end(
         ax.annotate(
             name,
             xy=(x_end, arr[idx, -1]),
-            xytext=(4, 0), textcoords="offset points",
-            fontsize=8, color=line.get_color(),
-            va="center", ha="left",
+            xytext=(4, 0),
+            textcoords="offset points",
+            fontsize=8,
+            color=line.get_color(),
+            va="center",
+            ha="left",
         )

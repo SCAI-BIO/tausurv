@@ -127,8 +127,16 @@ def predicted_survival(
     S_arr = np.asarray(S, dtype=np.float64)
     if S_arr.ndim == 1:
         return _render_single(
-            t, S_arr, ci=ci, ax=ax, color=color, label=label,
-            xlabel=xlabel, ylabel=ylabel, title=title, ylim=ylim,
+            t,
+            S_arr,
+            ci=ci,
+            ax=ax,
+            color=color,
+            label=label,
+            xlabel=xlabel,
+            ylabel=ylabel,
+            title=title,
+            ylim=ylim,
             legend=legend,
         )
 
@@ -136,8 +144,7 @@ def predicted_survival(
         raise ValueError(f"S must be 1-D or 2-D; got shape {S_arr.shape}")
     if S_arr.shape[1] != t.size:
         raise ValueError(
-            f"S's time dimension ({S_arr.shape[1]}) must match times "
-            f"length ({t.size})"
+            f"S's time dimension ({S_arr.shape[1]}) must match times length ({t.size})"
         )
     if ci is not None:
         raise ValueError(
@@ -147,24 +154,49 @@ def predicted_survival(
 
     if group is None and aggregate is None:
         return _render_individual(
-            t, S_arr, ax=ax, color=color, label=label,
+            t,
+            S_arr,
+            ax=ax,
+            color=color,
+            label=label,
             individual_alpha=individual_alpha,
-            xlabel=xlabel, ylabel=ylabel, title=title, ylim=ylim,
+            xlabel=xlabel,
+            ylabel=ylabel,
+            title=title,
+            ylim=ylim,
             legend=legend,
         )
 
     return _render_aggregate(
-        t, S_arr, group=group,
-        aggregate=aggregate or "median", band=band,
-        ax=ax, color=color, label=label,
-        xlabel=xlabel, ylabel=ylabel, title=title, ylim=ylim,
+        t,
+        S_arr,
+        group=group,
+        aggregate=aggregate or "median",
+        band=band,
+        ax=ax,
+        color=color,
+        label=label,
+        xlabel=xlabel,
+        ylabel=ylabel,
+        title=title,
+        ylim=ylim,
         legend=legend,
     )
 
 
 def _render_single(
-    t, S, *, ci, ax, color, label,
-    xlabel, ylabel, title, ylim, legend,
+    t,
+    S,
+    *,
+    ci,
+    ax,
+    color,
+    label,
+    xlabel,
+    ylabel,
+    title,
+    ylim,
+    legend,
 ) -> PredictedSurvivalDisplay:
     import matplotlib.pyplot as plt
 
@@ -199,7 +231,12 @@ def _render_single(
                 f"got {lo_a.shape} and {hi_a.shape}"
             )
         disp.ci_polys[name] = ci_band(
-            ax, t, lo_a, hi_a, line.get_color(), step="post",
+            ax,
+            t,
+            lo_a,
+            hi_a,
+            line.get_color(),
+            step="post",
         )
 
     _apply_axes(ax, xlabel, ylabel, title, ylim)
@@ -209,8 +246,18 @@ def _render_single(
 
 
 def _render_individual(
-    t, S, *, ax, color, label, individual_alpha,
-    xlabel, ylabel, title, ylim, legend,
+    t,
+    S,
+    *,
+    ax,
+    color,
+    label,
+    individual_alpha,
+    xlabel,
+    ylabel,
+    title,
+    ylim,
+    legend,
 ) -> PredictedSurvivalDisplay:
     import matplotlib.pyplot as plt
 
@@ -226,8 +273,12 @@ def _render_individual(
     line_color = color or "#0072B2"
     for i in range(n):
         (line,) = ax.step(
-            t, S[i], where="post",
-            color=line_color, alpha=alpha, linewidth=0.8,
+            t,
+            S[i],
+            where="post",
+            color=line_color,
+            alpha=alpha,
+            linewidth=0.8,
         )
         disp.individual_lines.append(line)
 
@@ -246,8 +297,20 @@ def _render_individual(
 
 
 def _render_aggregate(
-    t, S, *, group, aggregate, band, ax, color, label,
-    xlabel, ylabel, title, ylim, legend,
+    t,
+    S,
+    *,
+    group,
+    aggregate,
+    band,
+    ax,
+    color,
+    label,
+    xlabel,
+    ylabel,
+    title,
+    ylim,
+    legend,
 ) -> PredictedSurvivalDisplay:
     import matplotlib.pyplot as plt
 
@@ -260,14 +323,10 @@ def _render_aggregate(
         groups = {label or "": np.arange(S.shape[0])}
     else:
         if color is not None or label is not None:
-            raise ValueError(
-                "color/label are single-curve only; not valid with group="
-            )
+            raise ValueError("color/label are single-curve only; not valid with group=")
         G = np.asarray(group)
         if G.shape != (S.shape[0],):
-            raise ValueError(
-                f"group must have shape ({S.shape[0]},); got {G.shape}"
-            )
+            raise ValueError(f"group must have shape ({S.shape[0]},); got {G.shape}")
         groups = {str(g): np.where(G == g)[0] for g in unique_order(G)}
 
     disp = PredictedSurvivalDisplay(fig=fig, ax=ax)
@@ -283,13 +342,15 @@ def _render_aggregate(
             lo = np.percentile(S_g, 25, axis=0)
             hi = np.percentile(S_g, 75, axis=0)
         elif band == "sd":
-            sd = np.std(S_g, axis=0, ddof=1) if S_g.shape[0] >= 2 else np.zeros_like(center)
+            sd = (
+                np.std(S_g, axis=0, ddof=1)
+                if S_g.shape[0] >= 2
+                else np.zeros_like(center)
+            )
             lo = center - sd
             hi = center + sd
         else:
-            raise ValueError(
-                f"unknown band {band!r}; expected 'iqr' or 'sd'"
-            )
+            raise ValueError(f"unknown band {band!r}; expected 'iqr' or 'sd'")
 
         step_kw: dict = {"where": "post"}
         if name:
@@ -300,7 +361,12 @@ def _render_aggregate(
         disp.lines[name] = line
 
         disp.ci_polys[name] = ci_band(
-            ax, t, lo, hi, line.get_color(), step="post",
+            ax,
+            t,
+            lo,
+            hi,
+            line.get_color(),
+            step="post",
         )
 
     _apply_axes(ax, xlabel, ylabel, title, ylim)

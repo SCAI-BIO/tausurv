@@ -125,8 +125,12 @@ def test_linear_scale_for_risk_differences():
     names = ["A", "B"]
     rd = np.array([-0.05, 0.10])
     disp = ts.plot.forest(
-        names, rd, ci=(rd - 0.03, rd + 0.03),
-        log_scale=False, reference=0.0, xlabel="Risk difference",
+        names,
+        rd,
+        ci=(rd - 0.03, rd + 0.03),
+        log_scale=False,
+        reference=0.0,
+        xlabel="Risk difference",
     )
     assert disp.ax.get_xscale() == "linear"
     assert disp.reference.get_xdata()[0] == 0.0
@@ -144,7 +148,9 @@ def test_log_scale_rejects_non_positive_ci_bounds():
     hr = np.array([1.0, 2.0])
     with pytest.raises(ValueError, match="positive"):
         ts.plot.forest(
-            names, hr, ci=(np.array([0.0, 1.5]), np.array([1.5, 2.5])),
+            names,
+            hr,
+            ci=(np.array([0.0, 1.5]), np.array([1.5, 2.5])),
         )
 
 
@@ -156,7 +162,8 @@ def test_shape_mismatch_raises():
 def test_ci_shape_mismatch_raises():
     with pytest.raises(ValueError, match="must match"):
         ts.plot.forest(
-            ["A", "B"], np.array([1.0, 2.0]),
+            ["A", "B"],
+            np.array([1.0, 2.0]),
             ci=(np.array([0.5]), np.array([1.5])),
         )
 
@@ -164,7 +171,9 @@ def test_ci_shape_mismatch_raises():
 def test_annotation_format_applied(simple_hrs):
     names, hr, lo, hi = simple_hrs
     disp = ts.plot.forest(
-        names, hr, ci=(lo, hi),
+        names,
+        hr,
+        ci=(lo, hi),
         annotation_format="{:.1f} [{:.1f}-{:.1f}]",
     )
     first = disp.annotations[0].get_text()

@@ -23,10 +23,7 @@ def make(out_path: Path) -> None:
 
 if __name__ == "__main__":
     out = (
-        Path(__file__).resolve().parent.parent
-        / "public"
-        / "figures"
-        / "landing_km.svg"
+        Path(__file__).resolve().parent.parent / "public" / "figures" / "landing_km.svg"
     )
     out.parent.mkdir(parents=True, exist_ok=True)
     make(out)

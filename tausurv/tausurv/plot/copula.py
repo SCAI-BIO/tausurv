@@ -167,9 +167,13 @@ def contour(
 
     if show_diagonal:
         (disp.reference,) = ax.plot(
-            [0.0, 1.0], [0.0, 1.0],
-            color="#888888", linestyle="--",
-            linewidth=0.6, alpha=0.6, zorder=0,
+            [0.0, 1.0],
+            [0.0, 1.0],
+            color="#888888",
+            linestyle="--",
+            linewidth=0.6,
+            alpha=0.6,
+            zorder=0,
         )
 
     if annotate_tau:
@@ -316,7 +320,9 @@ def scatter(
 
 
 def _grid_cdf(
-    copula: ArchimedeanCopula, n: int, eps: float = 1e-3,
+    copula: ArchimedeanCopula,
+    n: int,
+    eps: float = 1e-3,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     u = np.linspace(eps, 1.0 - eps, n)
     U1, U2 = np.meshgrid(u, u, indexing="xy")
@@ -326,7 +332,9 @@ def _grid_cdf(
 
 
 def _grid_pdf(
-    copula: ArchimedeanCopula, n: int, eps: float = 5e-3,
+    copula: ArchimedeanCopula,
+    n: int,
+    eps: float = 5e-3,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     u = np.linspace(eps, 1.0 - eps, n)
     U1, U2 = np.meshgrid(u, u, indexing="xy")
@@ -336,7 +344,10 @@ def _grid_pdf(
 
 
 def _square_axes(
-    ax: "Axes", xlabel: str, ylabel: str, title: str | None,
+    ax: "Axes",
+    xlabel: str,
+    ylabel: str,
+    title: str | None,
 ) -> None:
     ax.set_xlim(0.0, 1.0)
     ax.set_ylim(0.0, 1.0)
@@ -357,8 +368,12 @@ def _tau_text(
     tau = copula.kendalls_tau()
     text_color = "#222222" if light_background else "white"
     return ax.text(
-        0.96, 0.04, rf"$\tau = {tau:.2f}$",
+        0.96,
+        0.04,
+        rf"$\tau = {tau:.2f}$",
         transform=ax.transAxes,
-        ha="right", va="bottom",
-        fontsize=9, color=text_color,
+        ha="right",
+        va="bottom",
+        fontsize=9,
+        color=text_color,
     )

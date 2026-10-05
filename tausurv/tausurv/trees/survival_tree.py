@@ -126,7 +126,9 @@ class SurvivalTree(SurvivalPredictor):
         X_f, T_c, E_u = _coerce_inputs(X, event_time, event_indicator)
         self.times_ = np.unique(T_c[E_u == 1])
         self._handle = fit_log_rank_tree(
-            X_f, T_c, E_u,
+            X_f,
+            T_c,
+            E_u,
             min_samples_leaf=self.min_samples_leaf,
             max_depth=self.max_depth,
             max_features=self.max_features,

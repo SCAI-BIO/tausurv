@@ -107,7 +107,9 @@ def parse_rotterdam_rfs(path: Path, spec: DatasetSpec) -> SurvivalBunch:
     event = ((recur == 1) | (death == 1)).astype(np.int8)
     # Event time is the first event; censored rows use the longer follow-up.
     first = np.where(recur == 1, rtime, dtime)
-    event_time = np.where(event == 1, np.minimum(first, dtime), np.maximum(rtime, dtime))
+    event_time = np.where(
+        event == 1, np.minimum(first, dtime), np.maximum(rtime, dtime)
+    )
     X = drop_present(df, "rownames", "pid", "rtime", "recur", "dtime", "death")
     return bunch_from(spec, X, event_time, event)
 
@@ -420,8 +422,19 @@ def parse_bmt(path: Path, spec: DatasetSpec) -> SurvivalBunch:
     event_time = df["t2"].cast(pl.Float64).to_numpy()
     indicator = df["d3"].cast(pl.Int8).to_numpy()
     X = drop_present(
-        df, "rownames", "t1", "t2", "d1", "d2", "d3", "ta", "da", "tc", "dc",
-        "tp", "dp",
+        df,
+        "rownames",
+        "t1",
+        "t2",
+        "d1",
+        "d2",
+        "d3",
+        "ta",
+        "da",
+        "tc",
+        "dc",
+        "tp",
+        "dp",
     )
     return bunch_from(spec, X, event_time, indicator)
 
@@ -442,8 +455,19 @@ def parse_bmt_competing(path: Path, spec: DatasetSpec) -> SurvivalBunch:
     cause[dfs_event == 1] = 2
     cause[relapse == 1] = 1
     X = drop_present(
-        df, "rownames", "t1", "t2", "d1", "d2", "d3", "ta", "da", "tc", "dc",
-        "tp", "dp",
+        df,
+        "rownames",
+        "t1",
+        "t2",
+        "d1",
+        "d2",
+        "d3",
+        "ta",
+        "da",
+        "tc",
+        "dc",
+        "tp",
+        "dp",
     )
     return bunch_from_competing(
         spec,

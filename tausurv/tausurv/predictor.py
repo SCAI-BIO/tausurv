@@ -191,7 +191,7 @@ class CompetingRisksPredictor(SurvivalPredictor):
         cif = np.clip(cif, 0.0, None)
         # Guarantee the marginal CDF ``sum_k F_k(t | x)`` is bounded by 1 by
         # rescaling float-32 softmax noise (typically ~1e-7 above 1).
-        marginal = cif.sum(axis=1).max(axis=-1)[:, None, None]   # (n, 1, 1)
+        marginal = cif.sum(axis=1).max(axis=-1)[:, None, None]  # (n, 1, 1)
         cif = cif * np.minimum(1.0, 1.0 / np.maximum(marginal, 1e-12))
         if cause is None:
             return cif
@@ -346,7 +346,7 @@ class CauseSpecificPredictor(CompetingRisksPredictor):
         grid = self.times_
         last_needed = float(times.max())
         cut = int(np.searchsorted(grid, last_needed, side="right"))
-        grid = grid[:cut+1]
+        grid = grid[: cut + 1]
         m = grid.shape[0]
 
         # Per-cause survival on the (truncated) internal grid.
@@ -363,13 +363,13 @@ class CauseSpecificPredictor(CompetingRisksPredictor):
         # Overall hazard increment; clip at 1 (rare late-time jumps from
         # small risk sets) and rescale per-cause increments to match so
         # sum_k dLam_k equals the clipped total.
-        dLam_raw = dLam_k.sum(axis=1)                            # (n, m)
-        scale = np.where(dLam_raw > 1.0, 1.0 / dLam_raw, 1.0)    # (n, m)
+        dLam_raw = dLam_k.sum(axis=1)  # (n, m)
+        scale = np.where(dLam_raw > 1.0, 1.0 / dLam_raw, 1.0)  # (n, m)
         dLam_k = dLam_k * scale[:, None, :]
-        dLam = np.clip(dLam_raw, 0.0, 1.0)                       # (n, m)
+        dLam = np.clip(dLam_raw, 0.0, 1.0)  # (n, m)
 
         # S(t_i) = prod_{j<=i} (1 - dLam(t_j)),  so S(t_i^-) * dLam(t_i) = S(t_i^-) - S(t_i).
-        S = np.cumprod(1.0 - dLam, axis=-1)                      # (n, m)
+        S = np.cumprod(1.0 - dLam, axis=-1)  # (n, m)
 
         # S(t_i^-) = [1, S(t_0), ..., S(t_{m-2})]  -> (n, m)
         S_before = np.empty((n, m), dtype=np.float64)

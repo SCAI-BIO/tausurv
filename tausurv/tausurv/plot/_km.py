@@ -120,8 +120,13 @@ def km(
                 "pass raw (event_time, event_indicator) for CI / at-risk / groups"
             )
         return _km_from_stepfunction(
-            arg1, ax=ax, color=color, label=label,
-            xlabel=xlabel, ylabel=ylabel, legend=legend,
+            arg1,
+            ax=ax,
+            color=color,
+            label=label,
+            xlabel=xlabel,
+            ylabel=ylabel,
+            legend=legend,
         )
 
     if arg2 is None:
@@ -133,9 +138,20 @@ def km(
     Y = np.asarray(arg1, dtype=np.float64)
     D = np.asarray(arg2, dtype=np.int8)
     return _km_from_arrays(
-        Y, D, group=group, ax=ax, at_risk=at_risk, ci=ci, ci_method=ci_method,
-        ci_level=ci_level, censor_ticks=censor_ticks, legend=legend,
-        xlabel=xlabel, ylabel=ylabel, color=color, label=label,
+        Y,
+        D,
+        group=group,
+        ax=ax,
+        at_risk=at_risk,
+        ci=ci,
+        ci_method=ci_method,
+        ci_level=ci_level,
+        censor_ticks=censor_ticks,
+        legend=legend,
+        xlabel=xlabel,
+        ylabel=ylabel,
+        color=color,
+        label=label,
     )
 
 
@@ -234,12 +250,12 @@ def _km_from_arrays(
             raise ValueError(
                 f"group must match event_time shape; got {G.shape} vs {Y.shape}"
             )
-        curves = {
-            str(g): _km_curve(Y[G == g], D[G == g]) for g in unique_order(G)
-        }
+        curves = {str(g): _km_curve(Y[G == g], D[G == g]) for g in unique_order(G)}
 
     fig, curve_ax, table_ax = make_curve_and_table_axes(
-        ax, at_risk, n_groups=len(curves),
+        ax,
+        at_risk,
+        n_groups=len(curves),
     )
 
     disp = KMDisplay(fig=fig, ax=curve_ax, at_risk_ax=table_ax)
@@ -255,7 +271,12 @@ def _km_from_arrays(
         if ci:
             lo, hi = _km_ci(c.survival, c.variance, ci_level, ci_method)
             disp.ci_polys[name] = ci_band(
-                curve_ax, c.times, lo, hi, line.get_color(), step="post",
+                curve_ax,
+                c.times,
+                lo,
+                hi,
+                line.get_color(),
+                step="post",
             )
 
         show_censor = censor_ticks if censor_ticks is not None else c.raw_n < 100
@@ -276,7 +297,8 @@ def _km_from_arrays(
 
     if table_ax is not None:
         draw_at_risk_table(
-            table_ax, curve_ax,
+            table_ax,
+            curve_ax,
             rows={name: c.raw_t for name, c in curves.items()},
             colors={name: line.get_color() for name, line in disp.lines.items()},
             xlabel=xlabel,
@@ -362,5 +384,3 @@ def _km_ci(
     lo = np.where(boundary, S, lo)
     hi = np.where(boundary, S, hi)
     return lo, hi
-
-

@@ -48,13 +48,15 @@ def test_dsm_nll_matches_hand_computed_mixture_weibull():
     where f_k are Weibull pdfs.
     """
     eps = 1e-4
-    shape = F.softplus(torch.tensor(1.0)) + eps   # scalar, applies to both K
-    scale = F.softplus(torch.tensor(0.0)) + eps   # both components identical
+    shape = F.softplus(torch.tensor(1.0)) + eps  # scalar, applies to both K
+    scale = F.softplus(torch.tensor(0.0)) + eps  # both components identical
     w = torch.tensor([0.5, 0.5])
 
     t = torch.tensor([1.0])
     expected_f = float(Weibull(shape, scale).pdf(t).item())  # both components agree
-    expected_log_f = math.log(expected_f)  # log(w_1 f_1 + w_2 f_2) = log(f) since both =
+    expected_log_f = math.log(
+        expected_f
+    )  # log(w_1 f_1 + w_2 f_2) = log(f) since both =
 
     predictions = torch.tensor([[1.0, 1.0, 0.0, 0.0, 0.0, 0.0]])  # (1, 3*K=6)
     nll = dsm_nll(predictions, t, torch.tensor([1.0]), reduction="none")
@@ -90,8 +92,11 @@ def test_dsm_nll_matches_hand_computed_mixture_lognormal():
     expected_log_f = float(LogNormal(mu, sigma).log_pdf(t).item())
 
     nll = dsm_nll(
-        predictions, t, torch.tensor([1.0]),
-        distribution="lognormal", reduction="none",
+        predictions,
+        t,
+        torch.tensor([1.0]),
+        distribution="lognormal",
+        reduction="none",
     )
     np.testing.assert_allclose(float(nll.item()), -expected_log_f, atol=1e-6)
 

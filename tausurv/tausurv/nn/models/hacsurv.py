@@ -291,9 +291,7 @@ class HACSurv(CompetingRisksPredictor, CheckpointMixin, nn.Module):
         if config is None:
             config = HACSurvConfig(**kwargs)
         elif kwargs:
-            raise TypeError(
-                f"{type(self).__name__}: pass `config` OR kwargs, not both"
-            )
+            raise TypeError(f"{type(self).__name__}: pass `config` OR kwargs, not both")
         if config.n_causes < 2:
             raise ValueError(
                 f"HACSurv requires n_causes >= 2 (use CopulaSurv for K=1 "
@@ -365,7 +363,11 @@ class HACSurv(CompetingRisksPredictor, CheckpointMixin, nn.Module):
         return self.bottleneck(self.encoder(X))
 
     def _marginal_S(self, net: nn.Module, z: Tensor, t: Tensor) -> Tensor:
-        t_norm = t.unsqueeze(-1) / self.config.t_max if t.dim() == 1 else t / self.config.t_max
+        t_norm = (
+            t.unsqueeze(-1) / self.config.t_max
+            if t.dim() == 1
+            else t / self.config.t_max
+        )
         zt = torch.cat([z, t_norm], dim=-1)
         return 1.0 - torch.sigmoid(net(zt).squeeze(-1))
 
@@ -399,9 +401,7 @@ class HACSurv(CompetingRisksPredictor, CheckpointMixin, nn.Module):
         S_stacked = torch.stack(S_list, dim=-1)
         joint = copula.cdf(S_stacked)
 
-        dC_dS = list(
-            torch.autograd.grad(joint.sum(), S_list, create_graph=True)
-        )
+        dC_dS = list(torch.autograd.grad(joint.sum(), S_list, create_graph=True))
 
         return {
             "S": torch.stack(S_list, dim=-1),
@@ -456,7 +456,10 @@ class HACSurv(CompetingRisksPredictor, CheckpointMixin, nn.Module):
                 marginals = []
                 for net in self.marginal_nets:
                     z_exp = z.unsqueeze(1).expand(-1, T_n, -1)
-                    t_exp = times_t.unsqueeze(0).expand(n, -1).unsqueeze(-1) / self.config.t_max
+                    t_exp = (
+                        times_t.unsqueeze(0).expand(n, -1).unsqueeze(-1)
+                        / self.config.t_max
+                    )
                     zt = torch.cat([z_exp, t_exp], dim=-1)
                     zt_flat = zt.reshape(-1, zt.shape[-1])
                     raw = net(zt_flat).reshape(n, T_n)
@@ -524,9 +527,7 @@ class HACSurvTrainer(Trainer):
         self.optimizer.step()
         return loss
 
-    def eval_step(
-        self, batch: tuple[Tensor, ...]
-    ) -> tuple[dict[str, Tensor], Tensor]:
+    def eval_step(self, batch: tuple[Tensor, ...]) -> tuple[dict[str, Tensor], Tensor]:
         if self.loss_fn is None:
             raise NotImplementedError("HACSurvTrainer.eval_step requires loss_fn.")
         self.model.eval()
@@ -534,5 +535,7 @@ class HACSurvTrainer(Trainer):
         with torch.enable_grad():
             outputs = self.model(X, t)
             loss = self.loss_fn(outputs, e)
-        outputs = {k: v.detach() if torch.is_tensor(v) else v for k, v in outputs.items()}
+        outputs = {
+            k: v.detach() if torch.is_tensor(v) else v for k, v in outputs.items()
+        }
         return outputs, loss

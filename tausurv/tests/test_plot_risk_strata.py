@@ -62,7 +62,11 @@ def test_decile_labels(risk_data):
 def test_custom_labels(risk_data):
     Y, D, R = risk_data
     disp = ts.plot.risk_strata(
-        Y, D, R, n_bins=3, labels=["Low", "Medium", "High"],
+        Y,
+        D,
+        R,
+        n_bins=3,
+        labels=["Low", "Medium", "High"],
     )
     assert disp.bin_labels == ["Low", "Medium", "High"]
     assert list(disp.lines.keys()) == ["Low", "Medium", "High"]
@@ -86,7 +90,12 @@ def test_equal_width_binning(risk_data):
 def test_manual_binning(risk_data):
     Y, D, R = risk_data
     disp = ts.plot.risk_strata(
-        Y, D, R, n_bins=3, binning="manual", breakpoints=[-0.5, 0.5],
+        Y,
+        D,
+        R,
+        n_bins=3,
+        binning="manual",
+        breakpoints=[-0.5, 0.5],
     )
     assert disp.bin_edges[1] == pytest.approx(-0.5)
     assert disp.bin_edges[2] == pytest.approx(0.5)
@@ -102,7 +111,12 @@ def test_manual_binning_wrong_breakpoint_count_raises(risk_data):
     Y, D, R = risk_data
     with pytest.raises(ValueError, match="length n_bins - 1"):
         ts.plot.risk_strata(
-            Y, D, R, n_bins=3, binning="manual", breakpoints=[-0.5],
+            Y,
+            D,
+            R,
+            n_bins=3,
+            binning="manual",
+            breakpoints=[-0.5],
         )
 
 

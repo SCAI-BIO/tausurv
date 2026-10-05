@@ -96,9 +96,7 @@ def test_km_censor_ticks_off_produces_no_marker_collection():
     # The line itself uses linestyle="-"; censor ticks would be a second
     # Line2D with marker="|" and linestyle="None". With censor_ticks=False
     # only the step line should exist on the axes.
-    marker_lines = [
-        ln for ln in disp.ax.get_lines() if ln.get_marker() == "|"
-    ]
+    marker_lines = [ln for ln in disp.ax.get_lines() if ln.get_marker() == "|"]
     assert marker_lines == []
 
 
@@ -108,9 +106,7 @@ def test_km_censor_ticks_on_produces_marker_line():
     D = np.zeros(30, dtype=np.int8)
     D[:15] = 1
     disp = ts.plot.km(Y, D, censor_ticks=True, ci=False, at_risk=False)
-    marker_lines = [
-        ln for ln in disp.ax.get_lines() if ln.get_marker() == "|"
-    ]
+    marker_lines = [ln for ln in disp.ax.get_lines() if ln.get_marker() == "|"]
     assert len(marker_lines) == 1
     assert marker_lines[0].get_xdata().size == (D == 0).sum()
 
@@ -156,7 +152,10 @@ def test_km_group_shape_mismatch_raises():
 def test_km_group_with_color_raises():
     with pytest.raises(ValueError, match="single-curve"):
         ts.plot.km(
-            [1.0, 2.0], [1, 1], group=["a", "b"], color="red",
+            [1.0, 2.0],
+            [1, 1],
+            group=["a", "b"],
+            color="red",
         )
 
 
@@ -169,10 +168,7 @@ def test_km_at_risk_table_reports_known_counts():
     table_ax = disp.at_risk_ax
     assert table_ax is not None
     # The rendered ints under each tick are text artists; extract them.
-    ints = {
-        t.get_text() for t in table_ax.texts
-        if t.get_text().isdigit()
-    }
+    ints = {t.get_text() for t in table_ax.texts if t.get_text().isdigit()}
     # At t=0 we have 5 at risk; at t=5 we have 1. Both should appear.
     assert "5" in ints
     assert "1" in ints

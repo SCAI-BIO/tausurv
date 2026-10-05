@@ -45,7 +45,11 @@ event = pbc.cause
 counts = pl.DataFrame(
     {
         "outcome": ["censored", "death", "transplant"],
-        "n": [int((event == 0).sum()), int((event == 1).sum()), int((event == 2).sum())],
+        "n": [
+            int((event == 0).sum()),
+            int((event == 1).sum()),
+            int((event == 2).sum()),
+        ],
     }
 )
 counts
@@ -70,7 +74,12 @@ naive_cif = 1.0 - S_naive(t_grid)
 aj_cif = F_aj(t_grid)
 
 fig, ax = plt.subplots()
-ax.step(t_grid, naive_cif, where="post", label=r"$1 - \widehat{\mathrm{KM}}$ (transplant as censoring)")
+ax.step(
+    t_grid,
+    naive_cif,
+    where="post",
+    label=r"$1 - \widehat{\mathrm{KM}}$ (transplant as censoring)",
+)
 ax.step(t_grid, aj_cif, where="post", label="Aalen-Johansen $\\hat F_\\mathrm{death}$")
 ax.set_xlabel("years from registration")
 ax.set_ylabel("cumulative incidence of death")
@@ -108,11 +117,7 @@ ts.plot.cif(
 
 # %%
 keep = ["age", "sex", "stage", "bili", "albumin"]
-df = (
-    X_full.select(keep)
-    .with_row_index("_row")
-    .drop_nulls()
-)
+df = X_full.select(keep).with_row_index("_row").drop_nulls()
 kept = df["_row"].to_numpy()
 df = (
     df.drop("_row")

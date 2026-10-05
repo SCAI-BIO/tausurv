@@ -142,7 +142,9 @@ def test_forward_supports_3_causes():
     assert out["dC_dS"].shape == (15, 3)
 
 
-@pytest.mark.parametrize("family", ["independence", "clayton", "gumbel", "frank", "joe", "learned"])
+@pytest.mark.parametrize(
+    "family", ["independence", "clayton", "gumbel", "frank", "joe", "learned"]
+)
 def test_forward_works_for_every_copula_family(family):
     X, T, _ = _data(n=20, K=2)
     model = _make_model(family=family)

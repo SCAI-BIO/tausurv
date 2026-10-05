@@ -33,9 +33,7 @@ DOCS = Path(__file__).resolve().parent.parent
 KERNEL_NAME = "tausurv-docs"
 EXECUTE_TIMEOUT = 300
 
-_PLOT_REPR_RE = re.compile(
-    r"^(<(matplotlib\.|Axes\b|Figure\b)|[A-Z]\w*Display\()"
-)
+_PLOT_REPR_RE = re.compile(r"^(<(matplotlib\.|Axes\b|Figure\b)|[A-Z]\w*Display\()")
 
 
 def _strip_style_blocks(html: str) -> str:
@@ -105,7 +103,11 @@ def _cell_output_html(text: str) -> str:
 
 
 def render_output(
-    output, slug: str, img_dir: Path, idx: int, chapter: str,
+    output,
+    slug: str,
+    img_dir: Path,
+    idx: int,
+    chapter: str,
 ) -> str | None:
     """Render a single cell output to a markdown chunk.
 
@@ -168,7 +170,11 @@ def render_notebook(nb, slug: str, img_dir: Path, chapter: str) -> str:
             parts.append("")
             for output in _merge_streams(cell.outputs):
                 rendered = render_output(
-                    output, slug, img_dir, output_idx, chapter,
+                    output,
+                    slug,
+                    img_dir,
+                    output_idx,
+                    chapter,
                 )
                 if rendered is None:
                     continue
@@ -244,7 +250,10 @@ def extract_frontmatter(md: str, fallback_name: str) -> tuple[str, str, str]:
 
 
 def build_notebook(
-    py_path: Path, mdx_dir: Path, img_dir_root: Path, chapter: str,
+    py_path: Path,
+    mdx_dir: Path,
+    img_dir_root: Path,
+    chapter: str,
 ) -> None:
     name = py_path.stem
     slug = name.replace("_", "-")
@@ -291,9 +300,7 @@ def build_chapter(chapter: str) -> None:
     mdx_dir.mkdir(parents=True, exist_ok=True)
     img_dir.mkdir(parents=True, exist_ok=True)
 
-    py_files = sorted(
-        p for p in source_dir.glob("*.py") if not p.name.startswith("_")
-    )
+    py_files = sorted(p for p in source_dir.glob("*.py") if not p.name.startswith("_"))
     if not py_files:
         print(f"no notebooks in {source_dir}")
         return

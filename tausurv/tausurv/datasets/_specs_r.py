@@ -18,9 +18,7 @@ _KM_BOOK = (
     "Klein, J. P. & Moeschberger, M. L. (2003). Survival Analysis: "
     "Techniques for Censored and Truncated Data, 2nd ed. Springer."
 )
-_MOORE_BOOK = (
-    "Moore, D. F. (2016). Applied Survival Analysis Using R. Springer."
-)
+_MOORE_BOOK = "Moore, D. F. (2016). Applied Survival Analysis Using R. Springer."
 
 SPECS: dict[str, DatasetSpec] = {
     # ---- breast cancer: the Rotterdam cohort and its two endpoints ----

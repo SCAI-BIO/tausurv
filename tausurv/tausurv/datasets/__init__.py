@@ -67,6 +67,7 @@ then ``platformdirs.user_cache_dir("tausurv")/datasets``. The cache is
 content-addressed by SHA256, so variants of a study share one download. Set
 ``TAUSURV_OFFLINE=1`` to make any would-be fetch raise instead.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -137,9 +138,7 @@ def load_genfan(
     The textbook Weibull-AFT reliability example. See :func:`dataset_info`
     for the full description and citation.
     """
-    return load_dataset(
-        "genfan", cache_dir=cache_dir, force_download=force_download
-    )
+    return load_dataset("genfan", cache_dir=cache_dir, force_download=force_download)
 
 
 def load_ifluid(
@@ -152,9 +151,7 @@ def load_ifluid(
     All-event Weibull-AFT example with voltage as the stress covariate.
     See :func:`dataset_info` for the full description and citation.
     """
-    return load_dataset(
-        "ifluid", cache_dir=cache_dir, force_download=force_download
-    )
+    return load_dataset("ifluid", cache_dir=cache_dir, force_download=force_download)
 
 
 def load_imotor(
@@ -167,9 +164,7 @@ def load_imotor(
     Temperature-stressed ALT example; 17 failures, 23 censored. See
     :func:`dataset_info` for the full description and citation.
     """
-    return load_dataset(
-        "imotor", cache_dir=cache_dir, force_download=force_download
-    )
+    return load_dataset("imotor", cache_dir=cache_dir, force_download=force_download)
 
 
 def load_capacitor(
@@ -182,9 +177,7 @@ def load_capacitor(
     Two-factor ALT (temperature x voltage), 32 failures. See
     :func:`dataset_info` for the full description and citation.
     """
-    return load_dataset(
-        "capacitor", cache_dir=cache_dir, force_download=force_download
-    )
+    return load_dataset("capacitor", cache_dir=cache_dir, force_download=force_download)
 
 
 def load_lung(
@@ -208,9 +201,7 @@ def load_veteran(
 
     See :func:`dataset_info` for the full description and citation.
     """
-    return load_dataset(
-        "veteran", cache_dir=cache_dir, force_download=force_download
-    )
+    return load_dataset("veteran", cache_dir=cache_dir, force_download=force_download)
 
 
 def load_flchain(
@@ -222,9 +213,7 @@ def load_flchain(
 
     See :func:`dataset_info` for the full description and citation.
     """
-    return load_dataset(
-        "flchain", cache_dir=cache_dir, force_download=force_download
-    )
+    return load_dataset("flchain", cache_dir=cache_dir, force_download=force_download)
 
 
 def load_melanoma(
@@ -238,9 +227,7 @@ def load_melanoma(
     other causes (cause 2). See :func:`dataset_info` for the full
     description and citation.
     """
-    return load_dataset(
-        "melanoma", cache_dir=cache_dir, force_download=force_download
-    )
+    return load_dataset("melanoma", cache_dir=cache_dir, force_download=force_download)
 
 
 def load_mgus2(
@@ -255,9 +242,7 @@ def load_mgus2(
     ``n_causes=2``, and ``cause_labels=("plasma cell malignancy", "death")``.
     See :func:`dataset_info` for the full description and citation.
     """
-    return load_dataset(
-        "mgus2", cache_dir=cache_dir, force_download=force_download
-    )
+    return load_dataset("mgus2", cache_dir=cache_dir, force_download=force_download)
 
 
 def load_support(
@@ -271,9 +256,7 @@ def load_support(
     including the list of outcome-leaking columns to drop for a clean
     baseline-prediction task.
     """
-    return load_dataset(
-        "support", cache_dir=cache_dir, force_download=force_download
-    )
+    return load_dataset("support", cache_dir=cache_dir, force_download=force_download)
 
 
 def load_colon(
@@ -286,9 +269,7 @@ def load_colon(
     Cause 1 = recurrence, cause 2 = death without prior recurrence.
     See :func:`dataset_info` for the full description and citation.
     """
-    return load_dataset(
-        "colon", cache_dir=cache_dir, force_download=force_download
-    )
+    return load_dataset("colon", cache_dir=cache_dir, force_download=force_download)
 
 
 def load_kidney_transplant(
@@ -317,9 +298,7 @@ def load_larynx(
     Klein-Moeschberger Chapter 1 stage-stratified example. See
     :func:`dataset_info` for the full description and citation.
     """
-    return load_dataset(
-        "larynx", cache_dir=cache_dir, force_download=force_download
-    )
+    return load_dataset("larynx", cache_dir=cache_dir, force_download=force_download)
 
 
 def load_nwtco(
@@ -333,9 +312,7 @@ def load_nwtco(
     covariate so users can fit either case-cohort or full-cohort models.
     See :func:`dataset_info` for the full description and citation.
     """
-    return load_dataset(
-        "nwtco", cache_dir=cache_dir, force_download=force_download
-    )
+    return load_dataset("nwtco", cache_dir=cache_dir, force_download=force_download)
 
 
 def load_telco_churn(
@@ -363,9 +340,7 @@ def load_tongue(
     Klein-Moeschberger Chapter 1 two-sample KM example. See
     :func:`dataset_info` for the full description and citation.
     """
-    return load_dataset(
-        "tongue", cache_dir=cache_dir, force_download=force_download
-    )
+    return load_dataset("tongue", cache_dir=cache_dir, force_download=force_download)
 
 
 def load_waltons(
@@ -377,9 +352,7 @@ def load_waltons(
 
     See :func:`dataset_info` for the full description and citation.
     """
-    return load_dataset(
-        "waltons", cache_dir=cache_dir, force_download=force_download
-    )
+    return load_dataset("waltons", cache_dir=cache_dir, force_download=force_download)
 
 
 __all__ = [

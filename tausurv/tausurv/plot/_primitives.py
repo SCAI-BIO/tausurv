@@ -48,7 +48,13 @@ def ci_band(
     ``None`` for smooth bands.
     """
     return ax.fill_between(
-        x, lo, hi, step=step, color=color, alpha=alpha, linewidth=0,
+        x,
+        lo,
+        hi,
+        step=step,
+        color=color,
+        alpha=alpha,
+        linewidth=0,
     )
 
 
@@ -69,17 +75,23 @@ def reference_line(
     """
     if orientation == "h":
         return ax.axhline(
-            value, color=color, linestyle=linestyle,
-            linewidth=linewidth, alpha=alpha, zorder=zorder,
+            value,
+            color=color,
+            linestyle=linestyle,
+            linewidth=linewidth,
+            alpha=alpha,
+            zorder=zorder,
         )
     if orientation == "v":
         return ax.axvline(
-            value, color=color, linestyle=linestyle,
-            linewidth=linewidth, alpha=alpha, zorder=zorder,
+            value,
+            color=color,
+            linestyle=linestyle,
+            linewidth=linewidth,
+            alpha=alpha,
+            zorder=zorder,
         )
-    raise ValueError(
-        f"unknown orientation {orientation!r}; expected 'h' or 'v'"
-    )
+    raise ValueError(f"unknown orientation {orientation!r}; expected 'h' or 'v'")
 
 
 def make_curve_and_table_axes(
@@ -150,21 +162,34 @@ def draw_at_risk_table(
         y = top - (i + 0.5) * (top - bottom) / n_rows
         if name:
             table_ax.text(
-                -0.01, y, name, transform=table_ax.transAxes,
-                ha="right", va="center", color=colors.get(name, "black"),
+                -0.01,
+                y,
+                name,
+                transform=table_ax.transAxes,
+                ha="right",
+                va="center",
+                color=colors.get(name, "black"),
                 fontsize=8,
             )
         raw_t = rows[name]
         for tick in ticks:
             n = int((raw_t >= float(tick)).sum())
             table_ax.text(
-                tick, y, f"{n:d}", transform=trans,
-                ha="center", va="center", fontsize=8,
+                tick,
+                y,
+                f"{n:d}",
+                transform=trans,
+                ha="center",
+                va="center",
+                fontsize=8,
             )
 
     table_ax.set_title(
         "Number at risk" if n_rows > 1 else "At risk",
-        loc="left", fontsize=8, fontweight="medium", pad=2.0,
+        loc="left",
+        fontsize=8,
+        fontweight="medium",
+        pad=2.0,
     )
 
 
@@ -176,7 +201,12 @@ def censor_marks(
 ) -> "Line2D":
     """Vertical tick markers at censoring times on a step curve."""
     (line,) = ax.plot(
-        cens_times, cens_y, marker="|", linestyle="None",
-        color=color, markersize=5, markeredgewidth=1.0,
+        cens_times,
+        cens_y,
+        marker="|",
+        linestyle="None",
+        color=color,
+        markersize=5,
+        markeredgewidth=1.0,
     )
     return line

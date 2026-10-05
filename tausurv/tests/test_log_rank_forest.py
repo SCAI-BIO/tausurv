@@ -33,8 +33,13 @@ def test_fits_with_basic_params(two_group_data):
     assertion — that lives in scripts/log_rank_tree_parity.py)."""
     X, event_time, event_indicator = two_group_data
     forest = _fit_forest(
-        X, event_time, event_indicator,
-        n_trees=20, min_samples_leaf=15, max_features="sqrt", seed=42,
+        X,
+        event_time,
+        event_indicator,
+        n_trees=20,
+        min_samples_leaf=15,
+        max_features="sqrt",
+        seed=42,
     )
     assert forest.n_trees == 20
     assert forest.n_features == X.shape[1]
@@ -60,8 +65,13 @@ def test_no_resample_no_random_features_matches_single_tree(two_group_data):
     X, event_time, event_indicator = two_group_data
     common = dict(min_samples_leaf=15, max_features="all", seed=0)
     forest = _fit_forest(
-        X, event_time, event_indicator,
-        n_trees=5, bootstrap=False, subsample_fraction=1.0, **common,
+        X,
+        event_time,
+        event_indicator,
+        n_trees=5,
+        bootstrap=False,
+        subsample_fraction=1.0,
+        **common,
     )
     tree = fit_log_rank_tree(
         X=np.asfortranarray(X.astype(np.float64)),
@@ -104,8 +114,13 @@ def test_rejects_invalid_subsample_fraction(two_group_data):
 def test_forest_weights_shape_and_nonnegative(two_group_data):
     X, event_time, event_indicator = two_group_data
     forest = _fit_forest(
-        X, event_time, event_indicator,
-        n_trees=10, min_samples_leaf=10, max_features="all", seed=0,
+        X,
+        event_time,
+        event_indicator,
+        n_trees=10,
+        min_samples_leaf=10,
+        max_features="all",
+        seed=0,
     )
     X_f = np.asfortranarray(X.astype(np.float64))
     W = forest.forest_weights(X_f)
@@ -119,9 +134,16 @@ def test_forest_weights_sum_to_one_in_no_subsample_mode(two_group_data):
     weights sum to exactly 1.0 per query."""
     X, event_time, event_indicator = two_group_data
     forest = _fit_forest(
-        X, event_time, event_indicator,
-        n_trees=10, min_samples_leaf=10, max_features="all",
-        bootstrap=False, subsample_fraction=1.0, honesty=False, seed=0,
+        X,
+        event_time,
+        event_indicator,
+        n_trees=10,
+        min_samples_leaf=10,
+        max_features="all",
+        bootstrap=False,
+        subsample_fraction=1.0,
+        honesty=False,
+        seed=0,
     )
     X_f = np.asfortranarray(X.astype(np.float64))
     W = forest.forest_weights(X_f)
@@ -131,8 +153,12 @@ def test_forest_weights_sum_to_one_in_no_subsample_mode(two_group_data):
 def test_forest_weights_one_matches_batch_row(two_group_data):
     X, event_time, event_indicator = two_group_data
     forest = _fit_forest(
-        X, event_time, event_indicator,
-        n_trees=8, min_samples_leaf=10, seed=3,
+        X,
+        event_time,
+        event_indicator,
+        n_trees=8,
+        min_samples_leaf=10,
+        seed=3,
     )
     X_f = np.asfortranarray(X.astype(np.float64))
     W_batch = forest.forest_weights(X_f)
@@ -146,9 +172,16 @@ def test_forest_weights_self_weight_positive_under_no_subsample(two_group_data):
     estimation set; querying at X[i] must place positive weight on i."""
     X, event_time, event_indicator = two_group_data
     forest = _fit_forest(
-        X, event_time, event_indicator,
-        n_trees=5, min_samples_leaf=10, max_features="all",
-        bootstrap=False, subsample_fraction=1.0, honesty=False, seed=0,
+        X,
+        event_time,
+        event_indicator,
+        n_trees=5,
+        min_samples_leaf=10,
+        max_features="all",
+        bootstrap=False,
+        subsample_fraction=1.0,
+        honesty=False,
+        seed=0,
     )
     X_f = np.asfortranarray(X.astype(np.float64))
     for i in (0, 100, 200):

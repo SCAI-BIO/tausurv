@@ -21,7 +21,5 @@ class HACSurvLoss(nn.Module):
         super().__init__()
         self.reduction = reduction
 
-    def forward(
-        self, outputs: dict[str, Tensor], event_indicator: Tensor
-    ) -> Tensor:
+    def forward(self, outputs: dict[str, Tensor], event_indicator: Tensor) -> Tensor:
         return hacsurv_nll(outputs, event_indicator, reduction=self.reduction)

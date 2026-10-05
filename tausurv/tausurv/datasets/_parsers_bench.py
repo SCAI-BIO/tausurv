@@ -133,9 +133,9 @@ def _deepsurv_bunch(path: Path, spec: DatasetSpec) -> SurvivalBunch:
     paper says the variables are.
     """
     x, t, e, split = _read_deepsurv(path, spec)
-    frame = pl.DataFrame(
-        {f"x{i}": x[:, i] for i in range(x.shape[1])}
-    ).with_columns(pl.Series("split", split, dtype=pl.String))
+    frame = pl.DataFrame({f"x{i}": x[:, i] for i in range(x.shape[1])}).with_columns(
+        pl.Series("split", split, dtype=pl.String)
+    )
     return bunch_from(spec, frame, t, e)
 
 
@@ -192,9 +192,7 @@ def _one_file(path: Path, *patterns: str) -> Path:
         if hits:
             return hits[0]
     listing = sorted(p.name for p in path.iterdir())[:20] if path.is_dir() else []
-    raise FileNotFoundError(
-        f"none of {patterns} found in {path}. Contents: {listing}"
-    )
+    raise FileNotFoundError(f"none of {patterns} found in {path}. Contents: {listing}")
 
 
 def parse_seer(path: Path, spec: DatasetSpec) -> SurvivalBunch:
@@ -213,8 +211,7 @@ def parse_seer(path: Path, spec: DatasetSpec) -> SurvivalBunch:
             if candidate in lower:
                 return lower[candidate]
         raise KeyError(
-            f"{spec.name}: no column among {candidates}; "
-            f"found {sorted(lower)[:25]}"
+            f"{spec.name}: no column among {candidates}; found {sorted(lower)[:25]}"
         )
 
     time_col = pick("survival_months", "survival_time", "survtime")
@@ -301,8 +298,23 @@ def parse_framingham(path: Path, spec: DatasetSpec) -> SurvivalBunch:
     event_time = frame["TIMEDTH"].cast(pl.Float64, strict=False).to_numpy()
     indicator = frame["DEATH"].cast(pl.Int8, strict=False).to_numpy()
     X = drop_present(
-        frame, "RANDID", "TIMEDTH", "DEATH", "PERIOD",
-        "TIMEAP", "TIMEMI", "TIMEMIFC", "TIMECHD", "TIMESTRK", "TIMECVD",
-        "TIMEHYP", "ANGINA", "HOSPMI", "MI_FCHD", "ANYCHD", "STROKE", "CVD",
+        frame,
+        "RANDID",
+        "TIMEDTH",
+        "DEATH",
+        "PERIOD",
+        "TIMEAP",
+        "TIMEMI",
+        "TIMEMIFC",
+        "TIMECHD",
+        "TIMESTRK",
+        "TIMECVD",
+        "TIMEHYP",
+        "ANGINA",
+        "HOSPMI",
+        "MI_FCHD",
+        "ANYCHD",
+        "STROKE",
+        "CVD",
     )
     return bunch_from(spec, X, event_time, indicator)

@@ -59,9 +59,7 @@ def dsm_nll(
     """
     n, three_K = predictions.shape
     if three_K % 3 != 0:
-        raise ValueError(
-            f"predictions last dim must be divisible by 3, got {three_K}"
-        )
+        raise ValueError(f"predictions last dim must be divisible by 3, got {three_K}")
     K = three_K // 3
     raw_p1 = predictions[:, :K]
     raw_p2 = predictions[:, K : 2 * K]
@@ -82,9 +80,9 @@ def dsm_nll(
         )
 
     log_w = F.log_softmax(raw_w, dim=-1)  # (n, K)
-    t_b = event_time.unsqueeze(-1)        # (n, 1) → broadcasts to (n, K)
-    log_f_k = dist.log_pdf(t_b)           # (n, K)
-    log_S_k = dist.log_survival(t_b)      # (n, K)
+    t_b = event_time.unsqueeze(-1)  # (n, 1) → broadcasts to (n, K)
+    log_f_k = dist.log_pdf(t_b)  # (n, K)
+    log_S_k = dist.log_survival(t_b)  # (n, K)
 
     log_f = torch.logsumexp(log_w + log_f_k, dim=-1)  # (n,)
     log_S = torch.logsumexp(log_w + log_S_k, dim=-1)  # (n,)

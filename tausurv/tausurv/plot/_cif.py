@@ -130,11 +130,17 @@ def cif(
         )
 
     curves, at_risk_rows = _build_curves(
-        Y, E, causes_list, group, cause_labels,
+        Y,
+        E,
+        causes_list,
+        group,
+        cause_labels,
     )
 
     fig, curve_ax, table_ax = make_curve_and_table_axes(
-        ax, at_risk, n_groups=len(at_risk_rows),
+        ax,
+        at_risk,
+        n_groups=len(at_risk_rows),
     )
 
     disp = CIFDisplay(fig=fig, ax=curve_ax, at_risk_ax=table_ax)
@@ -149,7 +155,12 @@ def cif(
         if ci:
             lo, hi = _km_ci(rec["values"], rec["variance"], ci_level, ci_method)
             disp.ci_polys[label] = ci_band(
-                curve_ax, rec["times"], lo, hi, line.get_color(), step="post",
+                curve_ax,
+                rec["times"],
+                lo,
+                hi,
+                line.get_color(),
+                step="post",
             )
 
         show_censor = (
@@ -179,7 +190,10 @@ def cif(
             else None
         )
         draw_at_risk_table(
-            table_ax, curve_ax, rows=at_risk_rows, colors=row_colors,
+            table_ax,
+            curve_ax,
+            rows=at_risk_rows,
+            colors=row_colors,
             xlabel=xlabel,
         )
 
@@ -187,7 +201,8 @@ def cif(
 
 
 def _as_arrays(
-    event_time: "ArrayLike", event_indicator: "ArrayLike",
+    event_time: "ArrayLike",
+    event_indicator: "ArrayLike",
 ) -> tuple[np.ndarray, np.ndarray]:
     Y = np.asarray(event_time, dtype=np.float64)
     E = np.asarray(event_indicator, dtype=np.int64)
@@ -200,14 +215,14 @@ def _as_arrays(
 
 
 def _resolve_causes(
-    causes: "int | Sequence[int] | None", E: np.ndarray,
+    causes: "int | Sequence[int] | None",
+    E: np.ndarray,
 ) -> list[int]:
     if causes is None:
         observed = sorted({int(c) for c in np.unique(E) if c > 0})
         if not observed:
             raise ValueError(
-                "no events found in event_indicator (all values <= 0); "
-                "cannot plot CIF"
+                "no events found in event_indicator (all values <= 0); cannot plot CIF"
             )
         return observed
     if isinstance(causes, int):
@@ -217,9 +232,7 @@ def _resolve_causes(
         raise ValueError("causes must be a non-empty sequence")
     for c in out:
         if c <= 0:
-            raise ValueError(
-                f"every cause must be a positive integer; got {c}"
-            )
+            raise ValueError(f"every cause must be a positive integer; got {c}")
     return out
 
 
@@ -230,7 +243,7 @@ def _build_curves(
     group: "ArrayLike | None",
     cause_labels: "dict[int, str] | None",
 ) -> tuple[dict[str, dict], dict[str, np.ndarray]]:
-    label_for = (cause_labels or {})
+    label_for = cause_labels or {}
 
     if group is None:
         curves: dict[str, dict] = {}
@@ -272,5 +285,3 @@ def _aj_record(Y: np.ndarray, E: np.ndarray, cause: int) -> dict:
         "raw_t": Y,
         "raw_e": E.astype(np.int8),
     }
-
-

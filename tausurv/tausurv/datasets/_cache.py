@@ -52,9 +52,7 @@ def offline_mode() -> bool:
     return os.environ.get(_OFFLINE_ENV, "") not in ("", "0", "false", "False")
 
 
-def cached_path(
-    sha256: str, url: str, cache_dir: str | Path | None = None
-) -> Path:
+def cached_path(sha256: str, url: str, cache_dir: str | Path | None = None) -> Path:
     """Path the raw file lives at after a successful fetch.
 
     Content-addressed: ``<root>/<sha256[:16]>/<filename>``.
@@ -63,9 +61,7 @@ def cached_path(
     return resolve_cache_dir(cache_dir) / sha256[:_DIGEST_CHARS] / filename
 
 
-def _legacy_path(
-    name: str, url: str, cache_dir: str | Path | None = None
-) -> Path:
+def _legacy_path(name: str, url: str, cache_dir: str | Path | None = None) -> Path:
     """Where releases before content-addressing put the file."""
     return resolve_cache_dir(cache_dir) / name / Path(urlparse(url).path).name
 

@@ -33,7 +33,10 @@ def test_single_curve_returns_display(times):
 def test_single_curve_with_ci_draws_band(times):
     S = np.exp(-0.3 * times)
     disp = ts.plot.predicted_survival(
-        times, S, ci=(S - 0.05, S + 0.05), label="A",
+        times,
+        S,
+        ci=(S - 0.05, S + 0.05),
+        label="A",
     )
     assert list(disp.ci_polys.keys()) == ["A"]
 
@@ -58,7 +61,10 @@ def test_individual_alpha_auto_scales_with_cohort_size(times):
     disp_small = ts.plot.predicted_survival(times, S_small)
     disp_large = ts.plot.predicted_survival(times, S_large)
     # Larger cohort -> lower alpha.
-    assert disp_small.individual_lines[0].get_alpha() > disp_large.individual_lines[0].get_alpha()
+    assert (
+        disp_small.individual_lines[0].get_alpha()
+        > disp_large.individual_lines[0].get_alpha()
+    )
 
 
 def test_aggregate_no_group_collapses_to_one_curve(times):

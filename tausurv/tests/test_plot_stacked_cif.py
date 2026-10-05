@@ -35,7 +35,9 @@ def test_returns_display_with_bands_per_cause_plus_survival(cr_data):
 def test_cause_labels_applied(cr_data):
     Y, E = cr_data
     disp = ts.plot.stacked_cif(
-        Y, E, cause_labels={1: "Relapse", 2: "Death"},
+        Y,
+        E,
+        cause_labels={1: "Relapse", 2: "Death"},
     )
     assert "Relapse" in disp.bands
     assert "Death" in disp.bands

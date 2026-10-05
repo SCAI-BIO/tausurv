@@ -104,8 +104,11 @@ def calibration(
     import matplotlib.pyplot as plt
 
     curves = _gather_curves(
-        predicted=predicted, observed=observed, models=models,
-        color=color, label=label,
+        predicted=predicted,
+        observed=observed,
+        models=models,
+        color=color,
+        label=label,
     )
 
     if ax is None:
@@ -118,8 +121,12 @@ def calibration(
     upper = _axis_upper(curves)
     if reference:
         disp.reference = ax.plot(
-            [0.0, upper], [0.0, upper],
-            color="#888888", linestyle="--", linewidth=0.6, alpha=0.6,
+            [0.0, upper],
+            [0.0, upper],
+            color="#888888",
+            linestyle="--",
+            linewidth=0.6,
+            alpha=0.6,
             zorder=0,
         )[0]
 
@@ -162,7 +169,9 @@ def _gather_curves(
                 "models= for an overlay, not both"
             )
         if color is not None or label is not None:
-            raise ValueError("color/label are single-curve only; not valid with models=")
+            raise ValueError(
+                "color/label are single-curve only; not valid with models="
+            )
         out: dict[str, dict[str, Any]] = {}
         for name, spec in models.items():
             p = np.asarray(spec["predicted"], dtype=np.float64)

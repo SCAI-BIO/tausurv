@@ -78,7 +78,7 @@ def test_multi_model_overlay():
     p1 = np.linspace(0.1, 0.8, 8)
     p2 = np.linspace(0.05, 0.9, 8)
     models = {
-        "Cox":     {"predicted": p1, "observed": p1 + 0.02},
+        "Cox": {"predicted": p1, "observed": p1 + 0.02},
         "DeepHit": {"predicted": p2, "observed": p2 - 0.03},
     }
     disp = ts.plot.calibration(models=models)
@@ -108,7 +108,8 @@ def test_color_label_invalid_with_models():
     p = np.linspace(0.1, 0.9, 5)
     with pytest.raises(ValueError, match="single-curve only"):
         ts.plot.calibration(
-            models={"X": {"predicted": p, "observed": p}}, color="red",
+            models={"X": {"predicted": p, "observed": p}},
+            color="red",
         )
 
 
@@ -127,8 +128,10 @@ def test_legend_only_with_multiple_named_curves(well_calibrated):
     disp_single = ts.plot.calibration(p, o, label="Cox")
     assert disp_single.ax.get_legend() is None
     disp_multi = ts.plot.calibration(
-        models={"A": {"predicted": p, "observed": o},
-                "B": {"predicted": p, "observed": o * 0.9}},
+        models={
+            "A": {"predicted": p, "observed": o},
+            "B": {"predicted": p, "observed": o * 0.9},
+        },
     )
     assert disp_multi.ax.get_legend() is not None
 

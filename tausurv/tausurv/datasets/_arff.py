@@ -76,9 +76,7 @@ def read_arff(path: Path) -> pl.DataFrame:
 
     columns: dict[str, pl.Series] = {}
     for i, (name, kind) in enumerate(zip(names, kinds, strict=True)):
-        values = [
-            (row[i].strip() if i < len(row) else _MISSING) for row in rows
-        ]
+        values = [(row[i].strip() if i < len(row) else _MISSING) for row in rows]
         cleaned = [None if v in (_MISSING, "") else v for v in values]
         present = [v for v in cleaned if v is not None]
         numeric = kind.lower().startswith(("numeric", "real", "integer")) or (

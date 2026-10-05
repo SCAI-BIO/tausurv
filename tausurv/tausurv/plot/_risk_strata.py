@@ -141,10 +141,18 @@ def risk_strata(
     group = np.asarray([bin_labels[i] for i in bin_idx[order]])
 
     km_disp = km(
-        Y[order], D[order], group=group,
-        ax=ax, at_risk=at_risk, ci=ci, ci_method=ci_method, ci_level=ci_level,
-        censor_ticks=censor_ticks, legend=legend,
-        xlabel=xlabel, ylabel=ylabel,
+        Y[order],
+        D[order],
+        group=group,
+        ax=ax,
+        at_risk=at_risk,
+        ci=ci,
+        ci_method=ci_method,
+        ci_level=ci_level,
+        censor_ticks=censor_ticks,
+        legend=legend,
+        xlabel=xlabel,
+        ylabel=ylabel,
     )
     if title is not None:
         km_disp.ax.set_title(title)
@@ -162,7 +170,9 @@ def risk_strata(
 
 
 def _edges(
-    R: np.ndarray, n_bins: int, binning: Binning,
+    R: np.ndarray,
+    n_bins: int,
+    binning: Binning,
     breakpoints: "Sequence[float] | None",
 ) -> np.ndarray:
     if binning == "quantile":

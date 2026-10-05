@@ -47,9 +47,26 @@ from tausurv.datasets._registry import resolve_name
 #: rename or drop any of them: a name in this list is a promise, because
 #: results are reported against it.
 V1_NAMES = (
-    "capacitor", "colon", "flchain", "gbsg", "genfan", "ifluid", "imotor",
-    "kidney_transplant", "larynx", "lung", "melanoma", "mgus2", "nwtco",
-    "pbc", "rossi", "support", "telco_churn", "tongue", "veteran", "waltons",
+    "capacitor",
+    "colon",
+    "flchain",
+    "gbsg",
+    "genfan",
+    "ifluid",
+    "imotor",
+    "kidney_transplant",
+    "larynx",
+    "lung",
+    "melanoma",
+    "mgus2",
+    "nwtco",
+    "pbc",
+    "rossi",
+    "support",
+    "telco_churn",
+    "tongue",
+    "veteran",
+    "waltons",
 )
 
 
@@ -559,8 +576,9 @@ def test_load_dataset_cache_hits_on_repeat(network_cache):
     b = load_dataset("pbc", cache_dir=network_cache)
     assert a.n == b.n
     # The cache is content-addressed: <root>/<sha256[:16]>/<filename>.
-    assert cached_path(dataset_info("pbc").sha256, dataset_info("pbc").url,
-                       network_cache).exists()
+    assert cached_path(
+        dataset_info("pbc").sha256, dataset_info("pbc").url, network_cache
+    ).exists()
 
 
 @pytest.mark.network
@@ -612,8 +630,21 @@ def test_every_open_dataset_loads_and_is_well_formed(name, network_cache):
 def test_endpoint_columns_never_survive_into_covariates(network_cache):
     """A covariate named like the endpoint is the classic silent leak."""
     banned = {
-        "time", "status", "delta", "event", "death", "futime", "fustat",
-        "rel", "edrel", "cens", "censor", "d.time", "survtime", "os", "rfs",
+        "time",
+        "status",
+        "delta",
+        "event",
+        "death",
+        "futime",
+        "fustat",
+        "rel",
+        "edrel",
+        "cens",
+        "censor",
+        "d.time",
+        "survtime",
+        "os",
+        "rfs",
     }
     for name in list_datasets(access=Access.OPEN):
         if (requires := dataset_info(name).requires) is not None:

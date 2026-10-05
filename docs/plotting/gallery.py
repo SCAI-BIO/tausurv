@@ -42,11 +42,16 @@ rng = np.random.default_rng(0)
 
 # %%
 n = 80
-T_a = rng.exponential(2.0, n); C_a = rng.exponential(4.0, n)
-Y_a = np.minimum(T_a, C_a); D_a = (T_a <= C_a).astype(int)
-T_b = rng.exponential(3.5, n); C_b = rng.exponential(4.0, n)
-Y_b = np.minimum(T_b, C_b); D_b = (T_b <= C_b).astype(int)
-Y_km = np.concatenate([Y_a, Y_b]); D_km = np.concatenate([D_a, D_b])
+T_a = rng.exponential(2.0, n)
+C_a = rng.exponential(4.0, n)
+Y_a = np.minimum(T_a, C_a)
+D_a = (T_a <= C_a).astype(int)
+T_b = rng.exponential(3.5, n)
+C_b = rng.exponential(4.0, n)
+Y_b = np.minimum(T_b, C_b)
+D_b = (T_b <= C_b).astype(int)
+Y_km = np.concatenate([Y_a, Y_b])
+D_km = np.concatenate([D_a, D_b])
 G_km = np.array(["control"] * n + ["treatment"] * n)
 
 ts.plot.km(Y_km, D_km, group=G_km)
@@ -59,14 +64,18 @@ ts.plot.km(Y_km, D_km, group=G_km)
 
 # %%
 t_grid = np.linspace(0.1, 5.0, 50)
-S_cohort = np.stack([
-    *[np.exp(-(0.35 + 0.05 * rng.normal()) * t_grid) for _ in range(40)],
-    *[np.exp(-(0.18 + 0.05 * rng.normal()) * t_grid) for _ in range(40)],
-])
+S_cohort = np.stack(
+    [
+        *[np.exp(-(0.35 + 0.05 * rng.normal()) * t_grid) for _ in range(40)],
+        *[np.exp(-(0.18 + 0.05 * rng.normal()) * t_grid) for _ in range(40)],
+    ]
+)
 G_pred = np.array(["control"] * 40 + ["treatment"] * 40)
 
 ts.plot.predicted_survival(
-    t_grid, S_cohort, group=G_pred,
+    t_grid,
+    S_cohort,
+    group=G_pred,
     title="Predicted survival by arm",
 )
 
@@ -80,10 +89,10 @@ n = 400
 risk = rng.normal(0, 1, n)
 T = rng.exponential(np.exp(-0.5 * risk), n)
 C = rng.exponential(4.0, n)
-Y_rs = np.minimum(T, C); D_rs = (T <= C).astype(int)
+Y_rs = np.minimum(T, C)
+D_rs = (T <= C).astype(int)
 
-ts.plot.risk_strata(Y_rs, D_rs, risk, n_bins=4,
-                    title="Risk stratification (quartiles)")
+ts.plot.risk_strata(Y_rs, D_rs, risk, n_bins=4, title="Risk stratification (quartiles)")
 
 # %% [markdown]
 # ## Cumulative incidence (lines)
@@ -92,12 +101,14 @@ ts.plot.risk_strata(Y_rs, D_rs, risk, n_bins=4,
 
 # %%
 n = 200
-T_raw = rng.exponential(2.0, n); C = rng.exponential(5.0, n)
+T_raw = rng.exponential(2.0, n)
+C = rng.exponential(5.0, n)
 Y_cif = np.minimum(T_raw, C)
 delta_cif = np.where(T_raw <= C, rng.choice([1, 2, 3], size=n, p=[0.45, 0.35, 0.20]), 0)
 
 ts.plot.cif(
-    Y_cif, delta_cif,
+    Y_cif,
+    delta_cif,
     cause_labels={1: "Relapse", 2: "Death", 3: "Other"},
     title="Cumulative incidence by cause",
 )
@@ -109,7 +120,8 @@ ts.plot.cif(
 
 # %%
 ts.plot.stacked_cif(
-    Y_cif, delta_cif,
+    Y_cif,
+    delta_cif,
     cause_labels={1: "Relapse", 2: "Death", 3: "Other"},
     title="Stacked cumulative incidence",
 )
@@ -120,14 +132,24 @@ ts.plot.stacked_cif(
 # Coefficients with confidence intervals. Default x-axis is log-scaled with a vertical reference at $x = 1$ -- the conventional layout for hazard ratios. Per-row annotations print the estimate and bounds.
 
 # %%
-names = ["Age (10y)", "Sex (M)", "Treatment", "Stage III", "Stage IV",
-         "Comorbidity", "Smoker", "BMI > 30"]
+names = [
+    "Age (10y)",
+    "Sex (M)",
+    "Treatment",
+    "Stage III",
+    "Stage IV",
+    "Comorbidity",
+    "Smoker",
+    "BMI > 30",
+]
 hr = np.array([1.25, 0.92, 0.68, 1.85, 2.42, 1.31, 1.55, 1.10])
 lo = hr * 0.78
 hi = hr * 1.28
 
 ts.plot.forest(
-    names, hr, ci=(lo, hi),
+    names,
+    hr,
+    ci=(lo, hi),
     xlabel="Hazard ratio (95% CI)",
     title="Cox proportional hazards",
 )
@@ -140,15 +162,19 @@ ts.plot.forest(
 # %%
 p_axis = np.linspace(0.05, 0.85, 10)
 models_cal = {
-    "Cox":     {"predicted": p_axis, "observed": p_axis + 0.04 * np.sin(p_axis * 6)},
-    "DeepHit": {"predicted": p_axis, "observed": p_axis - 0.05 + 0.04 * np.cos(p_axis * 6)},
-    "RSF":     {"predicted": p_axis, "observed": p_axis + 0.02 * np.sin(p_axis * 4)},
+    "Cox": {"predicted": p_axis, "observed": p_axis + 0.04 * np.sin(p_axis * 6)},
+    "DeepHit": {
+        "predicted": p_axis,
+        "observed": p_axis - 0.05 + 0.04 * np.cos(p_axis * 6),
+    },
+    "RSF": {"predicted": p_axis, "observed": p_axis + 0.02 * np.sin(p_axis * 4)},
 }
 
 ts.plot.calibration(
     models=models_cal,
     title="Calibration at t = 2 years",
-    xlabel="Predicted CIF", ylabel="Observed CIF",
+    xlabel="Predicted CIF",
+    ylabel="Observed CIF",
 )
 
 # %% [markdown]
@@ -164,9 +190,9 @@ rsf_folds = 0.76 + 0.015 * np.cos(t_eval) + 0.04 * rng.normal(size=(5, t_eval.si
 
 ts.plot.auc_over_time(
     models={
-        "Cox":     {"times": t_eval, "values": cox_folds},
+        "Cox": {"times": t_eval, "values": cox_folds},
         "DeepHit": {"times": t_eval, "values": dh_folds},
-        "RSF":     {"times": t_eval, "values": rsf_folds},
+        "RSF": {"times": t_eval, "values": rsf_folds},
     },
     title=r"Time-dependent AUC ($\pm$1 SD across CV folds)",
 )
@@ -203,8 +229,7 @@ ts.plot.copula.density(cl, title=r"Clayton density ($\theta = 2.5$)")
 # Marshall-Olkin samples from the copula on the unit square. Useful next to the density plot for verifying the sampler's geometry matches the analytic density.
 
 # %%
-ts.plot.copula.scatter(gu, seed=0,
-                        title=r"Gumbel sample ($\theta = 2$)")
+ts.plot.copula.scatter(gu, seed=0, title=r"Gumbel sample ($\theta = 2$)")
 
 # %% [markdown]
 # ## SHAP curves
@@ -221,19 +246,26 @@ def _feature_curve(slope, peak, sign):
     return sign * 0.05 * slope * np.exp(-((times_shap - peak) ** 2) / 4.0)
 
 
-shap_template = np.stack([
-    _feature_curve(1.2, 1.5, -1.0),   # Age: harmful early
-    _feature_curve(0.8, 3.0, -1.0),   # Smoker: harmful mid
-    _feature_curve(1.5, 2.5,  1.0),   # Treatment: protective
-    _feature_curve(0.6, 4.0, -1.0),   # Stage: harmful late
-    _feature_curve(0.5, 2.0,  1.0),   # Biomarker A
-    _feature_curve(0.3, 3.5,  0.5),   # BMI: weak
-])
-shap_values = shap_template[None] + 0.005 * rng.normal(size=(n_subjects, n_features, n_times))
+shap_template = np.stack(
+    [
+        _feature_curve(1.2, 1.5, -1.0),  # Age: harmful early
+        _feature_curve(0.8, 3.0, -1.0),  # Smoker: harmful mid
+        _feature_curve(1.5, 2.5, 1.0),  # Treatment: protective
+        _feature_curve(0.6, 4.0, -1.0),  # Stage: harmful late
+        _feature_curve(0.5, 2.0, 1.0),  # Biomarker A
+        _feature_curve(0.3, 3.5, 0.5),  # BMI: weak
+    ]
+)
+shap_values = shap_template[None] + 0.005 * rng.normal(
+    size=(n_subjects, n_features, n_times)
+)
 baseline_S = np.exp(-0.18 * times_shap)
 
 ts.plot.shap.curves(
-    shap_values, times_shap, features, subject=0,
+    shap_values,
+    times_shap,
+    features,
+    subject=0,
     title="SHAP over time -- patient 0",
 )
 
@@ -244,7 +276,11 @@ ts.plot.shap.curves(
 
 # %%
 ts.plot.shap.local_decomposition(
-    shap_values, baseline_S, times_shap, features, subject=0,
+    shap_values,
+    baseline_S,
+    times_shap,
+    features,
+    subject=0,
     title="Patient 0: why this survival curve?",
 )
 
@@ -255,7 +291,9 @@ ts.plot.shap.local_decomposition(
 
 # %%
 ts.plot.shap.feature_time_heatmap(
-    shap_values, times_shap, features,
+    shap_values,
+    times_shap,
+    features,
     aggregate="abs_mean",
     title="Cohort mean |SHAP|",
 )

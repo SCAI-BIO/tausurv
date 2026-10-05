@@ -252,8 +252,6 @@ def test_loss_classes_match_their_functional_form():
     )
 
 
-
-
 def test_deepsurv_fit_trains_and_fits_baseline():
     X, T, E = simulations.single_risk(n=120, n_features=5, seed=0)
     model = DeepSurv(in_features=5, hidden_dim=8, n_blocks=1)
@@ -279,9 +277,7 @@ def test_fit_accepts_polars_and_integer_inputs():
 
 def test_deephit_fit_sets_time_grid_from_training_data():
     X, T, E = simulations.competing_risk(n=150, n_features=5, n_causes=2, seed=0)
-    model = DeepHit(
-        in_features=5, n_bins=6, n_causes=2, hidden_dim=8, n_blocks=1
-    )
+    model = DeepHit(in_features=5, n_bins=6, n_causes=2, hidden_dim=8, n_blocks=1)
     model.fit(X, T, E, epochs=3)
 
     assert model.times_.shape == (6,)

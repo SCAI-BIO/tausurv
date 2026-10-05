@@ -535,7 +535,6 @@ _REGISTRY: dict[str, DatasetSpec] = {
 }
 
 
-
 #: Competing-risks studies and how many causes each records. Declared rather
 #: than discovered because finding out costs a download: the cause count lives
 #: in the parsed bunch, and the registry must be complete before any fetch.
@@ -682,9 +681,7 @@ def list_datasets(
 def list_variants(name: str) -> list[str]:
     """Every registered reading of the study ``name`` belongs to, including it."""
     base = split_name(resolve_name(name))[0]
-    return sorted(
-        n for n in _REGISTRY if n == base or n.startswith(f"{base}:")
-    )
+    return sorted(n for n in _REGISTRY if n == base or n.startswith(f"{base}:"))
 
 
 def dataset_info(name: str) -> DatasetInfo:

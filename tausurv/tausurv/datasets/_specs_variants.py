@@ -97,7 +97,11 @@ def cause_specific_variants(
 def build(registry: dict[str, DatasetSpec]) -> dict[str, DatasetSpec]:
     """Construct every variant whose base is already in ``registry``."""
     pbc, lung = registry["pbc"], registry["lung"]
-    flchain, support, colon = registry["flchain"], registry["support"], registry["colon"]
+    flchain, support, colon = (
+        registry["flchain"],
+        registry["support"],
+        registry["colon"],
+    )
 
     return {
         "pbc:randomised": _variant(

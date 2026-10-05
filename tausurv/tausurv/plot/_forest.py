@@ -166,13 +166,17 @@ def forest(
         from matplotlib.collections import LineCollection
 
         ci_lc = LineCollection(
-            segments, colors=color or "C0", linewidths=1.4, capstyle="round",
+            segments,
+            colors=color or "C0",
+            linewidths=1.4,
+            capstyle="round",
         )
         ax.add_collection(ci_lc)
         disp.ci_lines = ci_lc
 
     point_kw: dict = {
-        "marker": "o", "markersize": 5,
+        "marker": "o",
+        "markersize": 5,
         "linestyle": "None",
     }
     if color is not None:
@@ -190,7 +194,12 @@ def forest(
             for i in range(k):
                 disp.annotations.append(
                     _row_annotation(
-                        ax, est[i], lo_arr[i], hi_arr[i], i, annotation_format,
+                        ax,
+                        est[i],
+                        lo_arr[i],
+                        hi_arr[i],
+                        i,
+                        annotation_format,
                     )
                 )
 
@@ -201,9 +210,7 @@ def forest(
         from matplotlib.ticker import LogLocator, NullFormatter, ScalarFormatter
 
         ax.set_xscale("log")
-        ax.xaxis.set_major_locator(
-            LogLocator(base=10.0, subs=(1.0, 2.0, 5.0))
-        )
+        ax.xaxis.set_major_locator(LogLocator(base=10.0, subs=(1.0, 2.0, 5.0)))
         ax.xaxis.set_minor_locator(
             LogLocator(base=10.0, subs=np.arange(2, 10) * 0.1, numticks=12)
         )
@@ -221,7 +228,9 @@ def forest(
 
 
 def _sort_order(
-    names: np.ndarray, estimates: np.ndarray, sort: SortBy,
+    names: np.ndarray,
+    estimates: np.ndarray,
+    sort: SortBy,
 ) -> np.ndarray:
     if sort == "input":
         return np.arange(estimates.size)
@@ -229,9 +238,7 @@ def _sort_order(
         return np.argsort(estimates)
     if sort == "name":
         return np.argsort(names)
-    raise ValueError(
-        f"unknown sort {sort!r}; expected 'input', 'estimate', or 'name'"
-    )
+    raise ValueError(f"unknown sort {sort!r}; expected 'input', 'estimate', or 'name'")
 
 
 def _row_annotation(
@@ -250,6 +257,11 @@ def _row_annotation(
     else:
         text = fmt.format(estimate, lo, hi)
     return ax.text(
-        1.02, row, text, transform=trans,
-        ha="left", va="center", fontsize=8,
+        1.02,
+        row,
+        text,
+        transform=trans,
+        ha="left",
+        va="center",
+        fontsize=8,
     )

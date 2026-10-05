@@ -533,9 +533,20 @@ def parse_flchain_complete(path: Path, spec: DatasetSpec) -> SurvivalBunch:
 #: ``prg2m``, ``prg6m``). ``surv6m`` alone scores c-index 0.72 against the
 #: endpoint -- higher than published models fitted on the real covariates.
 _SUPPORT_LEAKY = (
-    "hospdead", "slos", "charges", "totcst", "totmcst",
-    "surv2m", "surv6m", "prg2m", "prg6m", "dnr", "dnrday", "sfdm2",
-    "adlp", "adls",
+    "hospdead",
+    "slos",
+    "charges",
+    "totcst",
+    "totmcst",
+    "surv2m",
+    "surv6m",
+    "prg2m",
+    "prg6m",
+    "dnr",
+    "dnrday",
+    "sfdm2",
+    "adlp",
+    "adls",
 )
 
 

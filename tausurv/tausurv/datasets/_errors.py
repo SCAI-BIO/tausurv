@@ -17,9 +17,7 @@ class UnknownDatasetError(ValueError):
     def __init__(self, name: str, available: list[str]) -> None:
         close = difflib.get_close_matches(name, available, n=4, cutoff=0.6)
         base = name.partition(":")[0]
-        siblings = sorted(
-            n for n in available if n == base or n.startswith(f"{base}:")
-        )
+        siblings = sorted(n for n in available if n == base or n.startswith(f"{base}:"))
         hint = ""
         if siblings and name not in siblings:
             hint = f"\n{base!r} exists with variants: {siblings}"

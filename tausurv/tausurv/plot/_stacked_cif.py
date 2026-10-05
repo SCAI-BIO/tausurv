@@ -115,14 +115,19 @@ def stacked_cif(
 
     disp = StackedCIFDisplay(fig=fig, ax=ax)
 
-    label_for = (cause_labels or {})
+    label_for = cause_labels or {}
     lower = np.zeros_like(grid)
     for c in causes_list:
         upper = lower + cif_vals[c]
         lbl = label_for.get(c, f"Cause {c}")
         poly = ax.fill_between(
-            grid, lower, upper, step="post",
-            alpha=0.85, linewidth=0, label=lbl,
+            grid,
+            lower,
+            upper,
+            step="post",
+            alpha=0.85,
+            linewidth=0,
+            label=lbl,
         )
         disp.bands[lbl] = poly
         lower = upper
@@ -132,8 +137,13 @@ def stacked_cif(
         S = km(grid)
         upper = np.minimum(1.0, lower + S)
         poly = ax.fill_between(
-            grid, lower, upper, step="post",
-            color=survival_color, alpha=0.85, linewidth=0,
+            grid,
+            lower,
+            upper,
+            step="post",
+            color=survival_color,
+            alpha=0.85,
+            linewidth=0,
             label=survival_label,
         )
         disp.bands[survival_label] = poly
@@ -151,14 +161,14 @@ def stacked_cif(
 
 
 def _resolve_causes(
-    causes: "int | Sequence[int] | None", E: np.ndarray,
+    causes: "int | Sequence[int] | None",
+    E: np.ndarray,
 ) -> list[int]:
     if causes is None:
         observed = sorted({int(c) for c in np.unique(E) if c > 0})
         if not observed:
             raise ValueError(
-                "no events found in event_indicator (all values <= 0); "
-                "cannot stack CIF"
+                "no events found in event_indicator (all values <= 0); cannot stack CIF"
             )
         return observed
     if isinstance(causes, int):
@@ -169,7 +179,5 @@ def _resolve_causes(
         raise ValueError("causes must be a non-empty sequence")
     for c in out:
         if c <= 0:
-            raise ValueError(
-                f"every cause must be a positive integer; got {c}"
-            )
+            raise ValueError(f"every cause must be a positive integer; got {c}")
     return out

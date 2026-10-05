@@ -81,12 +81,8 @@ def score(
     # support the status cannot be reweighted, so the contribution is
     # dropped. ``np.divide`` with ``where`` never evaluates the masked-out
     # entries (``np.where`` would, warning on the discarded branch).
-    inv_G_at_Y = np.divide(
-        1.0, G_at_Y, out=np.zeros_like(G_at_Y), where=G_at_Y > 0
-    )
-    inv_G_at_t = np.divide(
-        1.0, G_at_t, out=np.zeros_like(G_at_t), where=G_at_t > 0
-    )
+    inv_G_at_Y = np.divide(1.0, G_at_Y, out=np.zeros_like(G_at_Y), where=G_at_Y > 0)
+    inv_G_at_t = np.divide(1.0, G_at_t, out=np.zeros_like(G_at_t), where=G_at_t > 0)
 
     contributions = (
         case_mask * inv_G_at_Y[:, None] * case_err
@@ -179,12 +175,12 @@ def score_cause_specific(
 
     # Per-subject case-time weights = 1 / G(Y_i^-); per-time control weights
     # = 1 / G(t). Zero where G has hit zero (see :func:`score`).
-    w_case_time = np.divide(
-        1.0, G_at_Y, out=np.zeros_like(G_at_Y), where=G_at_Y > 0
-    )[:, None]
-    w_at_t = np.divide(
-        1.0, G_at_t, out=np.zeros_like(G_at_t), where=G_at_t > 0
-    )[None, :]
+    w_case_time = np.divide(1.0, G_at_Y, out=np.zeros_like(G_at_Y), where=G_at_Y > 0)[
+        :, None
+    ]
+    w_at_t = np.divide(1.0, G_at_t, out=np.zeros_like(G_at_t), where=G_at_t > 0)[
+        None, :
+    ]
 
     contributions = (
         case_mask * w_case_time * err_case

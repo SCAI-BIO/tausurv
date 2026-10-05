@@ -74,7 +74,9 @@ class RandomSurvivalForest(SurvivalPredictor):
         X_f, T_c, E_u = _coerce_inputs(X, event_time, event_indicator)
         self.times_ = np.unique(T_c[E_u == 1])
         self._handle = fit_log_rank_forest(
-            X_f, T_c, E_u,
+            X_f,
+            T_c,
+            E_u,
             n_trees=self.n_estimators,
             min_samples_leaf=self.min_samples_leaf,
             max_depth=self.max_depth,

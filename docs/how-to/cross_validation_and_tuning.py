@@ -46,7 +46,9 @@ df = (
         event_time=pl.Series(pbc.event_time / 365.25),
         event_indicator=pl.Series(pbc.event_indicator),
     )
-    .select("age", "stage", "bili", "albumin", "sex_male", "event_time", "event_indicator")
+    .select(
+        "age", "stage", "bili", "albumin", "sex_male", "event_time", "event_indicator"
+    )
     .drop_nulls()
 )
 X = df.drop("event_time", "event_indicator").to_numpy().astype(np.float64)
@@ -89,6 +91,7 @@ new_risk = cv.ensemble.predict(X[:3])
 #
 # To tune, give `build` a `trial` argument and draw each hyperparameter where it is used, with Optuna's `trial.suggest_*`. `tune` runs a Bayesian search in which each trial is scored by cross-validation, and by default refits the best settings on all the data.
 
+
 # %%
 def build_tuned(trial):
     return ts.trees.RandomSurvivalForest(
@@ -100,7 +103,14 @@ def build_tuned(trial):
 
 
 best = tune(
-    build_tuned, X, Y, E, scoring=scoring.uno(tau=5.0), cv=3, n_trials=15, progress=False
+    build_tuned,
+    X,
+    Y,
+    E,
+    scoring=scoring.uno(tau=5.0),
+    cv=3,
+    n_trials=15,
+    progress=False,
 )
 best.params, round(best.score, 3)
 

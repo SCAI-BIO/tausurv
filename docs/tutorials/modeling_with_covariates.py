@@ -63,15 +63,16 @@ X.select(keep).describe()
 # `polars` carries us most of the way: select the kept columns with their row index, drop rows where any are missing, encode `sex` as a `0/1` indicator, and convert to NumPy at the boundary. Tracking the row index lets us subset `Y` and `delta` to match.
 
 # %%
-df = (
-    pbc.X.select(keep)
-    .with_row_index("_row")
-    .drop_nulls()
-)
+df = pbc.X.select(keep).with_row_index("_row").drop_nulls()
 kept_rows = df["_row"].to_numpy()
-df = df.drop("_row").with_columns(
-    sex_male=(pl.col("sex") == "m").cast(pl.Int8),
-).drop("sex").select(["age", "stage", "bili", "albumin", "sex_male"])
+df = (
+    df.drop("_row")
+    .with_columns(
+        sex_male=(pl.col("sex") == "m").cast(pl.Int8),
+    )
+    .drop("sex")
+    .select(["age", "stage", "bili", "albumin", "sex_male"])
+)
 
 X_array = df.to_numpy().astype(np.float64)
 Y_kept = Y[kept_rows]
@@ -143,9 +144,7 @@ profiles = {
     "Early PBC, age 50, normal labs": np.array(
         [50.0, 1.0, 0.6, 4.0, 0.0]  # age, stage, bili, albumin, sex_male
     ),
-    "Advanced PBC, age 70, abnormal labs": np.array(
-        [70.0, 4.0, 8.0, 2.8, 0.0]
-    ),
+    "Advanced PBC, age 70, abnormal labs": np.array([70.0, 4.0, 8.0, 2.8, 0.0]),
 }
 
 times_grid = np.linspace(0.1, 12.0, 240)
@@ -232,8 +231,7 @@ for j in range(d):
         for subset in combinations(others, k):
             weight = factorial(k) * factorial(d - k - 1) / factorial(d)
             shap_cohort[:, j, :] += weight * (
-                subset_S[frozenset(list(subset) + [j])]
-                - subset_S[frozenset(subset)]
+                subset_S[frozenset(list(subset) + [j])] - subset_S[frozenset(subset)]
             )
 
 ts.plot.shap.feature_time_heatmap(
@@ -256,7 +254,12 @@ eval_grid = np.linspace(0.1, 12.0, 200)
 S_test = cox.predict_survival_function(X_test, eval_grid)
 
 predicted_5y, observed_5y, _ = ts.metrics.calibration.curve(
-    Y_test, d_test, S_test, eval_grid, t=5.0, n_bins=5,
+    Y_test,
+    d_test,
+    S_test,
+    eval_grid,
+    t=5.0,
+    n_bins=5,
 )
 
 ts.plot.calibration(
@@ -284,9 +287,7 @@ for i, te in enumerate(fold_indices):
     tr = np.setdiff1d(np.arange(len(Y_kept)), te)
     cox_cv = ts.linear.CoxPH().fit(X_array[tr], Y_kept[tr], delta_kept[tr])
     S_cv = cox_cv.predict_survival_function(X_array[te], horizons)
-    brier_folds[i] = ts.metrics.brier.score(
-        Y_kept[te], delta_kept[te], S_cv, horizons
-    )
+    brier_folds[i] = ts.metrics.brier.score(Y_kept[te], delta_kept[te], S_cv, horizons)
 
 ts.plot.brier_over_time(
     horizons,

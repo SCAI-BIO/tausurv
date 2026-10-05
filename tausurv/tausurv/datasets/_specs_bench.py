@@ -18,12 +18,10 @@ from tausurv.datasets import _parsers_bench as p
 from tausurv.datasets._spec import Access, DatasetSpec
 
 _SKSURV = (
-    "https://raw.githubusercontent.com/sebp/scikit-survival/master/"
-    "sksurv/datasets/data"
+    "https://raw.githubusercontent.com/sebp/scikit-survival/master/sksurv/datasets/data"
 )
 _DEEPSURV = (
-    "https://raw.githubusercontent.com/jaredleekatzman/DeepSurv/master/"
-    "experiments/data"
+    "https://raw.githubusercontent.com/jaredleekatzman/DeepSurv/master/experiments/data"
 )
 _HL_BOOK = (
     "Hosmer, D. W., Lemeshow, S. & May, S. (2008). Applied Survival "

@@ -139,18 +139,14 @@ def test_empty_causes_list_raises(cr_data):
 def test_censor_ticks_off_produces_no_marker(cr_data):
     Y, E = cr_data
     disp = ts.plot.cif(Y, E, causes=1, censor_ticks=False, at_risk=False)
-    marker_lines = [
-        ln for ln in disp.ax.get_lines() if ln.get_marker() == "|"
-    ]
+    marker_lines = [ln for ln in disp.ax.get_lines() if ln.get_marker() == "|"]
     assert marker_lines == []
 
 
 def test_censor_ticks_on_renders_marker(cr_data):
     Y, E = cr_data
     disp = ts.plot.cif(Y, E, causes=1, censor_ticks=True, at_risk=False)
-    marker_lines = [
-        ln for ln in disp.ax.get_lines() if ln.get_marker() == "|"
-    ]
+    marker_lines = [ln for ln in disp.ax.get_lines() if ln.get_marker() == "|"]
     # One censoring in the fixture -> one marker line, with one tick.
     assert len(marker_lines) == 1
     assert marker_lines[0].get_xdata().size == 1

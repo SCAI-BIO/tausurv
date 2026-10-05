@@ -90,6 +90,9 @@ def test_rejects_invalid_honesty_fraction(two_group_data, bad):
     X, event_time, event_indicator = two_group_data
     with pytest.raises(ValueError, match="honesty_fraction"):
         _fit_rust(
-            X, event_time, event_indicator,
-            honesty=True, honesty_fraction=bad,
+            X,
+            event_time,
+            event_indicator,
+            honesty=True,
+            honesty_fraction=bad,
         )

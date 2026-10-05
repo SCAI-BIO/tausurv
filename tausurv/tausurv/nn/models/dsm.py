@@ -97,13 +97,9 @@ class DSM(SurvivalPredictor, CheckpointMixin, nn.Module):
         if config is None:
             config = DSMConfig(**kwargs)
         elif kwargs:
-            raise TypeError(
-                f"{type(self).__name__}: pass `config` OR kwargs, not both"
-            )
+            raise TypeError(f"{type(self).__name__}: pass `config` OR kwargs, not both")
         if config.n_components < 1:
-            raise ValueError(
-                f"n_components must be >= 1, got {config.n_components}"
-            )
+            raise ValueError(f"n_components must be >= 1, got {config.n_components}")
         if config.distribution_family not in {"weibull", "lognormal"}:
             raise ValueError(
                 "distribution_family must be 'weibull' or 'lognormal', "
@@ -130,9 +126,7 @@ class DSM(SurvivalPredictor, CheckpointMixin, nn.Module):
         applied by the loss and predict methods."""
         return self.head(self.encoder(x))
 
-    def _constrained_params(
-        self, raw: Tensor
-    ) -> tuple[Tensor, Tensor, Tensor]:
+    def _constrained_params(self, raw: Tensor) -> tuple[Tensor, Tensor, Tensor]:
         """Apply per-distribution constraints to the raw forward output.
 
         Returns ``(p1, p2, weights)``. For Weibull: ``p1`` = shape > 0,
@@ -253,11 +247,11 @@ class DSM(SurvivalPredictor, CheckpointMixin, nn.Module):
         self.eval()
         with torch.no_grad():
             raw = self.forward(X_t)
-            p1, p2, w = self._constrained_params(raw)         # (n, K) each
+            p1, p2, w = self._constrained_params(raw)  # (n, K) each
             # Broadcast component params over the time grid: (n, K, 1).
             dist = self._make_distribution(p1.unsqueeze(-1), p2.unsqueeze(-1))
-            S_k = dist.survival(times_t)                       # (n, K, T)
-            S = (w.unsqueeze(-1) * S_k).sum(dim=1)             # (n, T)
+            S_k = dist.survival(times_t)  # (n, K, T)
+            S = (w.unsqueeze(-1) * S_k).sum(dim=1)  # (n, T)
         if was_training:
             self.train()
         return S.cpu().numpy().astype(np.float64)

@@ -28,7 +28,7 @@ import tausurv as ts
 rng = np.random.default_rng(0)
 t = np.linspace(0.1, 5.0, 100)
 S = {
-    "control":   np.exp(-0.35 * t),
+    "control": np.exp(-0.35 * t),
     "treatment": np.exp(-0.18 * t),
 }
 
@@ -106,6 +106,7 @@ ts.plot.set_style("publication")
 # ## Palettes
 #
 # Three categorical palettes ship with the module. The default is Okabe-Ito -- the most-cited science palette (Okabe & Ito 2008), CVD-safe, grayscale-distinguishable, eight colours.
+
 
 # %%
 def palette_swatch(name, colours):

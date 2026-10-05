@@ -60,7 +60,9 @@ def test_contour_axes_are_unit_square_and_equal(clayton):
 def test_contour_color_overrides_cmap(clayton):
     disp = ts.plot.copula.contour(clayton, color="black")
     # All line segments should carry the override colour.
-    collections = disp.contours.collections if hasattr(disp.contours, "collections") else []
+    collections = (
+        disp.contours.collections if hasattr(disp.contours, "collections") else []
+    )
     if collections:
         # at least one collection set; we don't assert colour specifics --
         # contourf/contour internals vary across mpl versions
