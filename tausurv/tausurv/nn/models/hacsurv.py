@@ -369,7 +369,7 @@ class HACSurv(CompetingRisksPredictor, CheckpointMixin, nn.Module):
             else t / self.config.t_max
         )
         zt = torch.cat([z, t_norm], dim=-1)
-        return 1.0 - torch.sigmoid(net(zt).squeeze(-1))
+        return torch.sigmoid(-net(zt).squeeze(-1))
 
     def forward(self, X: Tensor, t: Tensor) -> dict[str, Tensor]:
         r"""Forward at the observed times. Returns a dict the loss consumes.
@@ -463,7 +463,7 @@ class HACSurv(CompetingRisksPredictor, CheckpointMixin, nn.Module):
                     zt = torch.cat([z_exp, t_exp], dim=-1)
                     zt_flat = zt.reshape(-1, zt.shape[-1])
                     raw = net(zt_flat).reshape(n, T_n)
-                    marginals.append(1.0 - torch.sigmoid(raw))
+                    marginals.append(torch.sigmoid(-raw))
                 # Detach + require grad so we can take partials w.r.t. each marginal.
                 marginals_grad = [s.detach().requires_grad_(True) for s in marginals]
                 copula = self._get_copula()
@@ -484,9 +484,12 @@ class HACSurv(CompetingRisksPredictor, CheckpointMixin, nn.Module):
             if was_training:
                 self.train()
 
-        # (n, K, T)
-        cif_array = torch.stack(cifs, dim=1).detach().cpu().numpy().astype(np.float64)
-        return cif_array
+        cif = torch.stack(cifs, dim=1).detach().cpu().numpy().astype(np.float64)
+        # The CIFs are a Riemann sum over ``times``, so their marginal can
+        # overshoot 1 by the discretization error. Scale such subjects back
+        # as a whole, which keeps every curve monotone.
+        marginal = cif.sum(axis=1).max(axis=-1, keepdims=True)[..., None]
+        return cif / np.maximum(marginal, 1.0)
 
     def save(self, path: str | Path) -> None:
         super().save(path)

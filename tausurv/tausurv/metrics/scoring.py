@@ -8,7 +8,7 @@ def nll(
     event_time: ArrayLike,
     event_indicator: ArrayLike,
     survival: ArrayLike,
-    time_grid: ArrayLike,
+    times: ArrayLike,
 ) -> float:
     r"""Negative log-likelihood under a discrete-time survival model.
 
@@ -30,7 +30,7 @@ def nll(
     event_time : (n,) array
     event_indicator : (n,) array
     survival : (n, T) array
-    time_grid : (T,) array
+    times : (T,) array
 
     Returns
     -------
@@ -41,7 +41,7 @@ def nll(
     Y = np.asarray(event_time, dtype=np.float64)
     delta = np.asarray(event_indicator, dtype=np.int8)
     S = np.asarray(survival, dtype=np.float64)
-    t_grid = np.asarray(time_grid, dtype=np.float64)
+    t_grid = np.asarray(times, dtype=np.float64)
 
     t_idx = np.maximum(np.searchsorted(t_grid, Y, side="right") - 1, 0)
     rows = np.arange(len(Y))
@@ -60,7 +60,7 @@ def crps(
     event_time: ArrayLike,
     event_indicator: ArrayLike,
     survival: ArrayLike,
-    time_grid: ArrayLike,
+    times: ArrayLike,
 ) -> float:
     r"""Continuous Ranked Probability Score for survival predictions.
 
@@ -73,7 +73,7 @@ def crps(
 
     where $Y_i^* = Y_i$ for censored subjects (the indicator is unknown
     beyond $Y_i$) and $Y_i^* = t_{\max}$ for event subjects. Discretized via
-    trapezoidal integration over ``time_grid``. Returns the mean over
+    trapezoidal integration over ``times``. Returns the mean over
     subjects.
 
     Differs from :func:`tausurv.metrics.brier.integrated`: CRPS is a
@@ -86,7 +86,7 @@ def crps(
     event_time : (n,) array
     event_indicator : (n,) array
     survival : (n, T) array
-    time_grid : (T,) array
+    times : (T,) array
 
     Returns
     -------
@@ -101,7 +101,7 @@ def crps(
     Y = np.asarray(event_time, dtype=np.float64)
     delta = np.asarray(event_indicator, dtype=np.int8)
     S = np.asarray(survival, dtype=np.float64)
-    t_grid = np.asarray(time_grid, dtype=np.float64)
+    t_grid = np.asarray(times, dtype=np.float64)
 
     eta = (Y[:, None] > t_grid[None, :]).astype(np.float64)
     error_sq = (S - eta) ** 2

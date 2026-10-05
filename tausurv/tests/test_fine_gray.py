@@ -10,7 +10,7 @@ from tausurv.linear import FineGray
 
 
 def _cr_data(n=500, n_causes=2, seed=0):
-    return simulations.competing_risk(n=n, n_features=5, n_causes=n_causes, seed=seed)
+    return simulations.competing_risks(n=n, n_features=5, n_causes=n_causes, seed=seed)
 
 
 def test_predict_cif_shape_and_bounds():

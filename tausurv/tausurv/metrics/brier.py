@@ -11,11 +11,11 @@ def score(
     event_time: ArrayLike,
     event_indicator: ArrayLike,
     survival: ArrayLike,
-    time_grid: ArrayLike,
+    times: ArrayLike,
     *,
     censoring_survival: StepFunction | None = None,
 ) -> NDArray[np.float64]:
-    r"""IPCW Brier score at each point of ``time_grid``.
+    r"""IPCW Brier score at each point of ``times``.
 
     Squared error between the true survival status at $t$ — known only for
     subjects who reached the event or were still at risk by $t$ — and the
@@ -41,8 +41,8 @@ def score(
     event_indicator : (n,) array
         $\delta = 1$ if event observed, $0$ if censored.
     survival : (n, T) array
-        $\hat S(t \mid x_i)$ at each ``time_grid`` point.
-    time_grid : (T,) array
+        $\hat S(t \mid x_i)$ at each ``times`` point.
+    times : (T,) array
         Time points at which Brier is evaluated.
     censoring_survival : StepFunction, optional
         Pre-computed $\hat G$. If ``None``, computed internally.
@@ -61,7 +61,7 @@ def score(
     Y = np.asarray(event_time, dtype=np.float64)
     delta = np.asarray(event_indicator, dtype=np.int8)
     S = np.asarray(survival, dtype=np.float64)
-    t_grid = np.asarray(time_grid, dtype=np.float64)
+    t_grid = np.asarray(times, dtype=np.float64)
 
     G = (
         censoring_survival
@@ -95,12 +95,12 @@ def score_cause_specific(
     event_time: ArrayLike,
     event_indicator: ArrayLike,
     cif: ArrayLike,
-    time_grid: ArrayLike,
+    times: ArrayLike,
     *,
     cause: int = 1,
     censoring_survival: StepFunction | None = None,
 ) -> NDArray[np.float64]:
-    r"""IPCW cause-specific Brier score at each point of ``time_grid``.
+    r"""IPCW cause-specific Brier score at each point of ``times``.
 
     For cause $k$ the target is the cause-$k$ indicator
     $N_k(t) = \mathbb{1}[T \le t,\,\delta = k]$ and the prediction is
@@ -127,8 +127,8 @@ def score_cause_specific(
         $\delta = 0$ censored, $\delta = k \ge 1$ event of cause $k$.
     cif : (n, T) array
         Predicted $\hat F_k(t \mid x_i)$ for the chosen ``cause``, at each
-        ``time_grid`` point.
-    time_grid : (T,) array
+        ``times`` point.
+    times : (T,) array
     cause : int, default 1
     censoring_survival : StepFunction, optional
         Pre-computed $\hat G$. If ``None``, computed internally.
@@ -149,7 +149,7 @@ def score_cause_specific(
     Y = np.asarray(event_time, dtype=np.float64)
     delta = np.asarray(event_indicator, dtype=np.int8)
     F = np.asarray(cif, dtype=np.float64)
-    t_grid = np.asarray(time_grid, dtype=np.float64)
+    t_grid = np.asarray(times, dtype=np.float64)
 
     G = (
         censoring_survival
@@ -194,12 +194,12 @@ def integrated_cause_specific(
     event_time: ArrayLike,
     event_indicator: ArrayLike,
     cif: ArrayLike,
-    time_grid: ArrayLike,
+    times: ArrayLike,
     *,
     cause: int = 1,
     censoring_survival: StepFunction | None = None,
 ) -> float:
-    r"""Integrated cause-specific Brier score over ``time_grid``.
+    r"""Integrated cause-specific Brier score over ``times``.
 
     Trapezoidal integration of :func:`score_cause_specific` over the grid,
     normalized by the grid's span.
@@ -212,17 +212,17 @@ def integrated_cause_specific(
     -------
     float
     """
-    t_grid = np.asarray(time_grid, dtype=np.float64)
+    t_grid = np.asarray(times, dtype=np.float64)
     duration = float(t_grid[-1] - t_grid[0])
     if duration <= 0:
         raise ValueError(
-            f"time_grid must span a positive interval; got [{t_grid[0]}, {t_grid[-1]}]"
+            f"times must span a positive interval; got [{t_grid[0]}, {t_grid[-1]}]"
         )
     bs = score_cause_specific(
         event_time,
         event_indicator,
         cif,
-        time_grid,
+        times,
         cause=cause,
         censoring_survival=censoring_survival,
     )
@@ -233,11 +233,11 @@ def integrated(
     event_time: ArrayLike,
     event_indicator: ArrayLike,
     survival: ArrayLike,
-    time_grid: ArrayLike,
+    times: ArrayLike,
     *,
     censoring_survival: StepFunction | None = None,
 ) -> float:
-    r"""Integrated Brier score over ``time_grid``.
+    r"""Integrated Brier score over ``times``.
 
     Trapezoidal integration of :func:`score` over the grid, normalized by
     the grid's span:
@@ -247,7 +247,7 @@ def integrated(
                     \int_{t_{\min}}^{t_{\max}} \widehat{BS}(t)\,dt
     $$
 
-    The user chooses the integration range by choosing ``time_grid``.
+    The user chooses the integration range by choosing ``times``.
 
     Parameters
     ----------
@@ -258,18 +258,18 @@ def integrated(
     float
         Time-averaged Brier score.
     """
-    t_grid = np.asarray(time_grid, dtype=np.float64)
+    t_grid = np.asarray(times, dtype=np.float64)
     duration = float(t_grid[-1] - t_grid[0])
     if duration <= 0:
         raise ValueError(
-            f"time_grid must span a positive interval; got [{t_grid[0]}, {t_grid[-1]}]"
+            f"times must span a positive interval; got [{t_grid[0]}, {t_grid[-1]}]"
         )
 
     bs = score(
         event_time,
         event_indicator,
         survival,
-        time_grid,
+        times,
         censoring_survival=censoring_survival,
     )
     return float(np.trapezoid(bs, t_grid) / duration)

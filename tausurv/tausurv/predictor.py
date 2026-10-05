@@ -32,6 +32,10 @@ from collections.abc import Callable
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
+# How far predicted cumulative incidences may leave [0, 1], or their sum
+# exceed 1, before it counts as a model bug rather than rounding.
+_CIF_TOLERANCE = 1e-9
+
 
 class SurvivalPredictor:
     r"""Mixin: unified survival prediction API for single-event models.
@@ -170,7 +174,9 @@ class CompetingRisksPredictor(SurvivalPredictor):
 
     The marginal survival function $\hat S(t \mid x) = 1 - \sum_k \hat F_k$
     is derived from the CIFs, so ``_survival_function`` does not need
-    overriding.
+    overriding. The CIFs are checked on every prediction: a model whose
+    $\hat F_k$ leave $[0, 1]$ or sum to more than 1 beyond rounding raises
+    instead of being corrected silently.
     """
 
     n_causes: int
@@ -187,12 +193,7 @@ class CompetingRisksPredictor(SurvivalPredictor):
         Returns ``(n, n_causes, len(times))`` if ``cause`` is ``None``, or
         ``(n, len(times))`` for the chosen cause. Causes are 1-indexed.
         """
-        cif = self._cif(X, self._resolve_times(times))
-        cif = np.clip(cif, 0.0, None)
-        # Guarantee the marginal CDF ``sum_k F_k(t | x)`` is bounded by 1 by
-        # rescaling float-32 softmax noise (typically ~1e-7 above 1).
-        marginal = cif.sum(axis=1).max(axis=-1)[:, None, None]  # (n, 1, 1)
-        cif = cif * np.minimum(1.0, 1.0 / np.maximum(marginal, 1e-12))
+        cif = self._checked_cif(X, self._resolve_times(times))
         if cause is None:
             return cif
         if not (1 <= cause <= self.n_causes):
@@ -204,8 +205,35 @@ class CompetingRisksPredictor(SurvivalPredictor):
         X: ArrayLike,
         times: NDArray[np.float64],
     ) -> NDArray[np.float64]:
-        cif = self._cif(X, times)
+        cif = self._checked_cif(X, times)
         return 1.0 - cif.sum(axis=1)
+
+    def _checked_cif(
+        self,
+        X: ArrayLike,
+        times: NDArray[np.float64],
+    ) -> NDArray[np.float64]:
+        """:meth:`_cif`, verified to be cumulative incidences.
+
+        Violations within ``_CIF_TOLERANCE`` are rounding and are removed:
+        negatives are clipped, and a subject whose marginal exceeds 1 has its
+        curves scaled down as a whole, which keeps them monotone. Anything
+        larger raises. Survival and CIF predictions both go through here, so
+        ``S = 1 - sum_k F_k`` holds exactly.
+        """
+        cif = np.asarray(self._cif(X, times), dtype=np.float64)
+        marginal = cif.sum(axis=1).max(axis=-1, keepdims=True)[..., None]
+        violation = max(
+            float(marginal.max(initial=0.0)) - 1.0, -float(cif.min(initial=0.0))
+        )
+        if violation > _CIF_TOLERANCE:
+            raise ValueError(
+                f"{type(self).__name__} predicted cumulative incidences outside "
+                f"[0, 1] or summing to more than 1 (off by {violation:.2e}); "
+                f"this is a bug in the model, not in the input"
+            )
+        bounded = np.clip(cif, 0.0, None) / np.maximum(marginal, 1.0)
+        return np.asarray(bounded, dtype=np.float64)
 
     def _cif(
         self,

@@ -36,6 +36,12 @@ class SurvivalBoost(CompetingRisksPredictor):
     $(F_1, \dots, F_J, S)$, so the classifier's probabilities estimate the
     incidence functions directly.
 
+    Every horizon is predicted separately, so at each time the incidences
+    and the survival form a proper distribution, but nothing ties
+    neighbouring times together: on a fine grid a curve can dip slightly.
+    This is a property of the method and is left visible rather than
+    smoothed over, as in the reference implementation.
+
     The trees are scikit-learn ``HistGradientBoostingClassifier``
     iterations, an optional dependency: install with
     ``pip install tausurv[boost]``. The import is deferred to
@@ -228,9 +234,7 @@ class SurvivalBoost(CompetingRisksPredictor):
         stacked = np.hstack([np.repeat(times, n)[:, None], np.tile(X, (len(times), 1))])
         proba = self._model.predict_proba(stacked)
         cif = proba.reshape(len(times), n, -1).transpose(1, 2, 0)[:, 1:, :]
-        # Horizon-sampled boosting carries no monotonicity constraint, so
-        # the raw estimate can dip on fine grids.
-        return np.maximum.accumulate(cif, axis=-1)
+        return np.asarray(cif, dtype=np.float64)
 
 
 class _CensoringModel:

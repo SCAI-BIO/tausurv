@@ -15,7 +15,7 @@ def test_brier_single_subject_no_censoring():
         event_time=[2.0],
         event_indicator=[1],
         survival=[[0.8, 0.5]],
-        time_grid=[1.0, 3.0],
+        times=[1.0, 3.0],
     )
     np.testing.assert_allclose(out, [0.04, 0.25])
 
@@ -27,7 +27,7 @@ def test_brier_perfect_predictions_is_zero():
         event_time=[1.0, 3.0],
         event_indicator=[1, 1],
         survival=[[0.0], [1.0]],
-        time_grid=[2.0],
+        times=[2.0],
     )
     np.testing.assert_array_equal(out, [0.0])
 
@@ -39,7 +39,7 @@ def test_brier_worst_predictions_is_one_no_censoring():
         event_time=[1.0, 3.0],
         event_indicator=[1, 1],
         survival=[[1.0], [0.0]],
-        time_grid=[2.0],
+        times=[2.0],
     )
     np.testing.assert_array_equal(out, [1.0])
 
@@ -52,7 +52,7 @@ def test_brier_drops_censored_before_t():
         event_time=[1.0, 3.0],
         event_indicator=[0, 1],
         survival=[[0.9], [0.5]],
-        time_grid=[2.0],
+        times=[2.0],
     )
     # G computed from KM on (Y=[1,3], 1-delta=[1,0]):
     #   time=[1,3], value=[0.5, 0.5].
@@ -69,7 +69,7 @@ def test_brier_custom_censoring_survival_overrides_default():
         event_time=[2.0],
         event_indicator=[1],
         survival=[[0.8, 0.5]],
-        time_grid=[1.0, 3.0],
+        times=[1.0, 3.0],
         censoring_survival=custom_G,
     )
     # At t=1: control err = 0.04, weight = 1/0.5 = 2 -> 0.08. /n=1 -> 0.08.
@@ -85,7 +85,7 @@ def test_integrated_brier_matches_hand_computed():
         event_time=[2.0],
         event_indicator=[1],
         survival=[[0.8, 0.5]],
-        time_grid=[1.0, 3.0],
+        times=[1.0, 3.0],
     )
     assert ibs == pytest.approx(0.145)
 
@@ -96,5 +96,5 @@ def test_integrated_brier_rejects_degenerate_grid():
             event_time=[1.0],
             event_indicator=[1],
             survival=[[0.5]],
-            time_grid=[1.0],
+            times=[1.0],
         )

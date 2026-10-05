@@ -6,7 +6,7 @@ from numpy.typing import NDArray
 from tausurv.simulations._coefficients import _default_coefficients
 
 
-def competing_risk(
+def competing_risks(
     n: int,
     *,
     n_features: int = 5,

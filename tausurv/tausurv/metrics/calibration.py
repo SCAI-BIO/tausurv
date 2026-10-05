@@ -13,7 +13,7 @@ def distributional(
     event_time: ArrayLike,
     event_indicator: ArrayLike,
     survival: ArrayLike,
-    time_grid: ArrayLike,
+    times: ArrayLike,
     *,
     n_bins: int = 10,
 ) -> float:
@@ -35,8 +35,8 @@ def distributional(
     event_time : (n,) array
     event_indicator : (n,) array
     survival : (n, T) array
-        $\hat S(t \mid x_i)$ at each ``time_grid`` point.
-    time_grid : (T,) array
+        $\hat S(t \mid x_i)$ at each ``times`` point.
+    times : (T,) array
     n_bins : int, default 10
 
     Returns
@@ -53,9 +53,9 @@ def distributional(
     Y = np.asarray(event_time, dtype=np.float64)
     delta = np.asarray(event_indicator, dtype=np.int8)
     S = np.asarray(survival, dtype=np.float64)
-    t_grid = np.asarray(time_grid, dtype=np.float64)
+    t_grid = np.asarray(times, dtype=np.float64)
 
-    # S(Y_i | x_i) for each subject, right-continuous step from time_grid to Y_i.
+    # S(Y_i | x_i) for each subject, right-continuous step from times to Y_i.
     t_idx = np.maximum(np.searchsorted(t_grid, Y, side="right") - 1, 0)
     p = S[np.arange(len(Y)), t_idx]
 
@@ -91,7 +91,7 @@ def curve(
     event_time: ArrayLike,
     event_indicator: ArrayLike,
     survival: ArrayLike,
-    time_grid: ArrayLike,
+    times: ArrayLike,
     t: float,
     *,
     n_bins: int = 10,
@@ -110,7 +110,7 @@ def curve(
     event_time : (n,) array
     event_indicator : (n,) array
     survival : (n, T) array
-    time_grid : (T,) array
+    times : (T,) array
     t : float
         Horizon at which calibration is assessed.
     n_bins : int, default 10
@@ -126,7 +126,7 @@ def curve(
     Y = np.asarray(event_time, dtype=np.float64)
     delta = np.asarray(event_indicator, dtype=np.int8)
     S = np.asarray(survival, dtype=np.float64)
-    pred = S[:, _horizon_index(time_grid, t)]
+    pred = S[:, _horizon_index(times, t)]
 
     def observed(mask: NDArray[np.bool_]) -> float:
         return float(kaplan_meier(Y[mask], delta[mask])(t))
@@ -138,7 +138,7 @@ def curve_cause_specific(
     event_time: ArrayLike,
     event_indicator: ArrayLike,
     cif: ArrayLike,
-    time_grid: ArrayLike,
+    times: ArrayLike,
     t: float,
     *,
     cause: int = 1,
@@ -158,8 +158,8 @@ def curve_cause_specific(
     event_indicator : (n,) array
         Integer-valued: $0$ for censored, $k \ge 1$ for an event of cause $k$.
     cif : (n, T) array
-        Predicted $\hat F_k(t \mid x_i)$ for ``cause`` on ``time_grid``.
-    time_grid : (T,) array
+        Predicted $\hat F_k(t \mid x_i)$ for ``cause`` on ``times``.
+    times : (T,) array
     t : float
         Horizon at which calibration is assessed.
     cause : int, default 1
@@ -176,7 +176,7 @@ def curve_cause_specific(
     Y = np.asarray(event_time, dtype=np.float64)
     E = np.asarray(event_indicator, dtype=np.int64)
     F = np.asarray(cif, dtype=np.float64)
-    pred = F[:, _horizon_index(time_grid, t)]
+    pred = F[:, _horizon_index(times, t)]
 
     def observed(mask: NDArray[np.bool_]) -> float:
         return float(aalen_johansen(Y[mask], E[mask], cause)(t))
@@ -184,8 +184,8 @@ def curve_cause_specific(
     return _binned(pred, observed, n_bins, min_bin_size)
 
 
-def _horizon_index(time_grid: ArrayLike, t: float) -> int:
-    t_grid = np.asarray(time_grid, dtype=np.float64)
+def _horizon_index(times: ArrayLike, t: float) -> int:
+    t_grid = np.asarray(times, dtype=np.float64)
     return int(np.maximum(np.searchsorted(t_grid, t, side="right") - 1, 0))
 
 

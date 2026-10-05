@@ -182,7 +182,7 @@ def test_cross_validate_returns_one_row_per_fold_and_scorer():
         E,
         scoring={
             "harrell": scoring.harrell(),
-            "uno": scoring.uno(tau=2.0),
+            "uno": scoring.uno(horizon=2.0),
             "ibs": scoring.integrated_brier(times),
         },
         cv=4,
@@ -364,7 +364,7 @@ def test_cvresult_competing_risks_shapes():
     pytest.importorskip("torch")
     from tausurv.nn import DeepHit
 
-    X, T, E = simulations.competing_risk(n=150, n_features=4, n_causes=2, seed=11)
+    X, T, E = simulations.competing_risks(n=150, n_features=4, n_causes=2, seed=11)
 
     def train(model, X_tr, T_tr, E_tr, trial=None):
         model.fit(X_tr, T_tr, E_tr, epochs=2)

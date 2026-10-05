@@ -1,7 +1,6 @@
 """Tests for HACSurv (math + architecture invariants only).
 
-Per the project's test/sanity-script convention, training-based recovery
-checks live in ``scripts/`` (AI workspace) — these tests only verify:
+No training-based recovery checks; these tests verify:
 
 - LearnedGenerator math (Laplace transform values, inversion identity,
   gradient flow).

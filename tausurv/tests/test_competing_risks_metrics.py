@@ -68,7 +68,7 @@ def test_auc_cause_specific_reduces_to_blanche():
 
 
 def test_harrell_cause_specific_random_is_around_half():
-    X, T, E = simulations.competing_risk(n=600, n_features=5, n_causes=2, seed=0)
+    X, T, E = simulations.competing_risks(n=600, n_features=5, n_causes=2, seed=0)
     rng = np.random.default_rng(0)
     r_random = rng.normal(size=len(T))
     c = harrell_cause_specific(T, E, r_random, cause=1)
@@ -78,7 +78,7 @@ def test_harrell_cause_specific_random_is_around_half():
 def test_harrell_cause_specific_perfect_is_high():
     """A predictor that knows exactly which subjects have cause-1 events
     and ranks them earliest should score near 1."""
-    X, T, E = simulations.competing_risk(n=400, n_features=5, n_causes=2, seed=0)
+    X, T, E = simulations.competing_risks(n=400, n_features=5, n_causes=2, seed=0)
     # Perfect cause-1 predictor: higher risk = shorter cause-1 time.
     # Use -T as the rank, but only for cause-1 events.
     r = np.where(
@@ -91,7 +91,7 @@ def test_harrell_cause_specific_perfect_is_high():
 def test_harrell_cause_specific_handles_both_causes():
     """Same risk score, two causes — concordance should differ because
     the partner sets and case sets are cause-specific."""
-    X, T, E = simulations.competing_risk(n=500, n_features=5, n_causes=2, seed=0)
+    X, T, E = simulations.competing_risks(n=500, n_features=5, n_causes=2, seed=0)
     c1 = harrell_cause_specific(T, E, X[:, 0], cause=1)
     c2 = harrell_cause_specific(T, E, X[:, 0], cause=2)
     assert 0.0 <= c1 <= 1.0 and 0.0 <= c2 <= 1.0

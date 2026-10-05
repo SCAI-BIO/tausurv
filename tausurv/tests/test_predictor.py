@@ -23,6 +23,7 @@ from tausurv.trees.survival_boost import SurvivalBoost
 torch = pytest.importorskip("torch")
 
 from tausurv.nn import DeepHit, DeepSurv, LogisticHazard, fit, functional
+from tausurv.nn._utils import hazard_survival, pmf_probabilities
 
 
 def _xy():
@@ -107,6 +108,11 @@ def _logistic_hazard():
     return model, X_t
 
 
+# SurvivalBoost predicts every horizon separately (Alberge et al., 2025), so
+# its curves are proper distributions at each time but can dip slightly
+# between neighbouring times. The monotonicity checks do not apply to it.
+NOT_MONOTONE = {"SurvivalBoost"}
+
 ALL_FACTORIES = [
     ("CoxPH", _coxph),
     ("WeibullAFT", _weibull_aft),
@@ -146,11 +152,8 @@ def test_survival_function_non_increasing(name, factory):
     model, X = factory()
     grid = np.linspace(0.1, 3.0, 12)
     S = model.predict_survival_function(X, grid)
-    # For NN models the survival comes from a float-32 cumsum / cumprod that
-    # can produce ~1e-7 noise across adjacent times even when the math is
-    # exactly monotone. For non-NN models the math is float-64 exact.
-    slop = 1e-6 if name in {"DeepSurv", "DeepHit", "LogisticHazard"} else 0.0
-    assert (np.diff(S, axis=1) <= slop).all(), f"{name}: S not non-increasing"
+    if name not in NOT_MONOTONE:
+        assert (np.diff(S, axis=1) <= 0.0).all(), f"{name}: S not non-increasing"
 
 
 @pytest.mark.parametrize("name,factory", ALL_FACTORIES)
@@ -167,10 +170,8 @@ def test_cumulative_hazard_non_negative_and_monotone(name, factory):
     H = model.predict_cumulative_hazard(X, grid)
     # H = -log(clip(S, 1e-12, 1)) ≥ 0 exactly.
     assert (H >= 0.0).all(), f"{name}: H not non-negative"
-    # Monotonicity inherits the float slop of the underlying survival
-    # function — see test_survival_function_non_increasing.
-    slop = 1e-6 if name in {"DeepSurv", "DeepHit", "LogisticHazard"} else 0.0
-    assert (np.diff(H, axis=1) >= -slop).all(), f"{name}: H not non-decreasing"
+    if name not in NOT_MONOTONE:
+        assert (np.diff(H, axis=1) >= 0.0).all(), f"{name}: H not non-decreasing"
 
 
 @pytest.mark.parametrize("name,factory", ALL_FACTORIES)
@@ -182,7 +183,40 @@ def test_cif_equals_one_minus_survival(name, factory):
     # For competing-risks models, predict_cif returns (n, K, T); marginal F is sum across K.
     if F.ndim == 3:
         F = F.sum(axis=1)
-    np.testing.assert_allclose(F, 1.0 - S, atol=1e-9)
+    np.testing.assert_allclose(F, 1.0 - S, atol=1e-12)
+
+
+@pytest.mark.parametrize("name,factory", ALL_FACTORIES)
+def test_invariants_hold_for_extreme_inputs(name, factory):
+    """Scaled-up covariates push predicted probabilities towards 0 and 1,
+    where float-32 arithmetic and ``1 - p`` cancellation break down."""
+    model, X = factory()
+    X = 20 * X
+    grid = np.linspace(0.1, 3.0, 12)
+    S = model.predict_survival_function(X, grid)
+    F = model.predict_cif(X, grid)
+    if F.ndim == 3:
+        F = F.sum(axis=1)
+    assert ((S >= 0.0) & (S <= 1.0)).all(), f"{name}: S out of [0, 1]"
+    if name not in NOT_MONOTONE:
+        assert (np.diff(S, axis=1) <= 0.0).all(), f"{name}: S not non-increasing"
+    np.testing.assert_allclose(F + S, 1.0, atol=1e-12)
+
+
+def test_hazard_survival_is_accurate_for_large_logits():
+    logits = torch.tensor([[2.0, 18.0, 30.0, 40.0]])
+    # log(1 - sigmoid(x)) = -log1p(exp(x)), evaluated in float64 as reference.
+    expected = np.exp(-np.cumsum(np.logaddexp(0.0, logits.numpy().astype(np.float64))))
+    np.testing.assert_allclose(hazard_survival(logits)[0], expected, rtol=1e-12)
+
+
+def test_pmf_survival_keeps_precision_in_the_tail():
+    # Almost all mass in the first bin; ~1e-20 left for the last one.
+    logits = torch.tensor([[[0.0, -10.0, -46.0]]])
+    cif, survival = pmf_probabilities(logits)
+    log_z = np.logaddexp.reduce([0.0, -10.0, -46.0])
+    np.testing.assert_allclose(survival[0, 1], np.exp(-46.0 - log_z), rtol=1e-12)
+    np.testing.assert_allclose(cif.sum(axis=1) + survival, 1.0, atol=1e-15)
 
 
 def test_single_event_cif_rejects_invalid_cause():
@@ -224,7 +258,7 @@ def _deephit_competing_risks():
     """Construct + set_time_grid only; predict-API tests check that the
     competing-risks contract holds, not that the model learned anything."""
     torch.manual_seed(0)
-    X, T, _ = simulations.competing_risk(n=300, n_features=5, seed=0)
+    X, T, _ = simulations.competing_risks(n=300, n_features=5, seed=0)
     X_t = torch.tensor(X, dtype=torch.float32)
     times = np.quantile(T, np.linspace(0.1, 0.95, 8))
     model = DeepHit(in_features=5, n_bins=8, n_causes=2, hidden_dim=16, dropout=0.0)
@@ -238,12 +272,33 @@ def test_competing_risks_cif_shape_and_bounds():
     grid = np.linspace(0.1, 2.0, 6)
     cif = model.predict_cif(X, grid)
     assert cif.shape == (X.shape[0], 2, 6)
-    # CompetingRisksPredictor.predict_cif clips per-cause and rescales rows
-    # whose marginal exceeds 1 — both bounds hold exactly post-clip.
     assert (cif >= 0.0).all()
     assert cif.sum(axis=1).max() <= 1.0
-    # Per-cause CIF is non-decreasing in t up to float-32 cumsum noise.
-    assert (np.diff(cif, axis=-1) >= -1e-6).all()
+    assert (np.diff(cif, axis=-1) >= 0.0).all()
+
+
+def test_survival_boost_cif_sums_to_at_most_one():
+    pytest.importorskip("sklearn")
+    X, T, E = simulations.competing_risks(n=600, n_features=5, seed=0)
+    model = SurvivalBoost(n_iter=30, seed=0).fit(X, T, E)
+    grid = np.linspace(0.01, T.max(), 200)
+    cif = model._cif(X, grid)
+    assert cif.sum(axis=1).max() <= 1.0 + 1e-12
+
+
+class _BrokenCIF(CompetingRisksPredictor):
+    n_causes = 2
+    times_ = np.array([1.0, 2.0])
+
+    def _cif(self, X, times):
+        return np.full((len(X), 2, len(times)), 0.6)
+
+
+def test_invalid_cif_raises_instead_of_being_rescaled():
+    with pytest.raises(ValueError, match="_BrokenCIF predicted cumulative"):
+        _BrokenCIF().predict_cif(np.zeros((3, 1)))
+    with pytest.raises(ValueError, match="_BrokenCIF predicted cumulative"):
+        _BrokenCIF().predict_survival_function(np.zeros((3, 1)))
 
 
 def test_competing_risks_cif_per_cause_slice():

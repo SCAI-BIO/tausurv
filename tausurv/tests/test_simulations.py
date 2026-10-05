@@ -33,14 +33,14 @@ def test_single_risk_reproducible_with_seed():
 
 
 def test_competing_risk_shapes():
-    X, T, E = simulations.competing_risk(n=500, n_causes=3, seed=42)
+    X, T, E = simulations.competing_risks(n=500, n_causes=3, seed=42)
     assert X.shape == (500, 5)
     assert T.shape == (500,)
     assert E.shape == (500,)
 
 
 def test_competing_risk_event_indicator_uses_cause_coding():
-    _, _, E = simulations.competing_risk(n=2000, n_causes=3, seed=42)
+    _, _, E = simulations.competing_risks(n=2000, n_causes=3, seed=42)
     assert set(np.unique(E).tolist()) <= {0, 1, 2, 3}
     for k in range(1, 4):
         assert (E == k).sum() > 0
@@ -48,4 +48,4 @@ def test_competing_risk_event_indicator_uses_cause_coding():
 
 def test_competing_risk_rejects_invalid_n_causes():
     with pytest.raises(ValueError, match="n_causes"):
-        simulations.competing_risk(n=100, n_causes=0, seed=42)
+        simulations.competing_risks(n=100, n_causes=0, seed=42)

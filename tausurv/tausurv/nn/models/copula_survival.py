@@ -211,7 +211,7 @@ class CopulaSurv(SurvivalPredictor, CheckpointMixin, nn.Module):
             else t / self.config.t_max
         )
         zt = torch.cat([z, t_norm], dim=-1)
-        return 1.0 - torch.sigmoid(monotone_net(zt).squeeze(-1))
+        return torch.sigmoid(-monotone_net(zt).squeeze(-1))
 
     def forward(self, X: Tensor, t: Tensor) -> dict[str, Tensor]:
         r"""Compute marginal survivals, densities, joint, and copula partials.
@@ -304,7 +304,7 @@ class CopulaSurv(SurvivalPredictor, CheckpointMixin, nn.Module):
             zt = torch.cat([z_exp, t_exp], dim=-1)  # (n, T, monotone_dim+1)
             zt_flat = zt.reshape(-1, zt.shape[-1])
             raw_T = self.monotone_T(zt_flat).reshape(n, T_n)
-            S_T = 1.0 - torch.sigmoid(raw_T)
+            S_T = torch.sigmoid(-raw_T)
         if was_training:
             self.train()
         return S_T.cpu().numpy().astype(np.float64)

@@ -7,7 +7,6 @@ from typing import Any, Literal
 
 import numpy as np
 import torch
-import torch.nn.functional as F
 from numpy.typing import ArrayLike, NDArray
 from torch import Tensor, nn
 
@@ -15,7 +14,9 @@ from tausurv.nn._utils import (
     as_model_tensor,
     as_training_tensors,
     fit_time_grid,
+    pmf_probabilities,
     reset_parameters,
+    step_lookup,
 )
 from tausurv.nn.checkpoint import CheckpointMixin
 from tausurv.nn.losses.deephit import DeepHitLoss
@@ -55,7 +56,7 @@ class DeepHit(CompetingRisksPredictor, CheckpointMixin, nn.Module):
     A joint softmax over the flattened ``(n_causes * n_bins)`` dimension
     converts logits to a PMF over (cause, bin) pairs that sums to 1 per
     subject. Cause-specific CIFs are recovered as a cumulative sum along
-    the bin axis; survival is one minus the marginalized CIF.
+    the bin axis; survival is the probability mass left after each bin.
 
     The model's output is bin-indexed (1..``n_bins``). :meth:`fit` derives
     the real-time interpretation of those bins from the training data with
@@ -213,9 +214,23 @@ class DeepHit(CompetingRisksPredictor, CheckpointMixin, nn.Module):
         X: ArrayLike,
         times: NDArray[np.float64],
     ) -> NDArray[np.float64]:
+        cif, _ = self._bin_probabilities(X)
+        return step_lookup(self._times, cif, times, before=0.0)
+
+    def _survival_function(
+        self,
+        X: ArrayLike,
+        times: NDArray[np.float64],
+    ) -> NDArray[np.float64]:
+        _, survival = self._bin_probabilities(X)
+        return step_lookup(self._times, survival, times, before=1.0)
+
+    def _bin_probabilities(
+        self, X: ArrayLike
+    ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
         if not hasattr(self, "_times"):
             raise RuntimeError(
-                f"{type(self).__name__}._cif requires a time grid; "
+                f"{type(self).__name__} predictions require a time grid; "
                 f"call `model.set_time_grid(times)` first."
             )
         X_t = as_model_tensor(X, self)
@@ -223,22 +238,9 @@ class DeepHit(CompetingRisksPredictor, CheckpointMixin, nn.Module):
         self.eval()
         with torch.no_grad():
             logits = self.forward(X_t)
-            n = logits.size(0)
-            pmf = F.softmax(logits.reshape(n, -1), dim=-1).reshape(
-                n, self.n_causes, self.n_bins
-            )
-            cif_full = pmf.cumsum(dim=-1).cpu().numpy().astype(np.float64)
         if was_training:
             self.train()
-        # Right-continuous step lookup onto the requested grid. Before the
-        # first bin upper-bound CIF is 0.
-        idx = np.searchsorted(self._times, times, side="right") - 1
-        clipped = np.clip(idx, 0, self.n_bins - 1)
-        cif_at = cif_full[..., clipped]
-        zero = idx < 0
-        if zero.any():
-            cif_at[..., zero] = 0.0
-        return cif_at
+        return pmf_probabilities(logits)
 
     def save(self, path: str | Path) -> None:
         """Persist config + weights, plus the time grid set by

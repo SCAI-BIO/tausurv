@@ -31,16 +31,16 @@ def test_uno_matches_sksurv(random_survival_data):
     sksurv_metrics = pytest.importorskip("sksurv.metrics")
     event_time, event_indicator, risk_score = random_survival_data
 
-    tau = float(np.quantile(event_time, 0.75))
+    horizon = float(np.quantile(event_time, 0.75))
 
     structured = np.array(
         list(zip(event_indicator.astype(bool), event_time)),
         dtype=[("event", bool), ("time", float)],
     )
 
-    ours = concordance.uno(event_time, event_indicator, risk_score, tau=tau)
+    ours = concordance.uno(event_time, event_indicator, risk_score, horizon=horizon)
     theirs, *_ = sksurv_metrics.concordance_index_ipcw(
-        structured, structured, risk_score, tau=tau
+        structured, structured, risk_score, tau=horizon
     )
     assert ours == pytest.approx(theirs)
 
@@ -96,15 +96,15 @@ def test_harrell_matches_references_with_tied_times(tied_survival_data):
 def test_uno_matches_sksurv_with_tied_times(tied_survival_data):
     sksurv_metrics = pytest.importorskip("sksurv.metrics")
     event_time, event_indicator, risk_score = tied_survival_data
-    tau = float(np.quantile(event_time, 0.75))
+    horizon = float(np.quantile(event_time, 0.75))
     structured = np.array(
         list(zip(event_indicator.astype(bool), event_time, strict=True)),
         dtype=[("event", bool), ("time", float)],
     )
 
-    ours = concordance.uno(event_time, event_indicator, risk_score, tau=tau)
+    ours = concordance.uno(event_time, event_indicator, risk_score, horizon=horizon)
     theirs, *_ = sksurv_metrics.concordance_index_ipcw(
-        structured, structured, risk_score, tau=tau
+        structured, structured, risk_score, tau=horizon
     )
     assert ours == pytest.approx(theirs)
 

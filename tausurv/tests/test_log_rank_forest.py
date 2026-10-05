@@ -29,8 +29,7 @@ def _fit_forest(X, event_time, event_indicator, **kwargs):
 
 
 def test_fits_with_basic_params(two_group_data):
-    """Smoke: forest fits and reports expected metadata (no recovery
-    assertion — that lives in scripts/log_rank_tree_parity.py)."""
+    """Smoke: forest fits and reports expected metadata."""
     X, event_time, event_indicator = two_group_data
     forest = _fit_forest(
         X,

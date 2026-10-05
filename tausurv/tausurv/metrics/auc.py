@@ -11,11 +11,11 @@ def uno(
     event_time: ArrayLike,
     event_indicator: ArrayLike,
     risk_score: ArrayLike,
-    time_grid: ArrayLike,
+    times: ArrayLike,
     *,
     censoring_survival: StepFunction | None = None,
 ) -> NDArray[np.float64]:
-    r"""Uno's IPCW cumulative/dynamic AUC at each point of ``time_grid``.
+    r"""Uno's IPCW cumulative/dynamic AUC at each point of ``times``.
 
     At each time $t$, cases are subjects with $Y_i \le t$ and $\delta_i = 1$;
     controls are subjects with $Y_j > t$. The AUC at $t$ is the IPCW-weighted
@@ -38,7 +38,7 @@ def uno(
         $\delta = 1$ if event observed, $0$ if censored.
     risk_score : (n,) array
         Time-invariant monotone-in-risk scalar; higher = shorter time-to-event.
-    time_grid : (T,) array
+    times : (T,) array
         Times at which to evaluate AUC.
     censoring_survival : StepFunction, optional
         Pre-computed $\hat G$. If ``None``, computed internally.
@@ -56,7 +56,7 @@ def uno(
     Y = np.asarray(event_time, dtype=np.float64)
     delta = np.asarray(event_indicator, dtype=np.int8)
     r = np.asarray(risk_score, dtype=np.float64)
-    t_grid = np.asarray(time_grid, dtype=np.float64)
+    t_grid = np.asarray(times, dtype=np.float64)
 
     G = (
         censoring_survival
@@ -102,7 +102,7 @@ def blanche(
     event_time: ArrayLike,
     event_indicator: ArrayLike,
     marker: ArrayLike,
-    time_grid: ArrayLike,
+    times: ArrayLike,
     *,
     censoring_survival: StepFunction | None = None,
 ) -> NDArray[np.float64]:
@@ -119,10 +119,10 @@ def blanche(
     event_indicator : (n,) array
         $\delta = 1$ if event observed, $0$ if censored.
     marker : (n, T) array
-        $M_i(t)$ — predicted risk at each ``time_grid`` point. Higher value
+        $M_i(t)$ — predicted risk at each ``times`` point. Higher value
         means higher predicted risk of event by that time. For survival
         predictions, pass ``1 - survival``.
-    time_grid : (T,) array
+    times : (T,) array
         Times at which to evaluate AUC.
     censoring_survival : StepFunction, optional
         Pre-computed $\hat G$. If ``None``, computed internally.
@@ -139,7 +139,7 @@ def blanche(
     Y = np.asarray(event_time, dtype=np.float64)
     delta = np.asarray(event_indicator, dtype=np.int8)
     M = np.asarray(marker, dtype=np.float64)
-    t_grid = np.asarray(time_grid, dtype=np.float64)
+    t_grid = np.asarray(times, dtype=np.float64)
 
     G = (
         censoring_survival
@@ -182,18 +182,18 @@ def cause_specific(
     event_time: ArrayLike,
     event_indicator: ArrayLike,
     cif: ArrayLike,
-    time_grid: ArrayLike,
+    times: ArrayLike,
     *,
     cause: int = 1,
     censoring_survival: StepFunction | None = None,
 ) -> NDArray[np.float64]:
-    r"""IPCW cause-specific cumulative/dynamic AUC at each point of ``time_grid``.
+    r"""IPCW cause-specific cumulative/dynamic AUC at each point of ``times``.
 
     At each time $t$, cases are subjects with $Y_i \le t$ and
     $\delta_i = k$; controls are subjects with $Y_j > t$ (still at risk for
     any cause). The marker is the cause-$k$ predicted CIF
     $\hat F_k(t \mid x_i)$ (time-varying — caller passes the
-    ``(n, len(time_grid))`` array). Case weights are IPCW
+    ``(n, len(times))`` array). Case weights are IPCW
     $\omega_i = 1 / \hat G(Y_i^-)$. The estimator is
 
     $$
@@ -214,8 +214,8 @@ def cause_specific(
         $\delta = 0$ censored, $\delta = k \ge 1$ event of cause $k$.
     cif : (n, T) array
         Predicted $\hat F_k(t \mid x_i)$ for the chosen ``cause``, at each
-        ``time_grid`` point.
-    time_grid : (T,) array
+        ``times`` point.
+    times : (T,) array
     cause : int, default 1
     censoring_survival : StepFunction, optional
         Pre-computed $\hat G$. If ``None``, computed internally.
@@ -236,7 +236,7 @@ def cause_specific(
     Y = np.asarray(event_time, dtype=np.float64)
     delta = np.asarray(event_indicator, dtype=np.int8)
     F = np.asarray(cif, dtype=np.float64)
-    t_grid = np.asarray(time_grid, dtype=np.float64)
+    t_grid = np.asarray(times, dtype=np.float64)
 
     G = (
         censoring_survival
@@ -276,7 +276,7 @@ def integrated(
     event_time: ArrayLike,
     event_indicator: ArrayLike,
     auc_per_time: ArrayLike,
-    time_grid: ArrayLike,
+    times: ArrayLike,
 ) -> float:
     r"""Survival-weighted integrated AUC (Heagerty-Zheng).
 
@@ -291,7 +291,7 @@ def integrated(
 
     with $\hat F(t) = 1 - \hat S(t)$ from the Kaplan-Meier estimate of the
     marginal event distribution. Discretized as a trapezoidal-style sum
-    against the KM drops between consecutive ``time_grid`` points.
+    against the KM drops between consecutive ``times`` points.
 
     Generalizes Harrell's C over a time range — the simple time-average
     $\int \widehat{AUC}(t)\,dt / (t_{\max} - t_{\min})$ is *not* used because
@@ -306,7 +306,7 @@ def integrated(
         $\delta = 1$ if event observed, $0$ if censored.
     auc_per_time : (T,) array
         Per-time AUC values, as returned by :func:`uno` or :func:`blanche`.
-    time_grid : (T,) array
+    times : (T,) array
         Time points corresponding to ``auc_per_time``.
 
     Returns
@@ -321,10 +321,10 @@ def integrated(
     Y = np.asarray(event_time, dtype=np.float64)
     delta = np.asarray(event_indicator, dtype=np.int8)
     a = np.asarray(auc_per_time, dtype=np.float64)
-    t_grid = np.asarray(time_grid, dtype=np.float64)
+    t_grid = np.asarray(times, dtype=np.float64)
 
     if len(t_grid) < 2:
-        raise ValueError("integrated AUC requires at least 2 time_grid points")
+        raise ValueError("integrated AUC requires at least 2 time points")
 
     S = kaplan_meier(Y, delta)
     S_at_t = S(t_grid, side="right")
@@ -332,7 +332,7 @@ def integrated(
     total_drop = float(S_at_t[0] - S_at_t[-1])
     if total_drop <= 0:
         raise ValueError(
-            "no marginal events within time_grid range; integrated AUC is undefined"
+            "no marginal events within the range of times; integrated AUC is undefined"
         )
 
     drops = -np.diff(S_at_t)

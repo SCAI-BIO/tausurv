@@ -1,7 +1,7 @@
 r"""Scorers: a metric plus the prediction it needs, for cross-validation.
 
 Each factory here returns a :class:`~tausurv.model_selection.Scorer`, e.g.
-``uno(tau=5.0)``: a function ``(model, X, event_time, event_indicator,
+``uno(horizon=5.0)``: a function ``(model, X, event_time, event_indicator,
 train) -> float`` plus the direction that improves it. ``train`` is the
 training :class:`~tausurv.model_selection.Fold`; the IPCW scorers estimate
 the censoring distribution on it, never on the test fold.
@@ -40,8 +40,8 @@ def harrell() -> Scorer:
     return Scorer(score, name="harrell_c")
 
 
-def uno(tau: float) -> Scorer:
-    """Uno's IPCW C-index of ``model.predict`` up to ``tau``."""
+def uno(horizon: float) -> Scorer:
+    """Uno's IPCW C-index of ``model.predict`` up to ``horizon``."""
 
     def score(
         model: Any,
@@ -51,7 +51,9 @@ def uno(tau: float) -> Scorer:
         train: Fold,
     ) -> float:
         G = censoring_distribution(train.event_time, train.event_indicator)
-        return concordance.uno(Y, E, model.predict(X), tau=tau, censoring_survival=G)
+        return concordance.uno(
+            Y, E, model.predict(X), horizon=horizon, censoring_survival=G
+        )
 
     return Scorer(score, name="uno_c")
 

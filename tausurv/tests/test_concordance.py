@@ -67,7 +67,7 @@ def test_uno_reduces_to_harrell_when_no_censoring():
     # Take only the events for a clean no-censoring comparison.
     mask = event_indicator == 1
     uno_c = concordance.uno(
-        event_time[mask], event_indicator[mask], risk_score[mask], tau=10.0
+        event_time[mask], event_indicator[mask], risk_score[mask], horizon=10.0
     )
     harrell_c = concordance.harrell(
         event_time[mask], event_indicator[mask], risk_score[mask]
@@ -81,7 +81,7 @@ def test_uno_tau_truncates_pairs():
     event_time = np.array([1.0, 2.0, 3.0])
     event_indicator = np.array([1, 1, 1])
     risk_score = np.array([3.0, 2.0, 1.0])
-    assert concordance.uno(event_time, event_indicator, risk_score, tau=2.0) == 1.0
+    assert concordance.uno(event_time, event_indicator, risk_score, horizon=2.0) == 1.0
 
 
 def test_uno_custom_censoring_survival_overrides_default():
@@ -96,7 +96,7 @@ def test_uno_custom_censoring_survival_overrides_default():
             event_time,
             event_indicator,
             risk_score,
-            tau=10.0,
+            horizon=10.0,
             censoring_survival=custom_G,
         )
         == 1.0
@@ -108,7 +108,7 @@ def test_uno_no_comparable_pairs_raises():
     event_indicator = np.array([0, 0, 0])
     risk_score = np.array([1.0, 2.0, 3.0])
     with pytest.raises(ValueError, match="no comparable pairs"):
-        concordance.uno(event_time, event_indicator, risk_score, tau=10.0)
+        concordance.uno(event_time, event_indicator, risk_score, horizon=10.0)
 
 
 def test_antolini_perfect_concordance():
@@ -180,21 +180,21 @@ def test_blanche_perfect_concordance_no_censoring():
     event_time = np.array([1.0, 2.0, 3.0, 4.0])
     event_indicator = np.array([1, 1, 1, 1])
     risk_score = np.array([4.0, 3.0, 2.0, 1.0])
-    assert concordance.blanche(event_time, event_indicator, risk_score, tau=2.5) == 1.0
+    assert concordance.blanche(event_time, event_indicator, risk_score, horizon=2.5) == 1.0
 
 
 def test_blanche_perfect_anticoncordance():
     event_time = np.array([1.0, 2.0, 3.0, 4.0])
     event_indicator = np.array([1, 1, 1, 1])
     risk_score = np.array([1.0, 2.0, 3.0, 4.0])
-    assert concordance.blanche(event_time, event_indicator, risk_score, tau=2.5) == 0.0
+    assert concordance.blanche(event_time, event_indicator, risk_score, horizon=2.5) == 0.0
 
 
 def test_blanche_all_tied_is_half():
     event_time = np.array([1.0, 2.0, 3.0, 4.0])
     event_indicator = np.array([1, 1, 1, 1])
     risk_score = np.array([1.0, 1.0, 1.0, 1.0])
-    assert concordance.blanche(event_time, event_indicator, risk_score, tau=2.5) == 0.5
+    assert concordance.blanche(event_time, event_indicator, risk_score, horizon=2.5) == 0.5
 
 
 def test_blanche_ipcw_weighting_hand_computed():
@@ -217,7 +217,7 @@ def test_blanche_ipcw_weighting_hand_computed():
     event_indicator = np.array([1, 0, 1, 1, 0])
     risk_score = np.array([3.0, 4.0, 1.0, 5.0, 2.0])
     assert concordance.blanche(
-        event_time, event_indicator, risk_score, tau=3.5
+        event_time, event_indicator, risk_score, horizon=3.5
     ) == pytest.approx(3 / 14)
 
 
@@ -232,7 +232,7 @@ def test_blanche_custom_censoring_survival_overrides_default():
             event_time,
             event_indicator,
             risk_score,
-            tau=2.5,
+            horizon=2.5,
             censoring_survival=custom_G,
         )
         == 1.0
@@ -244,7 +244,7 @@ def test_blanche_no_cases_raises():
     event_indicator = np.array([0, 0, 0])
     risk_score = np.array([1.0, 2.0, 3.0])
     with pytest.raises(ValueError, match="case"):
-        concordance.blanche(event_time, event_indicator, risk_score, tau=2.0)
+        concordance.blanche(event_time, event_indicator, risk_score, horizon=2.0)
 
 
 def test_blanche_no_controls_raises():
@@ -252,7 +252,7 @@ def test_blanche_no_controls_raises():
     event_indicator = np.array([1, 1, 1])
     risk_score = np.array([1.0, 2.0, 3.0])
     with pytest.raises(ValueError, match="control"):
-        concordance.blanche(event_time, event_indicator, risk_score, tau=10.0)
+        concordance.blanche(event_time, event_indicator, risk_score, horizon=10.0)
 
 
 def test_harrell_tie_rules():

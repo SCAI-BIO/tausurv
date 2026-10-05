@@ -14,7 +14,9 @@ from tausurv.nn._utils import (
     as_model_tensor,
     as_training_tensors,
     fit_time_grid,
+    hazard_survival,
     reset_parameters,
+    step_lookup,
 )
 from tausurv.nn.checkpoint import CheckpointMixin
 from tausurv.nn.losses.hazard import LogisticHazardLoss
@@ -211,18 +213,9 @@ class LogisticHazard(SurvivalPredictor, CheckpointMixin, nn.Module):
         self.eval()
         with torch.no_grad():
             logits = self.forward(X_t)
-            hazard = torch.sigmoid(logits)
-            log_surv = torch.log1p(-hazard.clamp(max=1.0 - 1e-7)).cumsum(dim=-1)
-            S_full = torch.exp(log_surv).cpu().numpy().astype(np.float64)
         if was_training:
             self.train()
-        idx = np.searchsorted(self._times, times, side="right") - 1
-        clipped = np.clip(idx, 0, self.n_bins - 1)
-        S_at = S_full[..., clipped]
-        before = idx < 0
-        if before.any():
-            S_at[..., before] = 1.0
-        return S_at
+        return step_lookup(self._times, hazard_survival(logits), times, before=1.0)
 
     def save(self, path: str | Path) -> None:
         """Persist config + weights, plus the time grid set by

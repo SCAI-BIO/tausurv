@@ -86,21 +86,25 @@ def test_random_survival_forest_concordance_beats_random():
 
 def test_survival_boost_shapes():
     pytest.importorskip("sklearn")
-    X, T, E = simulations.competing_risk(n=200, seed=0)
+    X, T, E = simulations.competing_risks(n=200, seed=0)
     sb = SurvivalBoost(n_iter=20, seed=0).fit(X, T, E)
     grid = np.linspace(0.1, 3.0, 8)
     H = sb.predict_cumulative_hazard(X, grid)
     assert H.shape == (200, 8)
-    assert (np.diff(H, axis=1) >= 0).all()
+    # Each horizon is predicted separately, so the curves need not be
+    # monotone, but every horizon is a proper distribution.
+    cif = sb.predict_cif(X, grid)
+    S = sb.predict_survival_function(X, grid)
+    assert (cif >= 0).all() and (S >= 0).all()
+    np.testing.assert_allclose(cif.sum(axis=1) + S, 1.0, atol=1e-12)
 
 
 def test_survival_boost_concordance_beats_random():
     # A ranking check is the only thing that catches swapped event/time
     # roles in the IPCW target construction — shape and monotonicity
-    # assertions pass either way. Parity against the reference hazardous
-    # implementation lives in scripts/survival_boost_parity.py, not here.
+    # assertions pass either way.
     pytest.importorskip("sklearn")
-    X, T, E = simulations.competing_risk(n=500, censoring_rate=0.3, seed=0)
+    X, T, E = simulations.competing_risks(n=500, censoring_rate=0.3, seed=0)
     sb = SurvivalBoost(seed=0).fit(X, T, E)
     c = harrell(T, E, sb.predict(X))
     assert c > 0.65  # well above 0.5 random baseline

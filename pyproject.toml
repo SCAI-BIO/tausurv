@@ -43,11 +43,11 @@ target-version = "py312"
 select = ["E", "F", "I", "N", "UP", "B", "SIM", "RUF"]
 
 [tool.ruff.lint.pep8-naming]
-# Math identifiers from guidelines/notation.md. Uppercase single letters are
-# the survival-analysis convention (Y = observed time, S = survival function,
-# T = event time, C = censoring time, F = CDF, G = censoring survival,
-# Lam = cumulative hazard, J = competing-cause count, etc.) and PEP 8's
-# lowercase-variable rule actively conflicts with that here.
+# Uppercase single letters are the survival-analysis convention for math
+# identifiers (Y = observed time, S = survival function, T = event time,
+# C = censoring time, F = CDF, G = censoring survival, Lam = cumulative hazard,
+# J = competing-cause count, etc.), and PEP 8's lowercase-variable rule
+# conflicts with that.
 extend-ignore-names = [
     "X", "Y", "T", "C", "F", "G", "S", "J", "L", "M", "N", "A", "D", "Lam",
 ]

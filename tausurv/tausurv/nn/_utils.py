@@ -6,7 +6,8 @@ from typing import Protocol
 
 import numpy as np
 import torch
-from numpy.typing import ArrayLike
+import torch.nn.functional as F
+from numpy.typing import ArrayLike, NDArray
 from torch import Tensor, nn
 
 from tausurv.discretization import time_grid
@@ -83,3 +84,55 @@ def reset_parameters(model: nn.Module, seed: int) -> None:
         reset = getattr(module, "reset_parameters", None)
         if module is not model and callable(reset):
             reset()
+
+
+def pmf_probabilities(
+    logits: Tensor,
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Per-bin CIF and survival from DeepHit's ``(n, n_causes, n_bins)`` logits.
+
+    Computed in float64 on the CPU: network weights stay float32, and devices
+    without float64 support (Apple MPS) still work. Survival is the mass left
+    after each bin, summed from the last bin backwards rather than taken as
+    ``1 - CIF``, so small survival probabilities keep their precision and
+    ``S + sum_k F_k = 1`` holds to rounding.
+
+    Returns
+    -------
+    cif : (n, n_causes, n_bins) array
+    survival : (n, n_bins) array
+    """
+    n, n_causes, n_bins = logits.shape
+    flat = logits.detach().cpu().double().reshape(n, -1)
+    pmf = torch.softmax(flat, dim=-1).reshape(n, n_causes, n_bins)
+    mass_from = pmf.sum(dim=1).flip(-1).cumsum(dim=-1).flip(-1)
+    survival = torch.cat([mass_from[:, 1:], mass_from.new_zeros(n, 1)], dim=-1)
+    return pmf.cumsum(dim=-1).numpy(), survival.numpy()
+
+
+def hazard_survival(logits: Tensor) -> NDArray[np.float64]:
+    r"""Per-bin survival $\prod_{j \le k} (1 - \sigma(x_j))$ from hazard logits.
+
+    Uses $\log(1 - \sigma(x)) = -\mathrm{softplus}(x)$, which is exact and
+    finite for every logit, in float64 on the CPU.
+    """
+    log_survival = -F.softplus(logits.detach().cpu().double()).cumsum(dim=-1)
+    return torch.exp(log_survival).numpy()
+
+
+def step_lookup(
+    grid: NDArray[np.float64],
+    values: NDArray[np.float64],
+    times: NDArray[np.float64],
+    *,
+    before: float,
+) -> NDArray[np.float64]:
+    """Right-continuous lookup of per-bin ``values`` at ``times``.
+
+    ``grid`` holds the upper bound of each bin and indexes the last axis of
+    ``values``. Times before the first bound get ``before``.
+    """
+    idx = np.searchsorted(grid, times, side="right") - 1
+    out = values[..., np.clip(idx, 0, len(grid) - 1)]
+    out[..., idx < 0] = before
+    return out

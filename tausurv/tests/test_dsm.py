@@ -1,7 +1,6 @@
 """Tests for DSM (math + architecture invariants).
 
-Training-based smoke checks live in scripts/nn_training_smoke.py per
-the project convention. These tests verify:
+No training-based checks; these tests verify:
 
 - Loss matches a hand-computed mixture NLL on a toy case.
 - Loss functional + class wrapper agree.

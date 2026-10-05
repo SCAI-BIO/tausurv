@@ -13,7 +13,7 @@ def single_risk(
     censoring_rate: float = 0.3,
     seed: int | None = None,
 ) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.int8]]:
-    r"""Single-event survival data from a Cox proportional-hazards model.
+    r"""Single-risk survival data from a Cox proportional-hazards model.
 
     Covariates $X \sim \mathcal{N}(0, I_d)$. Linear predictor
     $\eta_i = \beta^\top X_i$ with fixed alternating-sign coefficients.

@@ -14,7 +14,7 @@ def test_uno_perfect_concordance_no_censoring():
         event_time=[1, 2, 3, 4],
         event_indicator=[1, 1, 1, 1],
         risk_score=[4, 3, 2, 1],
-        time_grid=[2.5],
+        times=[2.5],
     )
     np.testing.assert_array_equal(out, [1.0])
 
@@ -24,7 +24,7 @@ def test_uno_perfect_anticoncordance():
         event_time=[1, 2, 3, 4],
         event_indicator=[1, 1, 1, 1],
         risk_score=[1, 2, 3, 4],
-        time_grid=[2.5],
+        times=[2.5],
     )
     np.testing.assert_array_equal(out, [0.0])
 
@@ -34,7 +34,7 @@ def test_uno_all_tied_is_half():
         event_time=[1, 2, 3, 4],
         event_indicator=[1, 1, 1, 1],
         risk_score=[1, 1, 1, 1],
-        time_grid=[2.5],
+        times=[2.5],
     )
     np.testing.assert_array_equal(out, [0.5])
 
@@ -45,7 +45,7 @@ def test_uno_returns_nan_when_no_cases_or_controls():
         event_time=[1, 2, 3, 4],
         event_indicator=[1, 1, 1, 1],
         risk_score=[1, 2, 3, 4],
-        time_grid=[0.5, 5.0],
+        times=[0.5, 5.0],
     )
     assert np.isnan(out[0])
     assert np.isnan(out[1])
@@ -58,7 +58,7 @@ def test_uno_custom_censoring_survival_overrides_default():
         event_time=[1, 2, 3, 4],
         event_indicator=[1, 1, 1, 1],
         risk_score=[4, 3, 2, 1],
-        time_grid=[2.5],
+        times=[2.5],
         censoring_survival=custom_G,
     )
     np.testing.assert_array_equal(out, [1.0])
@@ -69,7 +69,7 @@ def test_blanche_perfect_concordance():
         event_time=[1, 2, 3, 4],
         event_indicator=[1, 1, 1, 1],
         marker=np.array([[4], [3], [2], [1]]),
-        time_grid=[2.5],
+        times=[2.5],
     )
     np.testing.assert_array_equal(out, [1.0])
 
@@ -99,7 +99,7 @@ def test_integrated_auc_heagerty_zheng_hand_computed():
         event_time=[1, 2, 3, 4],
         event_indicator=[1, 1, 1, 1],
         auc_per_time=[0.0, 0.5, 1 / 3],
-        time_grid=[1.5, 2.5, 3.5],
+        times=[1.5, 2.5, 3.5],
     )
     assert out == pytest.approx(1 / 3)
 
@@ -116,5 +116,5 @@ def test_integrated_auc_rejects_no_events_in_range():
             event_time=[1, 2, 3],
             event_indicator=[0, 0, 0],
             auc_per_time=[0.5, 0.5, 0.5],
-            time_grid=[1.0, 2.0, 3.0],
+            times=[1.0, 2.0, 3.0],
         )

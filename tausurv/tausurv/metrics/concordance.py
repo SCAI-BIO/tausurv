@@ -89,7 +89,7 @@ def uno(
     event_indicator: ArrayLike,
     risk_score: ArrayLike,
     *,
-    tau: float,
+    horizon: float,
     censoring_survival: StepFunction | None = None,
 ) -> float:
     r"""Uno's IPCW concordance index.
@@ -116,8 +116,8 @@ def uno(
         $\delta = 1$ if event observed, $0$ if censored.
     risk_score : (n,) array
         Monotone-in-risk scalar; higher values predict shorter time-to-event.
-    tau : float
-        Truncation horizon. Pairs with $Y_i \ge \tau$ are dropped. Choose
+    horizon : float
+        Truncation time $\tau$. Pairs with $Y_i \ge \tau$ are dropped. Choose
         within the censoring distribution's support; weights blow up where
         $\hat G(t) \to 0$.
     censoring_survival : StepFunction, optional
@@ -156,7 +156,7 @@ def uno(
 
     numerator = 0.0
     denominator = 0.0
-    eligible = (delta_s == 1) & (Y_s < tau) & (G_s > 0)
+    eligible = (delta_s == 1) & (Y_s < horizon) & (G_s > 0)
     for p in np.flatnonzero(eligible):
         partners = r_s[comparable(int(p))]
         r_p = float(r_s[p])
@@ -168,8 +168,8 @@ def uno(
 
     if denominator == 0:
         raise ValueError(
-            "no comparable pairs before tau with positive censoring survival; "
-            "choose a smaller tau or check for excessive censoring"
+            "no comparable pairs before the horizon with positive censoring "
+            "survival; choose a smaller horizon or check for excessive censoring"
         )
 
     return numerator / denominator
@@ -179,7 +179,7 @@ def antolini(
     event_time: ArrayLike,
     event_indicator: ArrayLike,
     survival: ArrayLike,
-    time_grid: ArrayLike,
+    times: ArrayLike,
 ) -> float:
     r"""Antolini's time-dependent C-index.
 
@@ -202,8 +202,8 @@ def antolini(
     event_indicator : (n,) array
         $\delta = 1$ if event observed, $0$ if censored.
     survival : (n, T) array
-        $\hat S(t \mid x_i)$ for each sample at each ``time_grid`` point.
-    time_grid : (T,) array
+        $\hat S(t \mid x_i)$ for each sample at each ``times`` point.
+    times : (T,) array
         Time points at which ``survival`` is evaluated. Right-continuous
         step is used when stepping from grid to event times.
 
@@ -220,7 +220,7 @@ def antolini(
     Y = np.asarray(event_time, dtype=np.float64)
     delta = np.asarray(event_indicator, dtype=np.int8)
     S = np.asarray(survival, dtype=np.float64)
-    t_grid = np.asarray(time_grid, dtype=np.float64)
+    t_grid = np.asarray(times, dtype=np.float64)
 
     order = np.argsort(Y, kind="stable")
     Y_s = Y[order]
@@ -363,7 +363,7 @@ def blanche(
     event_indicator: ArrayLike,
     risk_score: ArrayLike,
     *,
-    tau: float,
+    horizon: float,
     censoring_survival: StepFunction | None = None,
 ) -> float:
     r"""Blanche's cumulative-case / dynamic-control concordance at horizon $\tau$.
@@ -396,8 +396,8 @@ def blanche(
     risk_score : (n,) array
         Monotone-in-risk scalar; for predictions from a survival model,
         $1 - \hat S(\tau \mid x)$ is the natural choice.
-    tau : float
-        Horizon.
+    horizon : float
+        The horizon $\tau$.
     censoring_survival : StepFunction, optional
         Pre-computed $\hat G$. If ``None``, computed internally.
 
@@ -423,24 +423,26 @@ def blanche(
         else censoring_distribution(Y, delta)
     )
 
-    case_mask = (delta == 1) & (Y <= tau)
-    control_mask = Y > tau
+    case_mask = (delta == 1) & (Y <= horizon)
+    control_mask = Y > horizon
     n_cases = int(case_mask.sum())
     n_controls = int(control_mask.sum())
 
     if n_cases == 0 or n_controls == 0:
         raise ValueError(
-            "blanche needs at least one case (event by tau) and one control "
-            "(survivor past tau)"
+            "blanche needs at least one case (event by the horizon) and one "
+            "control (survivor past the horizon)"
         )
 
-    if float(G(tau, side="left")) <= 0:
-        raise ValueError("censoring survival is zero at tau; choose a smaller tau")
+    if float(G(horizon, side="left")) <= 0:
+        raise ValueError(
+            "censoring survival is zero at the horizon; choose a smaller horizon"
+        )
 
     G_at_cases = G(Y[case_mask], side="left")
     if np.any(G_at_cases <= 0):
         raise ValueError(
-            "censoring survival is zero at one or more case times; choose a smaller tau"
+            "censoring survival is zero at one or more case times; choose a smaller horizon"
         )
 
     w_case = 1.0 / G_at_cases

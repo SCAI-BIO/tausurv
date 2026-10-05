@@ -64,7 +64,7 @@ X.shape
 # %%
 horizons = np.linspace(1.0, 5.0, 20)
 scorers = {
-    "uno_c": scoring.uno(tau=5.0),
+    "uno_c": scoring.uno(horizon=5.0),
     "ibs": scoring.integrated_brier(horizons),
 }
 
@@ -107,7 +107,7 @@ best = tune(
     X,
     Y,
     E,
-    scoring=scoring.uno(tau=5.0),
+    scoring=scoring.uno(horizon=5.0),
     cv=3,
     n_trials=15,
     progress=False,
@@ -131,7 +131,7 @@ ncv = nested_cv(
     X,
     Y,
     E,
-    scoring=scoring.uno(tau=5.0),
+    scoring=scoring.uno(horizon=5.0),
     outer=5,
     inner=3,
     n_trials=15,

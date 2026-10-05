@@ -16,7 +16,7 @@ def test_nll_event_uses_density_in_bin():
         event_time=[1.0],
         event_indicator=[1],
         survival=[[1.0, 0.5, 0.0]],
-        time_grid=[0.5, 1.0, 2.0],
+        times=[0.5, 1.0, 2.0],
     )
     assert out == pytest.approx(math.log(2.0))
 
@@ -27,7 +27,7 @@ def test_nll_censored_uses_survival_at_Y():
         event_time=[1.0],
         event_indicator=[0],
         survival=[[1.0, 0.5, 0.0]],
-        time_grid=[0.5, 1.0, 2.0],
+        times=[0.5, 1.0, 2.0],
     )
     assert out == pytest.approx(math.log(2.0))
 
@@ -41,7 +41,7 @@ def test_nll_perfect_predictions_low():
         event_time=[1.0, 2.0],
         event_indicator=[1, 1],
         survival=[[1.0, 0.001, 0.0], [1.0, 1.0, 0.001]],
-        time_grid=[0.5, 1.0, 2.0],
+        times=[0.5, 1.0, 2.0],
     )
     assert out < 0.01
 
@@ -55,7 +55,7 @@ def test_crps_event_subject_hand_computed():
         event_time=[1.0],
         event_indicator=[1],
         survival=[[1.0, 0.5, 0.0]],
-        time_grid=[0.0, 1.0, 2.0],
+        times=[0.0, 1.0, 2.0],
     )
     assert out == pytest.approx(0.25)
 
@@ -69,7 +69,7 @@ def test_crps_censored_subject_truncates_at_Y():
         event_time=[1.5],
         event_indicator=[0],
         survival=[[1.0, 0.5, 0.0]],
-        time_grid=[0.0, 1.0, 2.0],
+        times=[0.0, 1.0, 2.0],
     )
     assert out == pytest.approx(0.125)
 
@@ -80,7 +80,7 @@ def test_crps_perfect_prediction_is_zero():
         event_time=[1.0],
         event_indicator=[1],
         survival=[[1.0, 0.0, 0.0]],
-        time_grid=[0.0, 1.0, 2.0],
+        times=[0.0, 1.0, 2.0],
     )
     assert out == pytest.approx(0.0)
 
@@ -92,6 +92,6 @@ def test_crps_worst_prediction_integrates_squared_one():
         event_time=[2.0],
         event_indicator=[1],
         survival=[[0.0, 0.0, 0.0]],
-        time_grid=[0.0, 1.0, 2.0],
+        times=[0.0, 1.0, 2.0],
     )
     assert out == pytest.approx(1.5)
