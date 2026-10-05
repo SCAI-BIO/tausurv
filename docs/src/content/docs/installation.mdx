@@ -3,15 +3,34 @@ title: Installation
 description: How to install tausurv.
 ---
 
-PyTorch must be installed with a build matching your hardware (CPU, CUDA, or
-ROCm) **before** syncing the rest of the workspace.
+```bash
+pip install tausurv
+```
+
+tausurv requires Python 3.12 or newer. Optional features come as extras:
+
+| extra | adds |
+|---|---|
+| `tausurv[plot]` | plotting with matplotlib |
+| `tausurv[boost]` | `SurvivalBoost`, via scikit-learn |
+| `tausurv[tune]` | hyperparameter search and nested cross-validation, via Optuna |
+| `tausurv[deepsurv]` | the four DeepSurv benchmark tables stored as HDF5 |
+
+Combine them as needed, for example `pip install 'tausurv[plot,tune]'`.
+
+## PyTorch
+
+The neural models in `tausurv.nn` need PyTorch. It is not installed
+automatically, because the right build depends on your hardware (CPU, CUDA or
+ROCm). Install it first by following the
+[PyTorch instructions](https://pytorch.org/get-started/locally/). Everything
+outside `tausurv.nn` works without it.
+
+## From source
+
+The repository is a uv workspace:
 
 ```bash
-# Pick one:
 uv pip install torch --index-url https://download.pytorch.org/whl/cpu
-uv pip install torch --index-url https://download.pytorch.org/whl/cu128
-uv pip install torch --index-url https://download.pytorch.org/whl/cu130
-
-# Then sync everything else:
-uv sync
+uv sync --all-packages --all-groups
 ```

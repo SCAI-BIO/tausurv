@@ -38,6 +38,7 @@ export default defineConfig({
           { label: "Overview", slug: "index" },
           { label: "Installation", slug: "installation" },
           { label: "Quickstart", slug: "quickstart" },
+          { label: "Datasets", slug: "datasets" },
         ]},
         { label: "Tutorials", items: [{ autogenerate: { directory: "tutorials" } }] },
         { label: "How-to", items: [{ autogenerate: { directory: "how-to" } }] },

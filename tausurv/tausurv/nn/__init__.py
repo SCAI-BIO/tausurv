@@ -2,8 +2,8 @@ try:
     import torch as _torch  # noqa: F401
 except ImportError as _exc:
     raise ImportError(
-        "tausurv.nn requires PyTorch. Install it with the build matching your "
-        "hardware (CPU/CUDA/ROCm) — see README.md."
+        "tausurv.nn requires PyTorch. Install the build matching your hardware "
+        "(CPU, CUDA or ROCm): https://pytorch.org/get-started/locally/"
     ) from _exc
 
 from tausurv.nn import (
