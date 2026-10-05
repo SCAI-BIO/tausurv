@@ -303,9 +303,9 @@ ts.plot.brier_over_time(
 #
 # What this tutorial demonstrates and what it deliberately does not.
 #
-# - **Proportional hazards.** The Cox model assumes the hazard ratio for each covariate is constant over time. PBC arguably violates this for bilirubin and stage at long follow-up. A diagnostic tutorial on Schoenfeld residuals comes later.
-# - **Competing risks.** Liver transplant was treated as censoring in the single-event recoding. That is the standard simplification, but it conflates "we stopped watching" with "the patient received a transplant, which changes their prognosis." The competing-risks tutorial revisits this using `ts.linear.FineGray` and the cause-specific cumulative incidence.
-# - **Honest evaluation.** The 70/30 split here is the simplest possible. A real reporting pipeline uses repeated cross-validation, bootstraps the calibration curves, and reports IBS / time-dependent AUC alongside Brier. The evaluation tutorial covers each.
+# - **Proportional hazards.** The Cox model assumes the hazard ratio for each covariate is constant over time. PBC arguably violates this for bilirubin and stage at long follow-up; a check based on Schoenfeld residuals is not covered here.
+# - **Competing risks.** Liver transplant was treated as censoring in the single-event recoding. That is the standard simplification, but it conflates "we stopped watching" with "the patient received a transplant, which changes their prognosis." The [competing-risks tutorial](/tutorials/competing-risks/) revisits this using `ts.linear.FineGray` and the cause-specific cumulative incidence.
+# - **Evaluation.** The 70/30 split here is the simplest possible. A reporting pipeline uses repeated cross-validation, bootstraps the calibration curves, and reports the integrated Brier score and time-dependent AUC alongside the Brier score. [Cross-validate and tune a model](/how-to/cross-validation-and-tuning/) covers the cross-validation part.
 # - **Causal interpretation.** A hazard ratio is a population summary, not a causal effect of changing a covariate. The separate `causurv` package covers what additional assumptions are needed before HRs become causal contrasts and why RMST differences are often a cleaner target.
 
 # %% [markdown]

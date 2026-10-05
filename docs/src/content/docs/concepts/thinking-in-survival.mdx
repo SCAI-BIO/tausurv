@@ -68,7 +68,7 @@ $$
 \hat S(3) \;=\; \frac{5}{6} \cdot \frac{3}{4} \;=\; \frac{5}{8} \;=\; 0.625.
 $$
 
-The naive $0.5$ was wrong because it treated patient B as a failure for being lost to follow-up. The Kaplan-Meier $0.625$ keeps B in the at-risk set up to $1.8$ and then drops B without counting against survival. That accounting is the value the method adds.
+The naive $0.5$ was wrong because it treated patient B as a failure for being lost to follow-up. The Kaplan-Meier $0.625$ keeps B in the at-risk set up to $1.8$ and then drops B without counting against survival.
 
 ## Same data, different questions
 
@@ -154,7 +154,7 @@ $$
 F_j(t) = P(T \le t,\; J = j),
 $$
 
-the probability of failing from cause $j$ by time $t$. It is estimated by Aalen-Johansen and is the basic-tutorial quantity whenever competing causes are present. The shorthand "$1 - \text{KM}$ per cause" is the most published mistake in the field.
+the probability of failing from cause $j$ by time $t$. It is estimated by Aalen-Johansen and is the basic-tutorial quantity whenever competing causes are present. Reporting $1 - \text{KM}$ per cause instead is a common error in published analyses (Andersen et al. 2012).
 
 ## The assumption every estimate carries
 
@@ -167,7 +167,7 @@ Two practical signals are worth knowing.
 1. If the reason a subject is censored is unrelated to their underlying state (administrative end of follow-up, the study closing, a customer's contract ending on a fixed date), the assumption is plausible.
 2. If the reason is plausibly related (loss to follow-up because the patient got sicker and stopped attending, a customer churning quietly without being recorded), the assumption is suspect. Run diagnostics, consider methods that condition on richer covariates, and report a sensitivity envelope.
 
-This library does not paper over assumptions. Every estimator's reference page states what it requires, and the `Censoring` concept page covers detection and mitigation in depth. Treat the assumption as part of the result, not the appendix.
+Report the assumption together with the estimate it supports.
 
 ## How to use this mental model
 
@@ -182,16 +182,7 @@ If you take one thing from this page: pick the quantity you want to estimate bef
 
 ## Where to go from here
 
-The remaining concept pages cover each piece in depth.
-
-- The core quantities $S$, $\lambda$, $\Lambda$, $F$, $f$, RMST, and the formal relations between them.
-- The cumulative incidence function and competing-risk estimands.
-- Censoring varieties, the independence assumption, and how to diagnose its failure.
-- Identifiability: which estimands are nonparametrically identified, which need extra structure, and which cannot be identified at all.
-- The hazard ratio problem and why it is not a causal contrast.
-- Calibration versus discrimination as ways to judge a model.
-
-The tutorial path applies these ideas on real data, fitting Kaplan-Meier, Cox, and a competing-risks estimator on a single dataset. The how-to section is organised by decision rather than method: "I need absolute risk at five years", "I have competing risks", "I want to compare groups under non-proportional hazards". The API reference documents every estimator with the assumption it requires and the references it implements.
+The [tutorials](/tutorials/) apply these ideas to the PBC trial: Kaplan-Meier curves, a Cox model, and competing risks with Aalen-Johansen and Fine-Gray.
 
 ## References
 
@@ -199,4 +190,4 @@ The tutorial path applies these ideas on real data, fitting Kaplan-Meier, Cox, a
 - Andersen PK, Geskus RB, de Witte T, Putter H (2012). [Competing risks in epidemiology: possibilities and pitfalls](https://academic.oup.com/ije/article-abstract/41/3/861/829598). *International Journal of Epidemiology* 41:861–870. Source for the bias magnitudes when KM is applied to a single competing cause.
 - Kaplan EL, Meier P (1958). [Nonparametric estimation from incomplete observations](https://www.jstor.org/stable/2281868). *JASA* 53:457–481. The Kaplan-Meier paper.
 - Klein JP, Moeschberger ML (2003). *Survival Analysis: Techniques for Censored and Truncated Data.* Springer. The applied standard reference.
-- Tsiatis A (1975). [A nonidentifiability aspect of the problem of competing risks](https://www.pnas.org/doi/10.1073/pnas.72.1.20). *PNAS* 72:20–22. The non-identifiability theorem underlying everything in this page.
+- Tsiatis A (1975). [A nonidentifiability aspect of the problem of competing risks](https://www.pnas.org/doi/10.1073/pnas.72.1.20). *PNAS* 72:20–22. The non-identifiability result cited in the section on assumptions.

@@ -1,10 +1,10 @@
 ---
 title: tausurv
-description: Survival and causal-survival analysis for Python, with publication-grade plotting and identifiability front and centre.
+description: Survival analysis for Python. Nonparametric estimators, regression models, tree ensembles and neural networks behind one interface, with support for competing risks.
 template: splash
 hero:
   tagline: |
-    Survival analysis for Python: clean APIs, publication-grade plotting, real cohorts to learn from, and the assumption every estimate carries stated next to the estimate.
+    Survival analysis for Python: nonparametric estimators, regression models, tree ensembles and neural networks behind one interface, with support for competing risks.
   actions:
     - text: Quickstart
       link: /tausurv/quickstart/
@@ -21,9 +21,8 @@ hero:
       icon: external
 ---
 
-import { Card, CardGrid } from "@astrojs/starlight/components";
-
-Five lines, a real clinical-trial cohort, a publication-ready figure:
+A Kaplan-Meier curve with a 95% confidence band and an at-risk table, on the
+Mayo Clinic PBC trial:
 
 ```python
 import tausurv as ts
@@ -35,26 +34,28 @@ ts.plot.km(Y / 365.25, delta, xlabel="years from registration")
 
 ![Kaplan-Meier survival curve on the PBC trial cohort, with a 95% confidence band and an at-risk table below the time axis.](/figures/landing_km.svg)
 
-`tausurv` is organised around three principles. **The estimand comes before the method.** Survival probability, hazard rate, restricted mean survival time, cumulative incidence: pick the quantity that matches the question, then reach for a model. **Every estimate carries an assumption.** Independent censoring, proportional hazards, conditional ignorability: each appears next to the estimate it produces, not in an appendix. **Plotting is publication-grade by default.** One call to `ts.plot.set_style("publication")` configures matplotlib so user code can read as a story about the analysis instead of a stack of `rcParams` boilerplate.
+## Contents of the package
 
-<CardGrid>
-  <Card title="Tutorials" icon="rocket">
-    Three executable walk-throughs on the PBC trial: a first Kaplan-Meier
-    analysis, a Cox model with SHAP decomposition and held-out evaluation,
-    and competing risks with Aalen-Johansen and Fine-Gray.
-  </Card>
-  <Card title="Concepts" icon="open-book">
-    The mental model: at-risk sets, the censoring assumption, which
-    quantity to estimate for which question, and the identifiability
-    boundary between what the data show and what would need an intervention.
-  </Card>
-  <Card title="Plotting" icon="seti:image">
-    Publication-grade defaults, Okabe-Ito palettes, forest plots for hazard
-    ratios, SHAP decomposition, calibration plots, and time-varying
-    discrimination and Brier metrics with cross-validation bands.
-  </Card>
-  <Card title="API reference" icon="document">
-    Auto-generated reference for every public class and function, with the
-    assumption each estimator relies on stated next to its signature.
-  </Card>
-</CardGrid>
+| subpackage | contents |
+|---|---|
+| `ts.nonparametric` | Kaplan-Meier, Nelson-Aalen, Aalen-Johansen, censoring distribution |
+| `ts.linear` | Cox proportional hazards, Weibull, log-normal and log-logistic AFT, Fine-Gray |
+| `ts.trees` | survival tree, random survival forest, gradient boosting |
+| `ts.nn` | DeepSurv, DeepHit, logistic hazard, deep survival machines, CopulaSurv, HACSurv |
+| `ts.metrics` | concordance, time-dependent AUC, Brier score, calibration, with cause-specific variants |
+| `ts.model_selection` | cross-validation, hyperparameter search, nested cross-validation |
+| `ts.datasets` | 100 survival tables from 68 studies, downloaded on first use and checksummed |
+| `ts.simulations` | single-risk and competing-risks data with known truth |
+| `ts.plot` | survival and incidence curves, forest plots, calibration, metrics over time, SHAP |
+
+Every fitted model exposes the same prediction methods: survival function,
+cumulative hazard, cumulative incidence, restricted mean survival time and a
+risk score.
+
+## Documentation
+
+- [Tutorials](/tutorials/) work through an analysis of the PBC trial: Kaplan-Meier curves, a Cox model with held-out evaluation, and competing risks.
+- [How-to guides](/how-to/) solve one task each.
+- [Concepts](/concepts/) explain the quantities and assumptions behind the methods.
+- [Plotting](/plotting/) covers the plot functions and styles.
+- [API reference](/api/) is generated from the docstrings.

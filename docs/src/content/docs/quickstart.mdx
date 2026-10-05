@@ -1,9 +1,9 @@
 ---
 title: Quickstart
-description: Fit a Kaplan-Meier curve to a real clinical-trial cohort in five lines.
+description: Load a dataset and plot a Kaplan-Meier curve.
 ---
 
-This is the 60-second tour. Five lines fit and plot a Kaplan-Meier survival curve on the Mayo Clinic primary biliary cholangitis (PBC) trial cohort, with logit-transformed 95% confidence bands and an at-risk table aligned to the time axis.
+The code below fits and plots a Kaplan-Meier survival curve on the Mayo Clinic primary biliary cholangitis (PBC) trial cohort, with a logit-transformed 95% confidence band and an at-risk table aligned to the time axis.
 
 ```python
 import tausurv as ts
@@ -15,7 +15,7 @@ ts.plot.km(Y / 365.25, delta, xlabel="years from registration")
 
 ![Kaplan-Meier survival curve on the PBC trial cohort, with a 95% confidence band and an at-risk table below the time axis.](/figures/landing_km.svg)
 
-That is the entire analysis. `ts.datasets.load_pbc()` returns a `SurvivalBunch` that tuple-unpacks as `(X, Y, delta)`: a polars `DataFrame` of covariates, the observed time $Y = \min(T, C)$ in days, and the event indicator $\delta$. The dataset downloads on first call and caches locally; subsequent runs read from `~/.cache/tausurv/datasets/`. `ts.plot.set_style("publication")` configures matplotlib once for the rest of the session: sans-serif font, single accent colour, no top or right spines, Okabe-Ito palette.
+`ts.datasets.load_pbc()` returns a `SurvivalBunch` that tuple-unpacks as `(X, Y, delta)`: a polars `DataFrame` of covariates, the observed time $Y = \min(T, C)$ in days, and the event indicator $\delta$. The dataset downloads on first call and caches locally; subsequent runs read from the user cache directory (`~/.cache/tausurv/datasets/` on Linux). `ts.plot.set_style("publication")` configures matplotlib once for the rest of the session: sans-serif font, single accent colour, no top or right spines, Okabe-Ito palette.
 
 ## What you need
 
@@ -25,9 +25,7 @@ That is the entire analysis. `ts.datasets.load_pbc()` returns a `SurvivalBunch` 
 
 ## Where next
 
-The same idiom (load a `SurvivalBunch`, set the style, call a one-line plot) recurs throughout the docs.
-
-- **[Tutorial 1: Your first survival analysis](/tutorials/first-survival-analysis/)** takes the analysis above further: median survival, treatment-arm comparison, stratification by histologic stage.
-- **[Tutorial 2: Modeling risk with covariates](/tutorials/modeling-with-covariates/)** fits a Cox model on the same cohort, with hazard-ratio interpretation, SHAP decomposition for an individual prediction, and held-out calibration and Brier evaluation.
-- **[Tutorial 3: Competing risks](/tutorials/competing-risks/)** brings the third outcome back (transplant), shows visually why naively applying $1 - \widehat{\mathrm{KM}}$ to one cause overstates incidence, and fits a Fine-Gray model.
-- **[Thinking in Survival](/concepts/thinking-in-survival/)** is the conceptual entry point: the mental model for what survival analysis is for, before any method.
+- [Tutorial 1: Your first survival analysis](/tutorials/first-survival-analysis/) takes the analysis above further: median survival, treatment-arm comparison, stratification by histologic stage.
+- [Tutorial 2: Modeling risk with covariates](/tutorials/modeling-with-covariates/) fits a Cox model on the same cohort, with hazard-ratio interpretation, SHAP decomposition for an individual prediction, and held-out calibration and Brier evaluation.
+- [Tutorial 3: Competing risks](/tutorials/competing-risks/) brings the third outcome back (transplant), shows why applying $1 - \widehat{\mathrm{KM}}$ to one cause overstates incidence, and fits a Fine-Gray model.
+- [Thinking in Survival](/concepts/thinking-in-survival/) explains censoring, the at-risk set and the choice of quantity to estimate, before any method.

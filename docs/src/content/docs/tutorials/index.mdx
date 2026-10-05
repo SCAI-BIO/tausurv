@@ -1,14 +1,12 @@
 ---
 title: Tutorials
-description: Step-by-step walk-throughs that take you from zero to a working survival model.
+description: Worked analyses of the PBC trial, from a first Kaplan-Meier curve to competing risks.
 ---
 
-Tutorials are learning-oriented. Each one runs top-to-bottom and assumes only
-that you have `tausurv` installed.
+The three tutorials analyse the same cohort, the Mayo Clinic primary biliary
+cholangitis (PBC) trial, and are meant to be read in order. Each runs top to
+bottom and needs `tausurv[plot]`.
 
-Coming soon:
-
-- Your first survival model (Kaplan-Meier).
-- Fitting a Cox proportional-hazards model.
-- Training a DeepSurv network.
-- Competing risks with Aalen-Johansen.
+1. [Your first survival analysis](/tutorials/first-survival-analysis/): Kaplan-Meier curves, median and five-year survival, comparison by treatment arm and by histologic stage.
+2. [Modeling risk with covariates](/tutorials/modeling-with-covariates/): a Cox model, hazard ratios, SHAP decomposition of one prediction, calibration and Brier score on held-out data.
+3. [Competing risks](/tutorials/competing-risks/): death and transplant as competing causes, Aalen-Johansen against one minus Kaplan-Meier, and a Fine-Gray model.

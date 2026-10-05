@@ -1,15 +1,14 @@
 ---
 title: Plotting
-description: Publication-grade survival visualisation, with one style switch and a small set of opinionated defaults.
+description: Plot functions for survival analysis, their return values and the conventions they share.
 sidebar:
   order: 0
 ---
 
-`tausurv.plot` is a complete plotting toolkit for survival analysis. Every
-function returns a `Display` dataclass holding the figure, axes, and the
-artist handles it created, so a one-line call gets you a publication-grade
-figure and a full `matplotlib` escape hatch is always one attribute access
-away.
+`tausurv.plot` draws the figures of a survival analysis with matplotlib.
+Every function returns a `Display` dataclass holding the figure, the axes and
+the artists it created, so the figure can be changed afterwards with plain
+matplotlib.
 
 ## What's in the module
 
@@ -26,40 +25,37 @@ away.
 | Copula diagnostics | `ts.plot.copula.contour` etc. | Joint CDF, density, samples |
 | SHAP for survival | `ts.plot.shap.curves` etc. | Time-varying feature attributions |
 
-## Three layers of API
+## Levels of use
 
-Every plot supports three usage levels, with consistent parameter names:
+Every plot can be used at three levels, with the same parameter names:
 
-1. **One call.** `ts.plot.km(t, e, group=arm)`. Returns a `Display`. Looks
-   good on defaults.
-2. **`Display` object.** The return value carries `.fig`, `.ax`, plus
-   plot-specific handles (`.lines`, `.ci_polys`, `.at_risk_ax`, ...) for
-   selective tweaking.
-3. **Direct matplotlib.** Access `.ax`, do anything matplotlib supports.
-   No wrapper hell.
+1. One call: `ts.plot.km(event_time, event_indicator, group=arm)` draws the
+   figure and returns a `Display`.
+2. The `Display`: it carries `.fig`, `.ax` and plot-specific handles
+   (`.lines`, `.ci_polys`, `.at_risk_ax`, ...) for changing single elements.
+3. Matplotlib: `.ax` is an ordinary `Axes`.
 
-## What every plot honours
+## Shared conventions
 
-- **Returns a `<Name>Display` dataclass**, never a raw `Axes`.
-- **Standard parameter names**: `ax`, `ci`, `ci_level`, `legend`, `xlabel`,
+- Each function returns a `<Name>Display` dataclass, never a raw `Axes`.
+- Standard parameter names: `ax`, `ci`, `ci_level`, `legend`, `xlabel`,
   `ylabel`, `title`, `color`, `label`. Same defaults across plots.
-- **Comparison axis**: `group=` for splitting raw subject data;
+- Comparisons: `group=` for splitting raw subject data;
   `models=` for precomputed per-model overlays; a `(n_estimates, n_times)`
   `values` array for a mean and spread band over folds, resamples or runs.
-- **Visual constants**:
+- Visual constants:
   CI bands at `alpha=0.18`, no edge, colour matched to the line.
   Reference lines at `#888888`, dashed, `lw=0.6`, `alpha=0.6`.
   Survival step plots use `where="post"`.
   Legends are frameless.
-- **Style**: every plot picks up the active `rcParams`. Apply
+- Style: every plot picks up the active `rcParams`. Apply
   `ts.plot.set_style("publication")` once at the top of an analysis;
   plots never touch the style themselves.
-- **No hidden dependencies on `matplotlib`**: `import tausurv` does not
-  load it. Matplotlib loads lazily when the first plotting function is
+- Lazy import: `import tausurv` does not load matplotlib. Matplotlib loads lazily when the first plotting function is
   called.
 
-## Next steps
+## Pages in this section
 
-- [Gallery](/plotting/gallery) — every plot, one figure, one minimal snippet.
-- [Styling](/plotting/styling) — the four named styles, palette choices,
+- [Gallery](/plotting/gallery): every plot, with the minimal code that draws it.
+- [Styling](/plotting/styling): the four named styles, palette choices,
   font fallbacks, and how to override.
