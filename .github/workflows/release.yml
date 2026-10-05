@@ -1,0 +1,186 @@
+name: release
+
+# Pushing a tag vX.Y.Z builds, tests and publishes that version: TestPyPI
+# first, then PyPI after approval in the `pypi` environment, then a GitHub
+# Release. Running the workflow by hand is a dry run that stops at TestPyPI.
+#
+# Actions are pinned to commit hashes and nothing is cached: a release is
+# built from the tagged source alone. Dependabot keeps the pins current.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Tag matches the package version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          version=$(python3 -c "import tomllib; print(tomllib.load(open('tausurv/pyproject.toml', 'rb'))['project']['version'])")
+          if [ "${GITHUB_REF_NAME#v}" != "$version" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match version $version in tausurv/pyproject.toml"
+            exit 1
+          fi
+
+  wheels:
+    name: wheel ${{ matrix.platform }}-${{ matrix.target }}
+    needs: check-version
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: linux, os: ubuntu-latest, target: x86_64, manylinux: auto }
+          - { platform: linux, os: ubuntu-24.04-arm, target: aarch64, manylinux: auto }
+          - { platform: musllinux, os: ubuntu-latest, target: x86_64, manylinux: musllinux_1_2 }
+          - { platform: musllinux, os: ubuntu-24.04-arm, target: aarch64, manylinux: musllinux_1_2 }
+          - { platform: macos, os: macos-latest, target: aarch64 }
+          - { platform: macos, os: macos-latest, target: x86_64 }
+          - { platform: windows, os: windows-latest, target: x64 }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
+        with:
+          working-directory: tausurv
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.manylinux }}
+          args: --release --out dist
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist-${{ matrix.platform }}-${{ matrix.target }}
+          path: tausurv/dist
+
+  sdist:
+    needs: check-version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
+        with:
+          working-directory: tausurv
+          command: sdist
+          args: --out dist
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Build and import from the sdist
+        run: |
+          python -m pip install tausurv/dist/*.tar.gz
+          cd "$RUNNER_TEMP" && python -c "import tausurv; print(tausurv.__version__)"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist-sdist
+          path: tausurv/dist
+
+  # The tests run against the built wheels, not the source tree. macOS and
+  # Windows wheels are built and published but not yet tested here.
+  test:
+    name: test ${{ matrix.platform }}-${{ matrix.target }} py${{ matrix.python }}
+    needs: wheels
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: linux, os: ubuntu-latest, target: x86_64, python: "3.12" }
+          - { platform: linux, os: ubuntu-latest, target: x86_64, python: "3.13" }
+          - { platform: linux, os: ubuntu-24.04-arm, target: aarch64, python: "3.12" }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist-${{ matrix.platform }}-${{ matrix.target }}
+          path: dist
+      - name: Install the wheel and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "$(ls dist/*.whl)[plot,boost,tune,deepsurv]" pytest
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Tests import the installed wheel, not the source tree
+        run: python -c "import tausurv; assert 'site-packages' in tausurv.__file__, tausurv.__file__"
+      - name: Run the test suite
+        run: pytest -p no:cacheprovider
+
+  publish-testpypi:
+    needs: [sdist, test]
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/tausurv
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          # A dry run may already have uploaded this version.
+          skip-existing: true
+
+  publish-pypi:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: publish-testpypi
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/tausurv
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+
+  github-release:
+    needs: publish-pypi
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+      - name: Create the release with generated notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            --verify-tag
