@@ -8,8 +8,9 @@
     "figures": "uv run --group docs python scripts/build_figures.py",
     "tutorials": "uv run --group docs python scripts/build_tutorials.py",
     "plotting": "uv run --group docs python scripts/build_tutorials.py plotting",
-    "dev": "npm run api && npm run figures && npm run tutorials && npm run plotting && astro dev",
-    "build": "npm run api && npm run figures && npm run tutorials && npm run plotting && astro build",
+    "how-to": "uv run --group docs python scripts/build_tutorials.py how-to",
+    "dev": "npm run api && npm run figures && npm run tutorials && npm run plotting && npm run how-to && astro dev",
+    "build": "npm run api && npm run figures && npm run tutorials && npm run plotting && npm run how-to && astro build",
     "preview": "astro preview",
     "astro": "astro"
   },

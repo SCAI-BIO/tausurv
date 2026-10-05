@@ -4,5 +4,8 @@ dist/
 src/content/docs/api/tausurv/
 src/content/docs/tutorials/*.mdx
 !src/content/docs/tutorials/index.mdx
+src/content/docs/how-to/*.mdx
+!src/content/docs/how-to/index.mdx
 public/figures/
 public/tutorials/
+public/how-to/

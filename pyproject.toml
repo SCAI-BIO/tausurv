@@ -57,6 +57,7 @@ extend-ignore-names = [
 # (per-cell imports, bare last expressions as Jupyter display values, long
 # markdown-cell prose) that PEP 8 / pyflakes-style rules don't apply to.
 "docs/tutorials/*.py" = ["E501", "E402", "I001", "B018"]
+"docs/how-to/*.py" = ["E501", "E402", "I001", "B018"]
 
 [tool.pytest.ini_options]
 testpaths = ["tausurv/tests"]
