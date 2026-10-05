@@ -43,22 +43,65 @@ cox.predict_survival_function(covariates[:3], [1.0, 5.0, 10.0])
 
 ## What's included
 
-- **Nonparametric:** Kaplan-Meier, Nelson-Aalen, Aalen-Johansen, censoring
-  distribution.
-- **Regression:** Cox proportional hazards, Fine-Gray, Weibull, log-normal and
-  log-logistic AFT.
-- **Trees:** survival tree, random survival forest, gradient-boosted
-  `SurvivalBoost`.
-- **Neural:** DeepSurv, DeepHit, DSM, logistic hazard, copula-based and
-  HACSurv models.
-- **Metrics:** Harrell's, Uno's and Antolini's C-index, Brier score and
-  integrated Brier score, time-dependent AUC, calibration.
-- **Model selection:** survival-aware splits, cross-validation,
-  hyperparameter tuning and nested cross-validation.
-- **Plotting:** survival and cumulative-incidence curves with at-risk tables,
-  forest plots, calibration, metrics over time.
-- **Datasets:** about 100 published cohorts that download on first use and
-  are verified against a pinned checksum.
+|  | tausurv | scikit-survival | lifelines | pycox | hazardous |
+|---|:---:|:---:|:---:|:---:|:---:|
+| **Nonparametric** |  |  |  |  |  |
+| Kaplan-Meier | ✓ | ✓ | ✓ |  |  |
+| Nelson-Aalen | ✓ | ✓ | ✓ |  |  |
+| Aalen-Johansen | ✓ | ✓ | ✓ |  |  |
+| Left truncation (delayed entry) |  | ✓ | ✓ |  |  |
+| Log-rank test |  | ✓ | ✓ |  |  |
+| Parametric univariate fits |  |  | ✓ |  |  |
+| **Regression** |  |  |  |  |  |
+| Cox proportional hazards | ✓ | ✓ | ✓ |  |  |
+| Penalized Cox (L1, L2, elastic net) |  | ✓ | ✓ |  |  |
+| Time-varying covariates |  |  | ✓ |  |  |
+| Proportional-hazards test |  |  | ✓ |  |  |
+| AFT (Weibull, log-normal, log-logistic) | ✓ |  | ✓ |  |  |
+| Aalen additive hazards |  |  | ✓ |  |  |
+| Fine-Gray | ✓ |  |  |  |  |
+| **Trees and boosting** |  |  |  |  |  |
+| Survival tree | ✓ | ✓ |  |  |  |
+| Random survival forest | ✓ | ✓ |  |  |  |
+| Gradient boosting | ✓ | ✓ |  |  | ✓ |
+| Competing-risks gradient boosting | ✓ |  |  |  | ✓ |
+| Survival support vector machine |  | ✓ |  |  |  |
+| **Neural networks** |  |  |  |  |  |
+| DeepSurv | ✓ |  |  | ✓ |  |
+| DeepHit, with competing risks | ✓ |  |  | ✓ |  |
+| Logistic hazard | ✓ |  |  | ✓ |  |
+| Cox-Time, MTLR, PC-Hazard |  |  |  | ✓ |  |
+| Deep survival machines | ✓ |  |  |  |  |
+| CopulaSurv (dependent censoring) | ✓ |  |  |  |  |
+| HACSurv (dependent competing risks) | ✓ |  |  |  |  |
+| **Discrimination** |  |  |  |  |  |
+| Harrell's concordance | ✓ | ✓ | ✓ |  |  |
+| Uno's concordance (IPCW) | ✓ | ✓ |  |  |  |
+| Antolini's time-dependent concordance | ✓ |  |  | ✓ |  |
+| Time-dependent AUC | ✓ | ✓ |  |  |  |
+| **Prediction error and calibration** |  |  |  |  |  |
+| Brier score (IPCW) | ✓ | ✓ |  | ✓ | ✓ |
+| Integrated Brier score | ✓ | ✓ |  | ✓ | ✓ |
+| Censored negative log-likelihood | ✓ |  |  |  |  |
+| CRPS | ✓ |  |  |  |  |
+| Calibration curve | ✓ |  | ✓ |  | ✓ |
+| D-calibration | ✓ |  |  |  |  |
+| **Competing-risks metrics** |  |  |  |  |  |
+| Cause-specific concordance | ✓ |  |  |  | ✓ |
+| Cause-specific Brier score | ✓ |  |  |  | ✓ |
+| Cause-specific AUC | ✓ |  |  |  |  |
+| Cause-specific calibration | ✓ |  |  |  | ✓ |
+| **Workflow** |  |  |  |  |  |
+| Survival-aware cross-validation and tuning | ✓ | partly |  |  |  |
+| Nested cross-validation | ✓ |  |  |  |  |
+| Save and load fitted models | partly | ✓ | ✓ | ✓ | ✓ |
+| Bundled datasets | ✓ | ✓ | ✓ | ✓ |  |
+| Survival curves with at-risk tables | ✓ |  | ✓ |  |  |
+| Time-dependent SHAP plots | ✓ |  |  |  |  |
+
+Checked against scikit-survival 0.27.0, lifelines 0.30.3, pycox 0.3.0 and
+hazardous 0.2.0. The [full comparison](https://scai-bio.github.io/tausurv/comparison/)
+explains the partial cells.
 
 ## Development
 

@@ -1,0 +1,23 @@
+---
+title: Comparison
+description: What tausurv covers next to scikit-survival, lifelines, pycox and hazardous.
+tableOfContents: false
+---
+
+import FeatureComparison from "../../components/FeatureComparison.astro";
+
+tausurv puts classical, tree-based and neural survival models behind one
+predictor interface, so every model is fitted, predicted and scored the same
+way, competing risks included. The table shows where that coverage overlaps
+with the established Python libraries and where it falls short. For
+penalized Cox, time-varying covariates, left truncation and hypothesis
+tests, lifelines and scikit-survival remain the better choice today.
+
+<FeatureComparison />
+
+A cell is filled when the library ships a public class or function for
+exactly that feature. A subset (a ridge-only AFT), a workaround (Kaplan-Meier
+on the inverted event flag) or a neural stand-in for a classical model does
+not count. Checked on 2026-10-05 against scikit-survival 0.27.0, lifelines
+0.30.3, pycox 0.3.0 and hazardous 0.2.0. If a cell is wrong,
+[open an issue](https://github.com/SCAI-BIO/tausurv/issues).

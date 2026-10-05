@@ -1,0 +1,252 @@
+---
+// A cell is "partial" when the library covers the row only in part; the
+// row's note says how.
+type Cell = "yes" | "partial" | "no";
+type Row = { label: string; cells: [Cell, Cell, Cell, Cell, Cell]; note?: string };
+type Group = { title: string; rows: Row[] };
+
+const libraries = ["tausurv", "scikit-survival", "lifelines", "pycox", "hazardous"];
+
+const groups: Group[] = [
+  {
+    title: "Nonparametric",
+    rows: [
+      { label: "Kaplan-Meier", cells: ["yes", "yes", "yes", "no", "no"] },
+      { label: "Nelson-Aalen", cells: ["yes", "yes", "yes", "no", "no"] },
+      { label: "Aalen-Johansen", cells: ["yes", "yes", "yes", "no", "no"] },
+      { label: "Left truncation (delayed entry)", cells: ["no", "yes", "yes", "no", "no"] },
+      { label: "Log-rank test", cells: ["no", "yes", "yes", "no", "no"] },
+      { label: "Parametric univariate fits", cells: ["no", "no", "yes", "no", "no"] },
+    ],
+  },
+  {
+    title: "Regression",
+    rows: [
+      { label: "Cox proportional hazards", cells: ["yes", "yes", "yes", "no", "no"] },
+      { label: "Penalized Cox (L1, L2, elastic net)", cells: ["no", "yes", "yes", "no", "no"] },
+      { label: "Time-varying covariates", cells: ["no", "no", "yes", "no", "no"] },
+      { label: "Proportional-hazards test", cells: ["no", "no", "yes", "no", "no"] },
+      { label: "AFT (Weibull, log-normal, log-logistic)", cells: ["yes", "no", "yes", "no", "no"] },
+      { label: "Aalen additive hazards", cells: ["no", "no", "yes", "no", "no"] },
+      { label: "Fine-Gray", cells: ["yes", "no", "no", "no", "no"] },
+    ],
+  },
+  {
+    title: "Trees and boosting",
+    rows: [
+      { label: "Survival tree", cells: ["yes", "yes", "no", "no", "no"] },
+      { label: "Random survival forest", cells: ["yes", "yes", "no", "no", "no"] },
+      { label: "Gradient boosting", cells: ["yes", "yes", "no", "no", "yes"] },
+      { label: "Competing-risks gradient boosting", cells: ["yes", "no", "no", "no", "yes"] },
+      { label: "Survival support vector machine", cells: ["no", "yes", "no", "no", "no"] },
+    ],
+  },
+  {
+    title: "Neural networks",
+    rows: [
+      { label: "DeepSurv", cells: ["yes", "no", "no", "yes", "no"] },
+      { label: "DeepHit, with competing risks", cells: ["yes", "no", "no", "yes", "no"] },
+      { label: "Logistic hazard", cells: ["yes", "no", "no", "yes", "no"] },
+      { label: "Cox-Time, MTLR, PC-Hazard", cells: ["no", "no", "no", "yes", "no"] },
+      { label: "Deep survival machines", cells: ["yes", "no", "no", "no", "no"] },
+      { label: "CopulaSurv (dependent censoring)", cells: ["yes", "no", "no", "no", "no"] },
+      { label: "HACSurv (dependent competing risks)", cells: ["yes", "no", "no", "no", "no"] },
+    ],
+  },
+  {
+    title: "Discrimination",
+    rows: [
+      { label: "Harrell's concordance", cells: ["yes", "yes", "yes", "no", "no"] },
+      { label: "Uno's concordance (IPCW)", cells: ["yes", "yes", "no", "no", "no"] },
+      { label: "Antolini's time-dependent concordance", cells: ["yes", "no", "no", "yes", "no"] },
+      { label: "Time-dependent AUC", cells: ["yes", "yes", "no", "no", "no"] },
+    ],
+  },
+  {
+    title: "Prediction error and calibration",
+    rows: [
+      { label: "Brier score (IPCW)", cells: ["yes", "yes", "no", "yes", "yes"] },
+      { label: "Integrated Brier score", cells: ["yes", "yes", "no", "yes", "yes"] },
+      {
+        label: "Censored negative log-likelihood",
+        cells: ["yes", "no", "no", "no", "no"],
+        note: "pycox's nbll is the IPCW binomial log-likelihood, a Brier-type score, not the model likelihood.",
+      },
+      { label: "CRPS", cells: ["yes", "no", "no", "no", "no"] },
+      { label: "Calibration curve", cells: ["yes", "no", "yes", "no", "yes"] },
+      { label: "D-calibration", cells: ["yes", "no", "no", "no", "no"] },
+    ],
+  },
+  {
+    title: "Competing-risks metrics",
+    rows: [
+      { label: "Cause-specific concordance", cells: ["yes", "no", "no", "no", "yes"] },
+      { label: "Cause-specific Brier score", cells: ["yes", "no", "no", "no", "yes"] },
+      { label: "Cause-specific AUC", cells: ["yes", "no", "no", "no", "no"] },
+      { label: "Cause-specific calibration", cells: ["yes", "no", "no", "no", "yes"] },
+    ],
+  },
+  {
+    title: "Workflow",
+    rows: [
+      {
+        label: "Survival-aware cross-validation and tuning",
+        cells: ["yes", "partial", "no", "no", "no"],
+        note: "scikit-survival ships scorers for scikit-learn's search tools, without survival-specific folds or nested cross-validation.",
+      },
+      { label: "Nested cross-validation", cells: ["yes", "no", "no", "no", "no"] },
+      {
+        label: "Save and load fitted models",
+        cells: ["partial", "yes", "yes", "yes", "yes"],
+        note: "tausurv saves linear and neural models. SurvivalBoost pickles but has no save method; survival trees and forests can be neither saved nor pickled yet.",
+      },
+      {
+        label: "Bundled datasets",
+        cells: ["yes", "yes", "yes", "yes", "no"],
+        note: "tausurv bundles 100 published cohorts, each verified against a pinned checksum.",
+      },
+      { label: "Survival curves with at-risk tables", cells: ["yes", "no", "yes", "no", "no"] },
+      {
+        label: "Time-dependent SHAP plots",
+        cells: ["yes", "no", "no", "no", "no"],
+        note: "tausurv plots SurvSHAP(t) values; computing them needs a SHAP library.",
+      },
+    ],
+  },
+];
+
+const notes = groups.flatMap((g) => g.rows).filter((r) => r.note).map((r) => r.note!);
+const noteNumber = (note: string) => notes.indexOf(note) + 1;
+const cellText: Record<Cell, string> = { yes: "Yes", partial: "Partly", no: "No" };
+---
+
+<div class="comparison not-content">
+  <table>
+    <thead>
+      <tr>
+        <th scope="col"><span class="sr-only">Feature</span></th>
+        {libraries.map((lib, i) => <th scope="col" class:list={{ ours: i === 0 }}>{lib}</th>)}
+      </tr>
+    </thead>
+    {groups.map((group) => (
+      <tbody>
+        <tr class="group">
+          <th scope="rowgroup" colspan={libraries.length + 1}>{group.title}</th>
+        </tr>
+        {group.rows.map((row) => (
+          <tr>
+            <th scope="row">
+              {row.label}
+              {row.note && <sup>{noteNumber(row.note)}</sup>}
+            </th>
+            {row.cells.map((cell, i) => (
+              <td class:list={{ ours: i === 0 }}>
+                <span class:list={["mark", cell]} aria-hidden="true" />
+                <span class="sr-only">{cellText[cell]}</span>
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    ))}
+  </table>
+</div>
+
+<ol class="comparison-notes">
+  {notes.map((note) => <li>{note}</li>)}
+</ol>
+
+<style>
+  .comparison {
+    overflow-x: auto;
+    margin-block: 1.5rem 1rem;
+  }
+  table {
+    width: 100%;
+    min-width: 36rem;
+    border-collapse: collapse;
+    font-size: var(--sl-text-sm);
+  }
+  thead th {
+    padding: 0.75rem 0.5rem;
+    font-weight: 500;
+    color: var(--sl-color-gray-2);
+    line-height: 1.25;
+    text-align: center;
+    vertical-align: bottom;
+  }
+  thead th.ours {
+    color: var(--sl-color-accent-high);
+    font-weight: 700;
+    border-radius: 0.5rem 0.5rem 0 0;
+  }
+  .ours {
+    background: var(--sl-color-accent-low);
+  }
+  tr.group th {
+    padding: 1.25rem 0 0.4rem;
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-align: left;
+    color: var(--sl-color-gray-3);
+    border-bottom: 1px solid var(--sl-color-hairline);
+  }
+  tbody tr:not(.group) th {
+    padding: 0.45rem 1rem 0.45rem 0;
+    font-weight: 400;
+    text-align: left;
+    color: var(--sl-color-white);
+  }
+  tbody tr:not(.group) + tr:not(.group) > * {
+    border-top: 1px solid var(--sl-color-hairline-light);
+  }
+  td {
+    width: 5rem;
+    text-align: center;
+  }
+  sup {
+    margin-left: 0.15rem;
+    color: var(--sl-color-gray-3);
+  }
+  .mark {
+    display: inline-block;
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 50%;
+    vertical-align: middle;
+  }
+  .mark.yes {
+    background: var(--sl-color-white);
+  }
+  .ours .mark.yes {
+    background: var(--sl-color-accent);
+  }
+  .mark.partial {
+    border: 2px solid var(--sl-color-gray-2);
+    background: linear-gradient(90deg, var(--sl-color-gray-2) 50%, transparent 50%);
+  }
+  .ours .mark.partial {
+    border-color: var(--sl-color-accent);
+    background: linear-gradient(90deg, var(--sl-color-accent) 50%, transparent 50%);
+  }
+  .mark.no {
+    width: 0.6rem;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--sl-color-gray-5);
+  }
+  .comparison-notes {
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+</style>
