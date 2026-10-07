@@ -392,7 +392,9 @@ class CauseSpecificPredictor(CompetingRisksPredictor):
         # small risk sets) and rescale per-cause increments to match so
         # sum_k dLam_k equals the clipped total.
         dLam_raw = dLam_k.sum(axis=1)  # (n, m)
-        scale = np.where(dLam_raw > 1.0, 1.0 / dLam_raw, 1.0)  # (n, m)
+        scale = np.divide(
+            1.0, dLam_raw, out=np.ones_like(dLam_raw), where=(dLam_raw > 1.0)
+        )  # (n, m)
         dLam_k = dLam_k * scale[:, None, :]
         dLam = np.clip(dLam_raw, 0.0, 1.0)  # (n, m)
 
