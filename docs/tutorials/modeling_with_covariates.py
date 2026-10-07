@@ -15,7 +15,7 @@
 # %% [markdown]
 # # Modeling risk with covariates
 #
-# In the previous tutorial Kaplan-Meier curves gave us a visual reading of survival in the PBC cohort, but they could only handle one categorical covariate at a time and gave no single-number summary of effect size. This tutorial fits a Cox proportional-hazards model on the same cohort. The Cox model adjusts for several covariates simultaneously, returns a hazard ratio per covariate, and predicts a full survival curve for any patient profile. We end by evaluating the fit on a held-out test split with two complementary checks: calibration at a fixed horizon and the Brier score over time.
+# Kaplan-Meier curves split the cohort by one categorical covariate at a time and give no single number for an effect. A Cox proportional-hazards model adjusts for several covariates at once, gives a hazard ratio per covariate and predicts a survival curve for any covariate profile. Here it is fitted to the PBC cohort, explained with SHAP values, and evaluated on held-out patients by calibration at five years and the Brier score over time.
 
 # %% [markdown]
 # ## Set up
@@ -35,7 +35,7 @@ ts.plot.set_style("publication")
 # %% [markdown]
 # ## Looking at the cohort with polars
 #
-# `ts.datasets.load_pbc` returns a `SurvivalBunch` that tuple-unpacks as `(X, Y, delta)`. The covariates live in a polars `DataFrame`, which has its own inspection idioms. We use them rather than printing summary statistics by hand.
+# `ts.datasets.load_pbc` returns a `SurvivalBunch` that tuple-unpacks as `(X, Y, delta)`, with the covariates in a polars `DataFrame`.
 
 # %%
 pbc = ts.datasets.load_pbc()
@@ -51,7 +51,7 @@ X.head()
 X.null_count()
 
 # %% [markdown]
-# Treatment arm (`trt`) is missing for the 106 non-randomised follow-up patients. Several lab measurements (`chol`, `copper`, `alk.phos`, `ast`, `trig`, `platelet`, `protime`) are missing for a handful of patients. We will pick five covariates with clinical importance and low missingness: **age**, **sex**, **stage** (histologic stage), **bili** (bilirubin) and **albumin**.
+# Treatment arm (`trt`) is missing for the 106 non-randomised follow-up patients. Several lab measurements (`chol`, `copper`, `alk.phos`, `ast`, `trig`, `platelet`, `protime`) are missing for a handful of patients. The model uses five covariates that are clinically important and rarely missing: `age`, `sex`, `stage` (histologic stage), `bili` (bilirubin, mg/dL) and `albumin` (g/dL).
 
 # %%
 keep = ["age", "sex", "stage", "bili", "albumin"]
@@ -60,7 +60,7 @@ X.select(keep).describe()
 # %% [markdown]
 # ## Preparing the covariates
 #
-# `polars` carries us most of the way: select the kept columns with their row index, drop rows where any are missing, encode `sex` as a `0/1` indicator, and convert to NumPy at the boundary. Tracking the row index lets us subset `Y` and `delta` to match.
+# Select the five columns with their row index, drop rows with a missing value, encode `sex` as a `0/1` indicator and convert to NumPy. The row index subsets `Y` and `delta` to the same rows.
 
 # %%
 df = pbc.X.select(keep).with_row_index("_row").drop_nulls()
@@ -82,7 +82,7 @@ feature_names = list(df.columns)
 print(f"{len(Y_kept)} patients kept ({len(Y) - len(Y_kept)} dropped for missingness)")
 
 # %% [markdown]
-# A 70/30 train/test split lets us evaluate the fitted model on patients it has not seen. PBC is small, so the absolute numbers are modest; the goal is to keep the evaluation honest rather than to claim a definitive benchmark.
+# A 70/30 train/test split keeps patients aside for evaluation. With 412 patients the test set is small, so the evaluation scores below are imprecise.
 
 # %%
 rng = np.random.default_rng(seed=42)
@@ -109,7 +109,7 @@ cox = ts.linear.CoxPH().fit(X_train, Y_train, d_train)
 # %% [markdown]
 # ## Reading the coefficients
 #
-# Hazard ratios ($\exp(\hat\beta)$) are more interpretable than log-hazards. A polars table is a clean way to display them; the forest plot is the visual counterpart.
+# Hazard ratios $\exp(\hat\beta)$ are read on the scale of the hazard, log-hazard coefficients are not. The table lists both; the forest plot shows the hazard ratios with confidence intervals.
 
 # %%
 coefs = pl.DataFrame(
@@ -130,7 +130,7 @@ ts.plot.forest(
 )
 
 # %% [markdown]
-# Reading the strongest effects, every additional unit of **bilirubin** (mg/dL) multiplies the hazard of death by roughly the bilirubin HR shown, holding the other covariates fixed; every step up in **histologic stage** does the same on its own scale; every additional year of **age** is a small multiplier. **Albumin** sits on the other side of one — higher serum albumin is associated with lower mortality, as a marker of preserved liver synthetic function.
+# Holding the other covariates fixed, each step up in histologic stage multiplies the hazard of death by 1.58, each additional mg/dL of bilirubin by 1.14 and each year of age by 1.03; male sex has a hazard ratio of 1.38. Albumin is the one protective covariate: each additional g/dL multiplies the hazard by 0.35, consistent with albumin as a marker of preserved liver function. Hazard ratios per unit are not comparable across covariates measured in different units.
 #
 # The bars are Wald 95% intervals from the inverse observed information at $\hat\beta$, exponentiated onto the hazard-ratio scale.
 
@@ -159,12 +159,12 @@ for label, s in zip(profiles, S_profiles, strict=True):
 ax.set_xlabel("years from registration")
 
 # %% [markdown]
-# The early-stage profile sits high throughout follow-up; the late-stage profile drops below 0.5 inside a few years. This is the model's projection for two hypothetical patients with identical clinical context except for the five covariates the model was fitted on.
+# The early-stage profile keeps a predicted survival of 0.83 at twelve years. The advanced profile falls to 0.51 at two years and 0.05 at five.
 
 # %% [markdown]
 # ## Why is the advanced profile so high-risk?
 #
-# A hazard ratio tells us how much each feature multiplies the hazard, but it does not say which features drive the gap between a *particular* patient's predicted survival and the cohort average. **SurvSHAP(t)** (Krzyzinski et al. 2023) decomposes that gap into per-feature contributions at every time point. For Cox with five features, the exact Shapley values are cheap to compute by brute force over feature subsets.
+# A hazard ratio is a per-unit effect and does not say which covariates account for the gap between one patient's predicted survival and that of a reference patient. SurvSHAP(t) (Krzyzinski et al. 2023) splits that gap into one contribution per covariate at each time. With five covariates, the exact Shapley values take $2^5 = 32$ predictions.
 
 # %%
 from itertools import combinations, product
@@ -206,14 +206,14 @@ ts.plot.shap.local_decomposition(
 )
 
 # %% [markdown]
-# Two panels share a time axis. The top panel shows the dashed baseline survival (a hypothetical patient with the cohort-mean covariates) and the solid prediction for the advanced-PBC profile; the vertical gap between them *is* the total SHAP effect on survival. The bottom panel decomposes that gap into per-feature contributions: positive contributions stack upward from zero, negative downward.
+# The top panel shows the predicted survival of a reference patient with the training-set mean covariates (dashed) and of the advanced profile (solid); the vertical gap between them is the sum of the SHAP values. The bottom panel splits that gap by covariate, with positive contributions stacked upward from zero and negative ones downward.
 #
-# Stage and bilirubin dominate the downward shift, and they do so most strongly at the intermediate horizons where the baseline survival has the most room to fall. Age contributes a smaller decrement; albumin (low at 2.8 vs the cohort mean) and sex play minor roles. For Cox the Shapley loop is exact and fast; for larger feature sets or nonlinear models you would precompute SHAP arrays with an explainer of your choice (`shap`, `survshap`, ...) and pass them to the same plot.
+# All four clinical covariates lower the advanced profile's survival, most strongly at about 4.5 years. Albumin contributes most (up to 0.22 in survival probability; 2.8 g/dL against a mean of 3.5), followed by bilirubin (0.20), age (0.16) and stage (0.14); sex contributes almost nothing (0.01), since both the profile and most of the cohort are female. For more covariates or a nonlinear model, compute the SHAP array with another explainer (`shap`, `survshap`) and pass it to the same plot.
 
 # %% [markdown]
 # ## Across the cohort: which features matter when?
 #
-# The local decomposition explains one patient. To see whether that pattern generalises — which features dominate across the training cohort and at which horizons — we compute SHAP for every training subject and aggregate. The Shapley sum is the same as above, but vectorised: precompute the survival prediction under each of the $2^d = 32$ feature-subset configurations once for the full cohort, then assemble per-feature contributions from those matrices.
+# The same computation for every training patient shows which covariates matter across the cohort and at which times. The code predicts survival under each of the 32 covariate subsets once for the whole training set, then combines the predictions as above.
 
 # %%
 subset_S = {}
@@ -242,12 +242,12 @@ ts.plot.shap.feature_time_heatmap(
 )
 
 # %% [markdown]
-# Rows are features, columns are time, cell brightness is the mean absolute SHAP across training subjects at that (feature, time). Bilirubin and stage dominate the cohort-wide picture, with attribution peaking in the 2-5 year range where the baseline survival curve has the most room to move. Age, albumin and sex play more modest roles, and their attribution is more uniform across time. The pattern confirms that the local decomposition above was not idiosyncratic to one patient: the same two features drive most of the variation in predicted survival across the cohort.
+# Rows are covariates, columns are times, and each cell is the mean absolute SHAP value over training patients. Bilirubin and albumin carry the most attribution (maximum mean absolute value 0.10 each), followed by stage (0.09) and age (0.07), with sex far behind (0.02). Attribution grows with time and peaks at nine to ten years for every covariate, later than for the single advanced profile, whose predicted survival is near zero by then.
 
 # %% [markdown]
 # ## How well does the model fit?
 #
-# Two complementary checks on the held-out test set. **Calibration** at a fixed horizon asks whether predicted survival probabilities are right on average within bins of predicted risk. **Brier over time** scores discrimination plus calibration jointly at each horizon, against a perfect-prediction baseline of zero.
+# Calibration at a fixed time checks whether predicted survival probabilities agree with observed survival within groups of similar predictions. The Brier score at each time measures discrimination and calibration together; a perfect prediction scores zero.
 
 # %%
 eval_grid = np.linspace(0.1, 12.0, 200)
@@ -273,7 +273,7 @@ ts.plot.calibration(
 # Each point is one of five quantile bins of predicted five-year survival; its x-coordinate is the bin's mean prediction and its y-coordinate is the Kaplan-Meier estimate of survival at five years among the bin's test patients. A perfectly calibrated model would have all points on the dashed identity line.
 
 # %% [markdown]
-# A single test split gives one point estimate of the Brier score at each horizon. With a cohort this size, that estimate is noisy. **5-fold cross-validation** refits the model on each held-out 80% and scores the remaining 20%, giving five estimates per horizon. Passing the resulting `(n_folds, n_horizons)` matrix to `ts.plot.brier_over_time` as `values` draws the mean as the line and a $\pm 1$ standard-deviation band around it.
+# One test split gives one noisy estimate of the Brier score at each time. Five-fold cross-validation fits the model on 80% of the patients and scores the remaining 20%, five times, giving five estimates per time. Passing the resulting `(n_folds, n_horizons)` matrix to `ts.plot.brier_over_time` as `values` draws the mean as the line and a $\pm 1$ standard-deviation band around it.
 
 # %%
 horizons = np.array([1.0, 2.0, 3.0, 5.0, 7.0, 10.0])
@@ -296,17 +296,15 @@ ts.plot.brier_over_time(
 )
 
 # %% [markdown]
-# Lower is better. The Brier score combines discrimination (does the model rank patients correctly) and calibration (are the absolute probabilities right) into one number per horizon; integrated over a window it becomes the Integrated Brier Score (IBS), available as `ts.metrics.brier.integrated`. The band's width is the cross-fold standard deviation; it widens at later horizons where fewer patients remain at risk and the per-fold estimates diverge more.
+# Lower is better. The Brier score combines discrimination (does the model rank patients correctly) and calibration (are the absolute probabilities right) into one number per horizon; integrated over a window it becomes the Integrated Brier Score (IBS), available as `ts.metrics.brier.integrated`. The mean Brier score rises from 0.05 at one year to 0.16 at ten, and the band shows one standard deviation across the five folds.
 
 # %% [markdown]
-# ## Caveats and where to go from here
+# ## Limitations
 #
-# What this tutorial demonstrates and what it deliberately does not.
-#
-# - **Proportional hazards.** The Cox model assumes the hazard ratio for each covariate is constant over time. PBC arguably violates this for bilirubin and stage at long follow-up; a check based on Schoenfeld residuals is not covered here.
-# - **Competing risks.** Liver transplant was treated as censoring in the single-event recoding. That is the standard simplification, but it conflates "we stopped watching" with "the patient received a transplant, which changes their prognosis." The [competing-risks tutorial](/tutorials/competing-risks/) revisits this using `ts.linear.FineGray` and the cause-specific cumulative incidence.
-# - **Evaluation.** The 70/30 split here is the simplest possible. A reporting pipeline uses repeated cross-validation, bootstraps the calibration curves, and reports the integrated Brier score and time-dependent AUC alongside the Brier score. [Cross-validate and tune a model](/how-to/cross-validation-and-tuning/) covers the cross-validation part.
-# - **Causal interpretation.** A hazard ratio is a population summary, not a causal effect of changing a covariate. The separate `causurv` package covers what additional assumptions are needed before HRs become causal contrasts and why RMST differences are often a cleaner target.
+# - Proportional hazards: The Cox model assumes the hazard ratio for each covariate is constant over time. PBC may violate this for bilirubin and stage at long follow-up; a check based on Schoenfeld residuals is not covered here.
+# - Competing risks: Liver transplant was treated as censoring in the single-event recoding. That is the standard simplification, but it conflates "we stopped watching" with "the patient received a transplant, which changes their prognosis." The [competing-risks tutorial](/tutorials/competing-risks/) revisits this using `ts.linear.FineGray` and the cause-specific cumulative incidence.
+# - Evaluation: The 70/30 split here is the simplest possible. A reporting pipeline uses repeated cross-validation, bootstraps the calibration curves, and reports the integrated Brier score and time-dependent AUC alongside the Brier score. [Cross-validate and tune a model](/how-to/cross-validation-and-tuning/) covers the cross-validation part.
+# - Causal interpretation: A hazard ratio is a population summary, not a causal effect of changing a covariate. The separate `causurv` package covers what additional assumptions are needed before HRs become causal contrasts and why RMST differences are often a cleaner target.
 
 # %% [markdown]
 # ## References
@@ -315,3 +313,4 @@ ts.plot.brier_over_time(
 # - Cox, D. R. (1972). Regression models and life-tables. *Journal of the Royal Statistical Society, Series B* 34(2).
 # - Breslow, N. (1974). Covariance analysis of censored survival data. *Biometrics* 30(1).
 # - Graf, E., Schmoor, C., Sauerbrei, W. & Schumacher, M. (1999). Assessment and comparison of prognostic classification schemes for survival data. *Statistics in Medicine* 18.
+# - Krzyziński, M., Spytek, M., Baniecki, H. & Biecek, P. (2023). SurvSHAP(t): time-dependent explanations of machine learning survival models. *Knowledge-Based Systems* 262, 110234.

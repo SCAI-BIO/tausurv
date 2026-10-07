@@ -15,7 +15,7 @@
 # %% [markdown]
 # # Styling
 #
-# `tausurv.plot.set_style` configures matplotlib for one of four named contexts: `publication`, `presentation`, `notebook`, `minimal`. Picking one is a single call -- after that every plot inherits the spines, fonts, line widths, figure size, and palette appropriate for that context.
+# `tausurv.plot.set_style` configures matplotlib for one of four named contexts: `publication`, `presentation`, `notebook`, `minimal`. After the call, every plot uses that context's spines, fonts, line widths, figure size and palette.
 
 # %%
 import numpy as np
@@ -35,12 +35,12 @@ S = {
 # %% [markdown]
 # ## The four named styles
 #
-# Each preset bundles a coordinated set of rcParams. They all share the same palette (Okabe-Ito by default) so figures from different contexts can be intercompared without recolouring.
+# Each preset is a set of rcParams. All presets use the same palette (Okabe-Ito by default), so colours match across contexts.
 
 # %% [markdown]
 # ### `publication`
 #
-# The default. Single-column journal width (~5.5 in), 9 pt body font, restrained spines (no top / no right), light y-only gridlines, line width 1.5. Optimised for "paste into a manuscript without editing".
+# The default. Single-column journal width (~5.5 in), 9 pt body font, restrained spines (no top / no right), light y-only gridlines, line width 1.5.
 
 # %%
 ts.plot.set_style("publication")
@@ -55,7 +55,7 @@ fig
 # %% [markdown]
 # ### `presentation`
 #
-# Slides and posters. 13 pt body font, 2.5 pt lines, larger figure (8 × 5 in), 120 DPI. Readable from the back of the room.
+# Slides and posters. 13 pt body font, 2.5 pt lines, larger figure (8 × 5 in), 120 DPI.
 
 # %%
 ts.plot.set_style("presentation")
@@ -70,7 +70,7 @@ fig
 # %% [markdown]
 # ### `notebook`
 #
-# Interactive analysis. Matplotlib's default proportions (6.4 × 4 in) with the tausurv palette and minor spine / grid cleanup. Reads well at notebook resolution where you'll iterate before exporting.
+# Interactive analysis. Matplotlib's default proportions (6.4 × 4 in) with the tausurv palette and minor spine / grid cleanup.
 
 # %%
 ts.plot.set_style("notebook")
@@ -105,7 +105,7 @@ ts.plot.set_style("publication")
 # %% [markdown]
 # ## Palettes
 #
-# Three categorical palettes ship with the module. The default is Okabe-Ito -- the most-cited science palette (Okabe & Ito 2008), CVD-safe, grayscale-distinguishable, eight colours.
+# The module has three categorical palettes. The default is Okabe-Ito (Okabe & Ito 2008): eight colours, distinguishable under colour-vision deficiency and in grayscale.
 
 
 # %%
@@ -173,7 +173,7 @@ with ts.plot.style_context("presentation"):
 fig
 
 # %% [markdown]
-# After the `with` block, the publication style is restored automatically -- the next plot reverts without any cleanup on your part.
+# After the `with` block, the previous style is restored.
 
 # %%
 fig, ax = plt.subplots()

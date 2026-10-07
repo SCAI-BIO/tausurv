@@ -15,12 +15,12 @@
 # %% [markdown]
 # # Your first survival analysis
 #
-# This tutorial walks through a complete first analysis on a real clinical-trial cohort: load the Mayo Clinic primary biliary cholangitis (PBC) trial, fit Kaplan-Meier curves, read off concrete numbers (median and horizon-specific survival), and see what visual comparisons look like for a covariate that does not matter (treatment arm) and one that matters a great deal (histologic stage).
+# A first analysis of the Mayo Clinic primary biliary cholangitis (PBC) trial: Kaplan-Meier curves, median and five- and ten-year survival, and two group comparisons, by treatment arm (no survival difference) and by histologic stage (a large one).
 
 # %% [markdown]
 # ## Set up
 #
-# Throughout the docs we import `tausurv as ts` and access subpackages explicitly (`ts.datasets`, `ts.nonparametric`, `ts.plot`). The convention mirrors `numpy as np` and `pandas as pd` and keeps the library structure visible at the call site. A single `ts.plot.set_style("publication")` call configures matplotlib for the docs aesthetic; no manual `rcParams` are needed in user code.
+# Throughout the docs we import `tausurv as ts` and access subpackages explicitly (`ts.datasets`, `ts.nonparametric`, `ts.plot`). The convention mirrors `numpy as np` and `pandas as pd` and keeps the library structure visible at the call site. `ts.plot.set_style("publication")` sets the matplotlib style once for the session.
 
 # %%
 import numpy as np
@@ -52,18 +52,18 @@ print(f"median follow-up: {np.median(Y):.2f} years")
 print(f"covariates ({X.width}): {', '.join(X.columns)}")
 
 # %% [markdown]
-# Beyond `(Y, delta)`, PBC carries the treatment arm (`trt`, 1 = D-penicillamine, 2 = placebo, null = non-randomised follow-up), demographics (`age`, `sex`), lab values measured at trial entry (`bili` for bilirubin, `albumin`, `chol`, `copper`, ...), and the histologic disease stage (`stage`, 1-4, higher is worse). We will use `trt` and `stage` directly in this tutorial.
+# Beyond `(Y, delta)`, PBC carries the treatment arm (`trt`, 1 = D-penicillamine, 2 = placebo, null = non-randomised follow-up), demographics (`age`, `sex`), lab values measured at trial entry (`bili` for bilirubin, `albumin`, `chol`, `copper`, ...), and the histologic disease stage (`stage`, 1-4, higher is worse). This tutorial uses `trt` and `stage`.
 
 # %% [markdown]
 # ## Overall survival
 #
-# `ts.plot.km` on raw $(Y, \delta)$ arrays fits Kaplan-Meier internally and renders the publication treatment by default: a logit-transformed pointwise 95% confidence band (Borgan & Liestøl 1990) and an at-risk table aligned to the time axis (Pocock, Clayton & Altman, *Lancet* 2002).
+# `ts.plot.km` on raw $(Y, \delta)$ arrays fits Kaplan-Meier internally and draws by default a pointwise 95% confidence band computed on the logit scale, which keeps it inside $[0, 1]$, and an at-risk table aligned to the time axis (Pocock, Clayton & Altman, *Lancet* 2002).
 
 # %%
 ts.plot.km(Y, delta, xlabel="years from registration")
 
 # %% [markdown]
-# A visual reading is the right first step, but the curve also gives concrete numbers. The Kaplan-Meier estimate is a `StepFunction`; call it on any time to read $\hat S(t)$, and inspect its `.time` / `.value` arrays directly to find the median.
+# The Kaplan-Meier estimate is a `StepFunction`: calling it on a time returns $\hat S(t)$, and its `.time` and `.value` arrays give the median.
 
 # %%
 S = ts.nonparametric.kaplan_meier(Y, delta)
@@ -81,7 +81,7 @@ print(f"5-year survival:  {float(S(5.0)):.1%}")
 print(f"10-year survival: {float(S(10.0)):.1%}")
 
 # %% [markdown]
-# About three-quarters of the cohort is alive at five years, dropping to roughly 40% at ten. The median survival lies near the ten-year mark.
+# 70% of the cohort is alive at five years and 44% at ten; the median survival is 9.3 years.
 
 # %% [markdown]
 # ## Does the treatment work?
@@ -101,7 +101,7 @@ ts.plot.km(
 )
 
 # %% [markdown]
-# The two curves track each other inside their confidence bands. The same numerical horizons confirm the visual impression:
+# The two curves stay inside each other's confidence bands. At five and ten years:
 
 # %%
 for label, code in [("D-penicillamine", 1), ("Placebo", 2)]:
@@ -114,14 +114,12 @@ for label, code in [("D-penicillamine", 1), ("Placebo", 2)]:
     )
 
 # %% [markdown]
-# Visually and numerically, the arms are within a percentage point or two of each other at every horizon. This matches the trial's published conclusion: D-penicillamine showed no survival benefit.
-#
-# Two things to pause on. First, the absence of visible separation in a trial of this size does not prove the absence of any effect; it limits how large an effect could plausibly be. Second, this is what a true null result looks like in a survival study. Most negative trials look more like this than like dramatically diverging curves.
+# The arms differ by less than one percentage point at five years and by 3.2 points at ten, in line with the trial's published conclusion that D-penicillamine showed no survival benefit. With 125 deaths, the absence of a visible difference does not show that the effect is zero; it limits how large the effect can plausibly be.
 
 # %% [markdown]
 # ## A covariate that does matter: histologic stage
 #
-# Treatment was a randomised covariate that turned out not to matter for this disease. Histologic stage at baseline is a non-randomised covariate that matters a great deal. Stage is the pathologist's reading of biopsy material, scored 1 (mild fibrosis) through 4 (cirrhosis).
+# Histologic stage is the pathologist's reading of biopsy material at baseline, scored 1 (mild fibrosis) to 4 (cirrhosis). Unlike treatment, it was not randomised.
 
 # %%
 stage_raw = X["stage"].to_numpy()
@@ -136,7 +134,7 @@ ts.plot.km(
 )
 
 # %% [markdown]
-# The four curves are visibly distinct, and the confidence bands stay clearly apart for most of follow-up:
+# The four curves separate early and stay apart. At five and ten years:
 
 # %%
 for k in range(1, 5):
@@ -149,22 +147,21 @@ for k in range(1, 5):
     )
 
 # %% [markdown]
-# Stage 1 patients are still mostly alive at ten years; stage 4 patients are mostly dead by year five. The contrast with the treatment-arm comparison is the lesson: visible separation is what a real prognostic effect looks like.
+# Ten-year survival falls from 88% in stage 1 to 20% in stage 4, and fewer than half of stage 4 patients are alive at five years. Stage 1 has only 21 patients and 2 deaths, so its curve is the least precise.
 
 # %% [markdown]
 # ## What Kaplan-Meier does and does not give you
 #
-# Kaplan-Meier is a visual and descriptive tool. It tells you the marginal survival in a defined population, optionally split by one categorical covariate at a time. It does not tell you:
+# Kaplan-Meier estimates the marginal survival of a population, split by at most one categorical covariate at a time. It does not give:
 #
 # - The magnitude of an effect adjusted for other covariates. The stage effect above is unadjusted; some of the visible separation may be confounded by age or baseline lab values.
 # - A single-number summary of the contrast that you can put in a paper or a clinical-decision aid.
 # - How to predict survival for a new patient given their covariates.
 #
-# The next tutorial fits a Cox proportional-hazards model to this cohort, adjusts for multiple covariates simultaneously, and quantifies the stage effect with a hazard ratio.
+# [Modeling risk with covariates](/tutorials/modeling-with-covariates/) fits a Cox proportional-hazards model to this cohort, adjusts for several covariates at once and summarises the stage effect as a hazard ratio.
 
 # %% [markdown]
 # ## References
 #
-# - Therneau, T. & Grambsch, P. (2000). *Modeling Survival Data: Extending the Cox Model.* Springer. (Canonical worked source for the PBC dataset.)
-# - Borgan, Ø. & Liestøl, K. (1990). A note on confidence intervals and bands for the survival function based on transformations. *Scandinavian Journal of Statistics* 17.
-# - Pocock, S. J., Clayton, T. C. & Altman, D. G. (2002). Survival plots of time-to-event outcomes in clinical trials. *Lancet* 359.
+# - Therneau, T. & Grambsch, P. (2000). *Modeling Survival Data: Extending the Cox Model.* Springer. Describes the PBC data.
+# - Pocock, S. J., Clayton, T. C. & Altman, D. G. (2002). Survival plots of time-to-event outcomes in clinical trials: good practice and pitfalls. *Lancet* 359(9318), 1686-1689.

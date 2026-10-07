@@ -20,7 +20,7 @@
 # %% [markdown]
 # ## Setup
 #
-# A single `ts.plot.set_style("publication")` call configures matplotlib for the docs aesthetic. No further `rcParams` are touched in the rest of this notebook.
+# `ts.plot.set_style("publication")` sets the style once; no other `rcParams` are changed on this page.
 
 # %%
 import numpy as np
@@ -38,7 +38,7 @@ rng = np.random.default_rng(0)
 # %% [markdown]
 # ## Kaplan-Meier
 #
-# Marginal or per-group survival from raw $(Y, \delta)$. The default treatment includes a logit-transformed pointwise 95% CI band (Borgan & Liestøl 1990) and an at-risk table aligned to the time axis (Pocock, Clayton & Altman, *Lancet* 2002).
+# Marginal or per-group survival from raw $(Y, \delta)$. The default treatment includes a pointwise 95% confidence band computed on the logit scale and an at-risk table aligned to the time axis (Pocock, Clayton & Altman, *Lancet* 2002).
 
 # %%
 n = 80
@@ -82,7 +82,7 @@ ts.plot.predicted_survival(
 # %% [markdown]
 # ## Risk stratification
 #
-# Auto-quantile-bin subjects by a continuous risk score; KM per stratum with an at-risk table. The bread-and-butter validation plot for any survival model -- a model that discriminates should produce visibly separated curves with the highest-risk stratum dropping fastest.
+# Auto-quantile-bin subjects by a continuous risk score; KM per stratum with an at-risk table. A model that discriminates gives separated curves, with the highest-risk stratum falling fastest.
 
 # %%
 n = 400
@@ -200,7 +200,7 @@ ts.plot.auc_over_time(
 # %% [markdown]
 # ## Copula contour
 #
-# Level curves of the joint copula CDF on the unit square. The dashed diagonal is the $u_1 = u_2$ reference; Kendall's $\tau$ is annotated in the corner. Side-by-side panels make it easy to compare families at matched dependence.
+# Level curves of the joint copula CDF on the unit square. The dashed diagonal is the $u_1 = u_2$ reference; Kendall's $\tau$ is annotated in the corner. Side-by-side panels compare families at the same dependence.
 
 # %%
 import matplotlib.pyplot as plt
@@ -234,7 +234,7 @@ ts.plot.copula.scatter(gu, seed=0, title=r"Gumbel sample ($\theta = 2$)")
 # %% [markdown]
 # ## SHAP curves
 #
-# Per-subject SHAP-over-time. One line per feature, top-K most impactful in the palette foreground, the rest faded gray. Reveals which features matter when and which flip sign across the time horizon.
+# Per-subject SHAP-over-time. One line per feature, top-K most impactful in the palette foreground, the rest faded gray. Shows when each feature matters and where its sign changes.
 
 # %%
 n_subjects, n_features, n_times = 200, 6, 30

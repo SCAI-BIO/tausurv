@@ -15,7 +15,7 @@
 # %% [markdown]
 # # Competing risks
 #
-# The two previous tutorials worked on PBC under a single-event recoding: deaths were the event of interest and liver transplants were folded into censoring. That simplification is convenient but it conflates "we stopped watching" with "the patient received a transplant" — two very different things. This tutorial recovers the three-level outcome (censored / transplant / death), shows visually why naïvely applying Kaplan-Meier to one cause overstates the incidence of that cause, fits a Fine-Gray model for the subdistribution hazard of death, and predicts cause-specific cumulative incidence curves for the same two patient profiles used in the Cox tutorial.
+# The two previous tutorials recoded PBC to a single event: death was the event and liver transplant was treated as censoring. A transplant is not censoring, though: the outcome is known, and it changes the patient's risk of death. With transplant restored as a competing event, one minus Kaplan-Meier overstates the incidence of death, the Aalen-Johansen estimator does not, and a Fine-Gray model predicts the cumulative incidence of death for the two covariate profiles of the Cox tutorial.
 
 # %% [markdown]
 # ## Set up
@@ -55,14 +55,14 @@ counts = pl.DataFrame(
 counts
 
 # %% [markdown]
-# About a quarter of the cohort received a transplant. In the single-event recoding those patients were merged with the truly-censored. They are not censored — we know exactly what happened to them — and they cannot subsequently die without a graft.
+# 25 of the 418 patients (6%) received a transplant. The single-event recoding counted them as censored, although their outcome is known.
 
 # %% [markdown]
 # ## The pitfall: $1 - \widehat{\mathrm{KM}}$ overstates the cause incidence
 #
-# Naïve practice is to compute Kaplan-Meier on "death or not" — equivalent to treating transplant as censoring — then report $1 - \hat S$ as the incidence of death. This is biased upward whenever the competing event has nonzero rate, because subjects removed from the at-risk set as "censored transplants" are implicitly assumed to have the same death hazard as the rest of the cohort going forward, which is false (a graft fundamentally changes their trajectory).
+# Computing Kaplan-Meier with death as the event and transplant as censoring, then reporting $1 - \hat S$ as the incidence of death, overestimates that incidence whenever the competing event occurs. Censoring assumes the transplanted patients could still die later at the rate of those still at risk, so their future deaths are counted although they never happen as first events.
 #
-# The Aalen-Johansen estimator handles competing causes correctly: $\hat F_k(t)$ is the probability of failing from cause $k$ by time $t$ in a world where the competing cause keeps happening.
+# The Aalen-Johansen estimator $\hat F_k(t)$ estimates the probability of an event of cause $k$ by time $t$ with the competing cause present.
 
 # %%
 death_or_not = (event == 1).astype(np.int8)
@@ -88,12 +88,12 @@ ax.set_ylim(0, None)
 ax.legend(loc="lower right")
 
 # %% [markdown]
-# The naïve curve sits above the Aalen-Johansen curve at every horizon and the gap widens with time. At ten years the naïve estimate overstates the cumulative incidence of death by several percentage points. In real datasets with higher competing-event rates the gap can be twenty percentage points or more (Andersen et al. 2012 review the bias on transplant and oncology cohorts).
+# The one-minus-Kaplan-Meier curve never falls below the Aalen-Johansen curve, and the gap grows with time: 0.297 against 0.292 at five years, 0.558 against 0.527 at ten. The gap is small here because only 6% of patients had a transplant; it grows with the rate of the competing event (Andersen et al. 2012).
 
 # %% [markdown]
 # ## Both causes at once
 #
-# `ts.plot.cif` renders the cause-specific cumulative incidence curves for every cause it sees in the indicator. It puts the curves on a stacked-to-one display and adds an at-risk table aligned to the time axis, matching the conventions used for Kaplan-Meier.
+# `ts.plot.cif` draws one Aalen-Johansen curve per cause, with an at-risk table aligned to the time axis as in `ts.plot.km`.
 
 # %%
 ts.plot.cif(
@@ -104,7 +104,7 @@ ts.plot.cif(
 )
 
 # %% [markdown]
-# Death dominates the incidence early; transplant incidence rises more steadily and accounts for roughly a quarter of the cohort by the end of follow-up. The remaining height between the top curve and one is the probability of still being event-free.
+# By ten years the cumulative incidence is 0.53 for death and 0.08 for transplant; one minus their sum is the probability of being alive without a transplant.
 
 # %% [markdown]
 # ## Fitting a Fine-Gray model for death
@@ -113,7 +113,7 @@ ts.plot.cif(
 # $$
 # \lambda^{\mathrm{sub}}_k(t \mid x) = \lambda^{\mathrm{sub}}_{k,0}(t) \exp(\beta^\top x).
 # $$
-# Subjects who experience a competing event stay in the risk set with IPCW-decaying weight rather than dropping out (which is what Cox would do). The result is a model on the cumulative incidence scale: a positive coefficient pushes the cumulative incidence curve *up*, a negative one pushes it down. We use the same five covariates and the same train/test split as the previous tutorial.
+# Subjects with a competing event stay in the risk set, with a weight that decreases with the estimated probability of remaining uncensored; in a cause-specific Cox model they would leave it. A positive coefficient therefore raises the cumulative incidence curve of the cause, and a negative one lowers it. The covariates and the train/test split are those of the previous tutorial.
 
 # %%
 keep = ["age", "sex", "stage", "bili", "albumin"]
@@ -143,7 +143,7 @@ print(
 )
 
 # %% [markdown]
-# Subdistribution hazard ratios are $\exp(\hat\beta)$ on the cumulative-incidence scale, *not* the cause-specific hazard scale. A SHR of 1.5 for stage means stage shifts the **incidence curve** for death by a 1.5-fold multiplier in the proportional-subdistribution-hazards sense, not that the instantaneous death rate among survivors is 1.5x higher.
+# A subdistribution hazard ratio (SHR) $\exp(\hat\beta)$ multiplies the subdistribution hazard, not the cause-specific hazard. An SHR of 1.5 for stage means that a higher stage raises the cumulative incidence of death; it does not mean that the death rate among patients still alive and untransplanted is 1.5 times higher.
 
 # %%
 ts.plot.forest(
@@ -153,12 +153,12 @@ ts.plot.forest(
 )
 
 # %% [markdown]
-# Reading the SHRs: stage and bilirubin pull the death CIF up the hardest, mirroring what the Cox tutorial found for cause-specific hazards. The magnitudes differ slightly because the models answer different questions — Austin & Fine (2017) reviewed 55 papers using Fine-Gray models and found only 9% interpreted the SHRs correctly. The most common mistake is reading a SHR as a cause-specific hazard ratio; they are different objects.
+# The SHRs are 1.50 per stage, 1.14 per mg/dL of bilirubin, 1.04 per year of age, 1.31 for male sex and 0.42 per g/dL of albumin, close to the Cox hazard ratios of the previous tutorial because transplants are rare in this cohort. The two ratios answer different questions and are often confused: of 55 papers reporting Fine-Gray models, Austin & Fine (2017) found 5 that interpreted the SHRs correctly.
 
 # %% [markdown]
 # ## Predicting cumulative incidence for two patients
 #
-# `predict_cif` returns $\hat F_\mathrm{death}(t \mid x)$ on the same time grid we have been using. We reuse the two profiles from the Cox tutorial — an early-stage and a late-stage patient — and plot their predicted cumulative-incidence curves.
+# `predict_cif` returns $\hat F_\mathrm{death}(t \mid x)$ at the requested times, here for the early-stage and the advanced profile of the Cox tutorial.
 
 # %%
 profiles = {
@@ -178,12 +178,12 @@ ax.set_ylim(0, 1.0)
 ax.legend(loc="lower right")
 
 # %% [markdown]
-# The advanced profile reaches a cumulative incidence of death around 80% by year ten, while the early profile stays below 10%. These are predictions on the CIF scale — directly comparable to "what percentage of patients like this will die from PBC by year $t$" — rather than on a hazard scale that requires further integration to interpret.
+# The predicted cumulative incidence of death is 0.94 at five years for the advanced profile and 0.05 for the early one; at ten years it is 1.00 and 0.14. These numbers answer "what proportion of patients like this die by year $t$" directly.
 
 # %% [markdown]
 # ## How well does the model fit?
 #
-# Cause-specific Brier and concordance let us evaluate the model on the cumulative-incidence scale. `ts.metrics.brier.score_cause_specific` and `ts.metrics.concordance.harrell_cause_specific` are the competing-risks counterparts of the single-event metrics used in the Cox tutorial.
+# `ts.metrics.brier.score_cause_specific` scores predicted cumulative incidences against the observed events of one cause; it is the competing-risks counterpart of the Brier score in the Cox tutorial.
 
 # %%
 horizons = np.array([1.0, 2.0, 3.0, 5.0, 7.0, 10.0])
@@ -201,21 +201,21 @@ ts.plot.brier_over_time(
 )
 
 # %% [markdown]
-# Lower is better. The cause-specific Brier compares the predicted cumulative incidence at each horizon to the observed cause-specific incidence, with IPCW weighting that accounts for both censoring and competing events.
+# Lower is better. The score rises from 0.06 at one year to 0.16 at ten, on the 124 test patients.
 
 # %% [markdown]
-# ## Caveats and where to go next
+# ## Limitations
 #
-# - **SHR is not HR.** Austin & Fine (2017) is the canonical reference on the misinterpretation. A SHR is a multiplier on the cumulative-incidence curve under proportional subdistribution hazards; it is not the cause-specific hazard ratio. Always state which scale you are reporting.
-# - **Cause-specific Cox is the other principled choice.** If the question is "what makes patients die at a higher rate while still at risk", cause-specific Cox (transplant treated as censoring within the *modelling* sense, with explicit acknowledgement) is the right tool. Latouche et al. (2013) recommend reporting both cause-specific hazards and cumulative-incidence functions in every competing-risks analysis.
-# - **Multiple Fine-Gray fits can yield inconsistent CIFs.** Independently fitted Fine-Gray models for two or more causes can produce predicted cumulative incidences that sum to more than 1 (Austin, Putter, Lee & Steyerberg 2021). For prediction across causes, prefer the cause-specific Cox approach.
-# - **Treatment is observational here.** PBC was randomised, but our adjusted models are not estimating a causal effect of treatment on death. The separate `causurv` package covers what assumptions are needed before HRs or SHRs become causal contrasts and why RMST contrasts are often a cleaner target.
+# - Reporting: an SHR is not a cause-specific hazard ratio. Austin & Fine (2017) give recommendations for reporting Fine-Gray analyses; state which ratio a result is.
+# - Cause-specific hazards: for the question "which covariates raise the death rate among patients still at risk", a Cox model with transplant as censoring estimates the cause-specific hazard. Latouche et al. (2013) recommend reporting the cause-specific hazards and the cumulative incidence functions of all causes.
+# - Several causes: Fine-Gray models fitted separately for each cause can predict cumulative incidences that sum to more than 1 (Austin, Putter, Lee & Steyerberg 2022). To predict the incidence of every cause, use cause-specific hazard models.
+# - Causal interpretation: the covariates are not randomised, and the SHRs describe associations, not causal effects. The separate `causurv` package covers the assumptions under which survival contrasts have a causal meaning.
 
 # %% [markdown]
 # ## References
 #
-# - Fine, J. P. & Gray, R. J. (1999). A proportional hazards model for the subdistribution of a competing risk. *JASA* 94(446).
-# - Andersen, P. K., Geskus, R. B., de Witte, T. & Putter, H. (2012). Competing risks in epidemiology: possibilities and pitfalls. *International Journal of Epidemiology* 41.
-# - Latouche, A., Allignol, A., Beyersmann, J., Labopin, M. & Fine, J. P. (2013). A competing risks analysis should report results on all cause-specific hazards and cumulative incidence functions. *Journal of Clinical Epidemiology* 66.
-# - Austin, P. C. & Fine, J. P. (2017). Practical recommendations for reporting Fine-Gray model analyses for competing risk data. *Statistics in Medicine* 36.
-# - Austin, P. C., Putter, H., Lee, D. S. & Steyerberg, E. W. (2021). Estimation of the absolute risk of cardiovascular disease in the presence of competing risks. *Statistics in Medicine* 40.
+# - Fine, J. P. & Gray, R. J. (1999). A proportional hazards model for the subdistribution of a competing risk. *Journal of the American Statistical Association* 94(446), 496-509.
+# - Andersen, P. K., Geskus, R. B., de Witte, T. & Putter, H. (2012). Competing risks in epidemiology: possibilities and pitfalls. *International Journal of Epidemiology* 41(3), 861-870.
+# - Latouche, A., Allignol, A., Beyersmann, J., Labopin, M. & Fine, J. P. (2013). A competing risks analysis should report results on all cause-specific hazards and cumulative incidence functions. *Journal of Clinical Epidemiology* 66(6), 648-653.
+# - Austin, P. C. & Fine, J. P. (2017). Practical recommendations for reporting Fine-Gray model analyses for competing risk data. *Statistics in Medicine* 36(27), 4391-4400.
+# - Austin, P. C., Putter, H., Lee, D. S. & Steyerberg, E. W. (2022). Estimation of the absolute risk of cardiovascular disease and other events: issues with the use of multiple Fine-Gray subdistribution hazard models. *Circulation: Cardiovascular Quality and Outcomes* 15(2), e008368.

@@ -151,8 +151,8 @@ pl.DataFrame(ncv.params)
 # %% [markdown]
 # ## Which one to use
 #
-# - **Comparing fixed models**: use `cross_validate`.
-# - **Fitting a final model**: use `tune`, and ship `best.model`.
-# - **Reporting the tuned model's performance**: use `nested_cv`, and report its outer scores.
+# - Comparing fixed models: use `cross_validate`.
+# - Fitting a final model: use `tune`, and ship `best.model`.
+# - Reporting the tuned model's performance: use `nested_cv`, and report its outer scores.
 #
 # A nested study is `outer * (n_trials * inner + 1)` fits, 230 here, so keep `n_trials` small while you iterate. Pass `storage="sqlite:///study.db"` to `tune` to make a long search resumable, and use `.save(path)` on any result to keep the fitted models.

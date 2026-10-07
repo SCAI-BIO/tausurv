@@ -1,16 +1,16 @@
 ---
-title: Thinking in Survival
+title: Thinking in survival
 description: A mental model for time-to-event data, the at-risk set, and which quantity to estimate before reaching for a method.
 ---
 
 import { Code } from "@astrojs/starlight/components";
 import swimmerSource from "../../../../figures/thinking_swimmer.py?raw";
 
-Survival analysis is the set of methods for data where the event of interest does not happen for every subject you observe. Two choices come before any method: which quantity you want to estimate, and which assumption your estimate rests on. This page works through both.
+Survival analysis is the set of methods for data where the event of interest does not happen for every subject you observe. Two choices come before any method: which quantity to estimate, and which assumption the estimate rests on.
 
 ## The data
 
-You have records of people, customers, machines, or any other unit observed over time. For each one you know either when an event happened (a death, a churn, a failure) or only that nothing had happened by the time you stopped watching. The second case is the one the field exists for.
+You have records of people, customers, machines, or any other unit observed over time. For each one you know either when an event happened (a death, a churn, a failure) or only that nothing had happened by the time you stopped watching. The second case is called censoring.
 
 Take six patients followed for up to five years. Their records look like this:
 
@@ -38,7 +38,7 @@ A spreadsheet might be tempted to take the mean of $y_i$ and call it average sur
 
 A more careful question is the probability of being event-free at three years. Three patients have $y_i > 3$ (D, E, F), so a naive answer is $3/6 = 0.5$. But patient B was lost to follow-up at $y_B = 1.8$. We do not know whether B was event-free at year three; we only know B was event-free at year 1.8. Counting B as a non-survivor (which is what the naive $0.5$ does) is a guess, not a measurement.
 
-The right answer needs both a bookkeeping rule and an assumption. Survival analysis is the set of methods that supply both.
+A correct answer needs a rule for how censored subjects count, and an assumption about what happens to them after censoring.
 
 ## The at-risk set
 
@@ -74,9 +74,7 @@ The naive $0.5$ was wrong because it treated patient B as a failure for being lo
 
 The number we just computed, $\hat S(3) = 0.625$, is the probability of being event-free at three years. The same table answers other questions, and each lands on its own object.
 
-*What fraction is event-free at five years?* is a probability question, answered by the survival function $S(t)$. *What is the rate of failure?* is a rate question, answered by the hazard $\lambda(t)$. *What is the expected event-free time over the next two years?* is a time question, answered by the restricted mean survival time $\mu(\tau)$. A fourth object, the cumulative hazard $\Lambda(t)$, is the working form behind the others, the most stable nonparametric estimate and the natural surface for diagnostics.
-
-The choice between them is the choice between questions, not between methods.
+*What fraction is event-free at five years?* is a probability question, answered by the survival function $S(t)$. *What is the rate of failure?* is a rate question, answered by the hazard $\lambda(t)$. *What is the expected event-free time over the next two years?* is a time question, answered by the restricted mean survival time $\mu(\tau)$. A fourth object, the cumulative hazard $\Lambda(t)$, is used inside many methods and for diagnostics.
 
 ### Survival probability $S(t)$
 
@@ -133,8 +131,6 @@ Choice of $\tau$ matters. $\mu(2)$ and $\mu(5)$ are different numbers. Compare R
 
 ### Decision table
 
-Same data, four quantities. The right one follows from the decision in front of you.
-
 | Decision | Quantity | Concrete example |
 |---|---|---|
 | Communicate absolute risk at a horizon | $S(t)$ | "73% alive at five years" |
@@ -148,21 +144,21 @@ A second event type can make the event of interest impossible. In an older patie
 
 These are not censoring. The competing event happened. The subject is not still at risk.
 
-Treating a competing event as censoring and running Kaplan-Meier inflates the apparent incidence, sometimes by twenty percentage points or more in real datasets. The correct nonparametric object is the cumulative incidence function
+Treating a competing event as censoring and running Kaplan-Meier overstates the incidence, and the bias grows with the rate of the competing event. The correct nonparametric object is the cumulative incidence function
 
 $$
 F_j(t) = P(T \le t,\; J = j),
 $$
 
-the probability of failing from cause $j$ by time $t$. It is estimated by Aalen-Johansen and is the basic-tutorial quantity whenever competing causes are present. Reporting $1 - \text{KM}$ per cause instead is a common error in published analyses (Andersen et al. 2012).
+the probability of failing from cause $j$ by time $t$. It is estimated by Aalen-Johansen. Andersen et al. (2012) show the bias of $1 - \text{KM}$ per cause on a transplant cohort.
 
 ## The assumption every estimate carries
 
 Each method above relies on at least one condition that the data cannot verify. For nonparametric survival estimation, the central condition is independent censoring: the censoring time is independent of the event time, possibly after conditioning on covariates.
 
-When subjects who are at higher risk drop out of follow-up for reasons related to that risk, the condition fails. Every estimate produced from the data is biased, and the bias is not detectable from $(Y, \delta)$ alone. Tsiatis showed in 1975 that the marginal joint distribution of event and censoring times is not identifiable from the observed data, even in principle.
+When subjects who are at higher risk drop out of follow-up for reasons related to that risk, the condition fails. Every estimate produced from the data is biased, and the bias is not detectable from $(Y, \delta)$ alone. Tsiatis showed in 1975 that the joint distribution of event and censoring times is not identifiable from the observed data, even in principle.
 
-Two practical signals are worth knowing.
+Whether the assumption is plausible depends on why subjects are censored.
 
 1. If the reason a subject is censored is unrelated to their underlying state (administrative end of follow-up, the study closing, a customer's contract ending on a fixed date), the assumption is plausible.
 2. If the reason is plausibly related (loss to follow-up because the patient got sicker and stopped attending, a customer churning quietly without being recorded), the assumption is suspect. Run diagnostics, consider methods that condition on richer covariates, and report a sensitivity envelope.
@@ -171,14 +167,12 @@ Report the assumption together with the estimate it supports.
 
 ## How to use this mental model
 
-When a colleague hands you a survival problem, work through four questions before opening the library:
+Four questions to answer before choosing a method:
 
 1. **What is the decision?** A clinician choosing a treatment needs absolute risk at a fixed horizon. An epidemiologist comparing populations needs an effect estimate. A health economist building a model needs an integral over time. A retention team needs a cohort curve. Different decisions, different quantities.
 2. **What is the estimand?** Survival at $t$, cumulative incidence of cause $j$, restricted mean survival, hazard ratio, counterfactual survival under treatment. Name it before you pick a method.
 3. **What can the data identify?** Marginal $S(t)$ under independent censoring. Cumulative incidence under independent administrative censoring. Cause-specific hazards. The hazard ratio as a population summary, not a causal contrast. Some quantities (net survival, the latent marginal distribution of $T$ in the presence of dependent censoring) cannot be identified from $(Y, \delta)$ data alone.
 4. **What assumption am I willing to make, and how would I know if it broke?** Independent censoring is the smallest assumption. Conditional independent censoring given covariates is the next step. Parametric copula, joint longitudinal-event modeling, sensitivity bounds are the steps beyond.
-
-If you take one thing from this page: pick the quantity you want to estimate before you pick the method, and write down the assumption your estimate carries. Everything else is bookkeeping.
 
 ## Where to go from here
 
@@ -187,7 +181,7 @@ The [tutorials](/tutorials/) apply these ideas to the PBC trial: Kaplan-Meier cu
 ## References
 
 - Aalen O, Borgan Ø, Gjessing H (2008). *Survival and Event History Analysis.* Springer. The modern counting-process treatment.
-- Andersen PK, Geskus RB, de Witte T, Putter H (2012). [Competing risks in epidemiology: possibilities and pitfalls](https://academic.oup.com/ije/article-abstract/41/3/861/829598). *International Journal of Epidemiology* 41:861–870. Source for the bias magnitudes when KM is applied to a single competing cause.
+- Andersen PK, Geskus RB, de Witte T, Putter H (2012). [Competing risks in epidemiology: possibilities and pitfalls](https://academic.oup.com/ije/article-abstract/41/3/861/829598). *International Journal of Epidemiology* 41:861–870. Shows the bias of Kaplan-Meier applied to one of several competing causes.
 - Kaplan EL, Meier P (1958). [Nonparametric estimation from incomplete observations](https://www.jstor.org/stable/2281868). *JASA* 53:457–481. The Kaplan-Meier paper.
 - Klein JP, Moeschberger ML (2003). *Survival Analysis: Techniques for Censored and Truncated Data.* Springer. The applied standard reference.
 - Tsiatis A (1975). [A nonidentifiability aspect of the problem of competing risks](https://www.pnas.org/doi/10.1073/pnas.72.1.20). *PNAS* 72:20–22. The non-identifiability result cited in the section on assumptions.
