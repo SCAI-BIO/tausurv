@@ -139,9 +139,9 @@ def score_cause_specific(
 
     References
     ----------
-    Schoop, R. et al. (2011). Quantifying the predictive accuracy of
-    time-to-event models in the presence of competing risks. Biometrics,
-    67(2).
+    Schoop, R., Beyersmann, J., Schumacher, M., Binder, H. (2011).
+    Quantifying the predictive accuracy of time-to-event models in the
+    presence of competing risks. Biometrical Journal, 53(1), 88-112.
     """
     if cause < 1:
         raise ValueError(f"cause must be >= 1, got {cause}")

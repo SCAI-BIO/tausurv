@@ -74,8 +74,8 @@ impl MaxFeatures {
 ///
 /// Honest fitting trades a small predictive-accuracy hit for asymptotically
 /// unbiased leaf estimates. It is the foundation for valid confidence
-/// intervals (and is required by the causal-survival-forest theory in
-/// step 5 of the design doc).
+/// intervals, and the theory of causal survival forests requires it
+/// (Cui et al. 2023).
 #[derive(Debug, Clone, Copy)]
 pub enum HonestyMode {
     /// Same samples drive splitting and estimation. Matches the classical

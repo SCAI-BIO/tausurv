@@ -40,6 +40,11 @@ def time_grid(
         Strictly increasing right bin edges, ``K <= n_bins``, ending at
         ``max(event_time)``.
 
+    Notes
+    -----
+    Kvamme & Borgan (2021) place the edges at quantiles of the Kaplan-Meier
+    estimate instead, which spaces them evenly in survival probability.
+
     References
     ----------
     Kvamme, H., Borgan, Ø. (2021). Continuous and discrete-time survival

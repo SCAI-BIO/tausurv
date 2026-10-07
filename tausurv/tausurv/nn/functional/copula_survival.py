@@ -42,9 +42,9 @@ def copula_survival_nll(
 
     References
     ----------
-    Zhang, W., Yi, Y., Pal, A., Lyu, J., Tarique, M., Krishnan, R. G.
+    Gharari Foomani, A. H., Cooper, M., Greiner, R., Krishnan, R. G.
     (2023). Copula-Based Deep Survival Models for Dependent Censoring.
-    arXiv:2306.11912.
+    Proceedings of UAI 2023, PMLR 216, 669-680. arXiv:2306.11912.
     """
     eps = 1e-8
     f_T = outputs["f_T"].clamp(min=eps)

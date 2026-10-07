@@ -47,8 +47,9 @@ class LogisticHazardConfig:
 class LogisticHazard(SurvivalPredictor, CheckpointMixin, nn.Module):
     r"""Discrete-time hazard-parameterized survival model.
 
-    Independently introduced by Gensheimer & Narasimhan (2019) as
-    "Nnet-Survival" and by Kvamme & Borgan (2021) as "LogisticHazard".
+    The "Nnet-Survival" model of Gensheimer & Narasimhan (2019) and the
+    "Logistic-Hazard" method of Kvamme & Borgan (2021); the discrete-time
+    logistic hazard goes back to Brown (1975).
     Outputs logits over $K$ time bins; ``sigmoid(logits)`` yields per-bin
     conditional hazards
     $h_k = P(T \in \text{bin}_k \mid T \ge \text{start of bin}_k)$,
@@ -70,6 +71,9 @@ class LogisticHazard(SurvivalPredictor, CheckpointMixin, nn.Module):
 
     References
     ----------
+    Brown, C. C. (1975). On the use of indicator variables for studying
+    the time-dependence of parameters in a response-time model.
+    Biometrics, 31(4), 863-872.
     Gensheimer, M. F., Narasimhan, B. (2019). A scalable discrete-time
     survival model for neural networks. PeerJ, 7.
     Kvamme, H., Borgan, Ø. (2021). Continuous and discrete-time survival

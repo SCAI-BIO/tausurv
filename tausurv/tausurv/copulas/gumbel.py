@@ -104,7 +104,7 @@ class Gumbel(ArchimedeanCopula):
         # CMS for positive stable, beta=1, sigma chosen to match the standard form.
         # M = sin(alpha * (V + pi/2)) / cos(V)^(1/alpha)
         #   * (cos(V - alpha * (V + pi/2)) / W) ** ((1 - alpha) / alpha)
-        # adapted from Devroye (1986) and Nolan.
+        # Chambers, Mallows & Stuck (1976), JASA 71(354), 340-344.
         V = rng.uniform(-np.pi / 2.0, np.pi / 2.0, size=size)
         W = rng.exponential(scale=1.0, size=size)
         phase = alpha * (V + np.pi / 2.0)

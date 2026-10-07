@@ -39,9 +39,9 @@ def hacsurv_nll(
 
     References
     ----------
-    Liu, X., Zhang, X., Zhang, Y. (2025). HACSurv: A Hierarchical
+    Liu, X., Zhang, W., Zhang, M.-L. (2025). HACSurv: A Hierarchical
     Copula-Based Approach for Survival Analysis with Dependent Competing
-    Risks. AISTATS. arXiv:2410.15180.
+    Risks. AISTATS 2025, PMLR 258. arXiv:2410.15180.
     """
     eps = 1e-8
     f = outputs["f"].clamp(min=eps)

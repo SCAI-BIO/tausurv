@@ -127,10 +127,9 @@ class Joe(ArchimedeanCopula):
 
         The Sibuya distribution has a heavy power-law tail
         ($P(X > k) \sim k^{-1/\theta}$), so a naive truncated inverse-CDF
-        sampler loses meaningful mass at large $\theta$. The proper
-        algorithm requires Mittag-Leffler or exponentially-tilted stable
-        sampling (Hofert 2011, Devroye 2009); we'll add it when there's a
-        real consumer. For now, use a different family for sampling, or
+        sampler loses meaningful mass at large $\theta$. Hofert (2011,
+        Proposition 3.2) gives an exact and efficient sampler, not yet
+        implemented. For now, use a different family for sampling, or
         sample Joe copulas via conditional inversion / Rosenblatt
         externally.
         """

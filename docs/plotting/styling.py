@@ -105,7 +105,7 @@ ts.plot.set_style("publication")
 # %% [markdown]
 # ## Palettes
 #
-# The module has three categorical palettes. The default is Okabe-Ito (Okabe & Ito 2008): eight colours, distinguishable under colour-vision deficiency and in grayscale.
+# The module has three categorical palettes. The default is Okabe-Ito (Okabe & Ito 2008): eight colours, distinguishable under colour-vision deficiency. Several pairs have the same lightness, so in grayscale print add line styles or markers.
 
 
 # %%

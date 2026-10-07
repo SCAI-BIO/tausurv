@@ -89,7 +89,7 @@ def test_blanche_reduces_to_uno_for_constant_marker():
     np.testing.assert_allclose(blanche_auc, uno_auc, equal_nan=True)
 
 
-def test_integrated_auc_heagerty_zheng_hand_computed():
+def test_integrated_auc_matches_hand_computed_value():
     # delta=[1,1,1,1] -> KM at unique event times = [3/4, 1/2, 1/4, 0].
     # S evaluated right-continuous at time_grid [1.5, 2.5, 3.5] = [3/4, 1/2, 1/4].
     # drops = [1/4, 1/4]; auc midpoints = [(0 + 0.5)/2, (0.5 + 1/3)/2] = [0.25, 5/12].

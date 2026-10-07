@@ -112,8 +112,8 @@ _REGISTRY: dict[str, DatasetSpec] = {
         ),
         description=(
             "Capacitor accelerated life test: 64 units aged at "
-            "combinations of temperature (170-200°C) and voltage "
-            "(200-300 V). 32 failures, 32 right-censored. The source "
+            "combinations of temperature (170 or 180°C) and voltage "
+            "(200, 250, 300 or 350 V). 32 failures, 32 right-censored. The source "
             "carries a ``fail`` column (rank within each stress group, "
             "used for Type-II analysis) which the loader drops. ALT "
             "factors are temperature and voltage."
@@ -129,14 +129,15 @@ _REGISTRY: dict[str, DatasetSpec] = {
         sha256="e52016004044ccf4de91906e0c0effbb01389739ca1a2175f0686d49c66cfefe",
         license="LGPL-2.1-or-later (R survival via Rdatasets)",
         citation=(
-            "Nelson, W. B. (1990). Accelerated Testing: Statistical "
-            "Models, Test Plans, and Data Analyses. Wiley. Insulating "
-            "fluid breakdown experiment."
+            "Meeker, W. Q. & Escobar, L. A. (1998). Statistical Methods "
+            "for Reliability Data. Wiley. Originally from Nelson, W. B. "
+            "(1990). Accelerated Testing: Statistical Models, Test Plans, "
+            "and Data Analyses. Wiley."
         ),
         description=(
             "Breakdown times of an insulating fluid under voltage stress "
-            "(Nelson 1972/1990): 41 specimens at seven voltage levels "
-            "(26-38 kV), all run to breakdown. No censoring — the "
+            "(Nelson 1972/1990): 41 specimens at four voltage levels "
+            "(26, 30, 34 and 38 kV), all run to breakdown. No censoring — the "
             "event_indicator is all-ones. Cleanest Weibull-AFT-with-"
             "covariate example in the small-reliability set; the "
             "log-linear voltage effect is the textbook Inverse Power Law."
@@ -323,8 +324,7 @@ _REGISTRY: dict[str, DatasetSpec] = {
         sha256="5e276e73eb144cba9725b4353a09a81f88b80db6fdbfe4ac841ca4a2f54eb91c",
         license="MIT (via lifelines)",
         citation=(
-            "United Network for Organ Sharing (UNOS) registry, summarised "
-            "in Klein, J. P. & Moeschberger, M. L. (2003). Survival "
+            "Klein, J. P. & Moeschberger, M. L. (2003). Survival "
             "Analysis: Techniques for Censored and Truncated Data, "
             "2nd ed., Springer."
         ),
@@ -346,9 +346,9 @@ _REGISTRY: dict[str, DatasetSpec] = {
         sha256="90113f673525f034ecd5a7b5c4e86fe736a530b4d2f0c82495690c9dd10fb402",
         license="GPL-3 (R KMsurv via Rdatasets)",
         citation=(
-            "Kardaun, O. (1983). Statistical analysis of male larynx-"
-            "cancer patients - a case study. Statistical Nederlandica "
-            "37(3), 103-126. Compiled by Klein & Moeschberger (2003)."
+            "Kardaun, O. (1983). Statistical survival analysis of male "
+            "larynx-cancer patients - a case study. Statistica Neerlandica "
+            "37(3), 103-125. Compiled by Klein & Moeschberger (2003)."
         ),
         description=(
             "90 male patients diagnosed with cancer of the larynx, "
@@ -378,7 +378,7 @@ _REGISTRY: dict[str, DatasetSpec] = {
             "flag marks the 668-patient case-cohort subsample used in "
             "two-phase / IPW analyses (kept as a covariate so users can "
             "subset). Covariates: histology, stage, study, age, "
-            "institution-type indicator."
+            "histology as read by the local institution."
         ),
         parser=parse_nwtco,
         tags=("clinical",),
@@ -445,9 +445,9 @@ _REGISTRY: dict[str, DatasetSpec] = {
         sha256="38950e1cd853e1fd390555620657edfc2b8ef87717e9feb12e5066f645563b85",
         license="GPL-3 (R KMsurv via Rdatasets)",
         citation=(
-            "Sickle-Santanello, B. J. et al. (1988). A reproducible "
-            "system of flow-cytometric DNA analysis of paraffin-embedded "
-            "solid tumours. Cytometry 9(6), 594-599. Compiled by Klein "
+            "Sickle-Santanello, B. J. et al. (1988). Technical and "
+            "statistical improvements for flow cytometric DNA analysis of "
+            "paraffin-embedded tissue. Cytometry 9(6), 594-599. Compiled by Klein "
             "& Moeschberger (2003)."
         ),
         description=(
@@ -494,7 +494,8 @@ _REGISTRY: dict[str, DatasetSpec] = {
         citation=(
             "Dispenzieri, A. et al. (2012). Use of nonclonal serum "
             "immunoglobulin free light chains to predict overall survival "
-            "in the general population. Mayo Clinic Proceedings 87(6)."
+            "in the general population. Mayo Clinic Proceedings 87(6), "
+            "517-523."
         ),
         description=(
             "Mayo Clinic population cohort of free-light-chain assays, "

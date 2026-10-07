@@ -63,8 +63,9 @@ class DeepSurv(SurvivalPredictor, CheckpointMixin, nn.Module):
     References
     ----------
     Katzman, J. L. et al. (2018). DeepSurv: personalized treatment
-    recommender using a Cox proportional hazards deep neural network. BMC
-    Medical Research Methodology, 18(1).
+    recommender system using a Cox proportional hazards deep neural
+    network. BMC Medical Research Methodology, 18(1), 24.
+    doi:10.1186/s12874-018-0482-1.
     """
 
     config_class = DeepSurvConfig

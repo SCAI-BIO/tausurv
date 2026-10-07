@@ -54,8 +54,8 @@ def aalen_johansen_variance(
 ) -> StepFunction:
     r"""Pointwise variance of the Aalen-Johansen estimate.
 
-    Greenwood-type estimator of Marubini and Valsecchi (1995), the form used
-    by lifelines and SAS ``PROC LIFETEST``:
+    Greenwood-type estimator of Marubini and Valsecchi (1995), the form SAS
+    ``PROC LIFETEST`` uses with ``ERROR=DELTA``:
 
     $$
     \widehat{\mathrm{Var}}\,\hat F_k(t) =

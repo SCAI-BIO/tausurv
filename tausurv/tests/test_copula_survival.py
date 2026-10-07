@@ -1,4 +1,4 @@
-"""Tests for the CopulaSurv model (Zhang 2023).
+"""Tests for the CopulaSurv model (Gharari Foomani et al. 2023).
 
 Covers: forward returns the expected dict, loss is functional and
 swappable (matches the rest of ``tausurv.nn.functional``), training

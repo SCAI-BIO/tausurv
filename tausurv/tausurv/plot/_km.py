@@ -9,7 +9,7 @@ curve's x-ticks, censor ticks, and group splits.
 Defaults follow Pocock, Clayton & Altman (Lancet 2002) and Morris et al.
 (BMJ Open 2019) on KM reporting: number-at-risk row(s) below the curve at
 shared tick locations, logit-transformed pointwise CIs
-(Borgan & Liestol 1990) rather than Wald, and censor ticks auto-enabled only
+(Meeker & Escobar 1998) rather than Wald, and censor ticks auto-enabled only
 for small samples.
 """
 
@@ -109,7 +109,8 @@ def km(
     References
     ----------
     Kaplan & Meier (1958), JASA 53.
-    Borgan & Liestol (1990), Scand. J. Stat. 17.
+    Meeker, W. Q., Escobar, L. A. (1998). Statistical Methods for
+    Reliability Data. Wiley.
     Pocock, Clayton & Altman (2002), Lancet 359.
     Morris et al. (2019), BMJ Open 9.
     """

@@ -1,7 +1,7 @@
 r"""Copula-based deep survival model with dependent censoring.
 
-After Zhang et al., "Copula-Based Deep Survival Models for Dependent
-Censoring" (2023, arXiv:2306.11912). Two neural networks predict the
+After Gharari Foomani et al., "Copula-Based Deep Survival Models for
+Dependent Censoring" (2023, arXiv:2306.11912). Two neural networks predict the
 marginal survival functions for the event time $T$ and the censoring
 time $C$, and an Archimedean copula joins them on the survival scale:
 
@@ -123,7 +123,7 @@ def _inverse_constrain_theta(family: str, theta: float) -> float:
 
 
 class CopulaSurv(SurvivalPredictor, CheckpointMixin, nn.Module):
-    r"""Copula-based deep survival model with dependent censoring (Zhang 2023).
+    r"""Copula-based deep survival model with dependent censoring.
 
     Construct with :class:`CopulaSurvConfig` or kwargs (HF-style). After
     training (via :class:`CopulaSurvTrainer` +
@@ -136,9 +136,9 @@ class CopulaSurv(SurvivalPredictor, CheckpointMixin, nn.Module):
 
     References
     ----------
-    Zhang, W., Yi, Y., Pal, A., Lyu, J., Tarique, M., Krishnan, R. G.
+    Gharari Foomani, A. H., Cooper, M., Greiner, R., Krishnan, R. G.
     (2023). Copula-Based Deep Survival Models for Dependent Censoring.
-    arXiv:2306.11912.
+    Proceedings of UAI 2023, PMLR 216, 669-680. arXiv:2306.11912.
     """
 
     config_class = CopulaSurvConfig

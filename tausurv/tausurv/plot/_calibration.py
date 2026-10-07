@@ -99,7 +99,9 @@ def calibration(
 
     References
     ----------
-    Royston & Altman (2013), Stat. Med. 32. Calibration of survival models.
+    Austin, P. C., Harrell, F. E., van Klaveren, D. (2020). Graphical
+    calibration curves and the integrated calibration index (ICI) for
+    survival models. Statistics in Medicine, 39(21), 2714-2742.
     """
     import matplotlib.pyplot as plt
 

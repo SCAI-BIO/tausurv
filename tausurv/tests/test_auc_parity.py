@@ -50,7 +50,7 @@ def test_blanche_auc_matches_sksurv_with_time_varying_marker(random_auc_data):
 
 
 def test_integrated_auc_close_to_sksurv(random_auc_data):
-    # Both implementations follow the Heagerty-Zheng survival-weighted
+    # Both implementations follow the Lambert-Chevret KM-weighted
     # definition, but the discrete approximation on a finite grid differs
     # slightly between libraries (sksurv-specific binning details that aren't
     # part of the published formula). Per-time AUC matches exactly above;

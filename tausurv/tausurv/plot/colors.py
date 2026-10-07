@@ -1,9 +1,9 @@
 """Color palettes for tausurv plots.
 
-Okabe-Ito for categorical data (safe under colour-vision deficiency and
-distinguishable in grayscale), Paul Tol's qualitative schemes as alternates,
-the viridis family for sequential data, and ColorBrewer's RdBu for diverging
-data (hazard ratios, risk differences).
+Okabe-Ito for categorical data (safe under colour-vision deficiency), Paul
+Tol's qualitative schemes as alternates, the viridis family for sequential
+data, and ColorBrewer's RdBu for diverging data (hazard ratios, risk
+differences).
 """
 
 from __future__ import annotations

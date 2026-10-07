@@ -123,10 +123,10 @@ SPECS: dict[str, DatasetSpec] = {
         sha256="4fe12ec9566848fe9760fb0d1d2ed3ded1878ee1f3250ca90c0d0e1e4dd60d63",
         license=_SURVIVAL_LICENSE,
         citation=(
-            "Edmunson, J. H. et al. (1979). Different chemotherapeutic "
+            "Edmonson, J. H. et al. (1979). Different chemotherapeutic "
             "sensitivities and host factors affecting prognosis in advanced "
             "ovarian carcinoma versus minimal residual disease. Cancer "
-            "Treatment Reports 63, 241-247."
+            "Treatment Reports 63(2), 241-247."
         ),
         description=(
             "26 patients with advanced ovarian carcinoma randomised between "
@@ -168,9 +168,8 @@ SPECS: dict[str, DatasetSpec] = {
         sha256="670f441970109e736142dd512bc448cdd339e6f9d5e098b6aec18c53c1b5a27d",
         license=_SURVIVAL_LICENSE,
         citation=(
-            "Krall, J. M., Uthoff, V. A. & Harley, J. B. (1975). A step-up "
-            "procedure for selecting variables associated with survival. "
-            "Biometrics 31, 49-57."
+            "Therneau, T. M. (2024). A Package for Survival Analysis in R. "
+            "R package version 3.7. Dataset `myeloma`."
         ),
         description=(
             "3882 patients with multiple myeloma seen at the Mayo Clinic, "
@@ -197,7 +196,7 @@ SPECS: dict[str, DatasetSpec] = {
         description=(
             "17549 residents of Olmsted County, Minnesota: every adult "
             "diagnosed with non-alcoholic fatty liver disease 1997-2014 "
-            "plus four matched controls each, followed for death (1364 "
+            "plus up to four matched controls each, followed for death (1364 "
             "events, 7.8%). The largest open cohort in the registry and the "
             "one closest to a real epidemiological sample -- large, sparse "
             "in events, and matched rather than randomised."
@@ -322,8 +321,10 @@ SPECS: dict[str, DatasetSpec] = {
             "Jews. New England Journal of Medicine 336(20), 1401-1408."
         ),
         description=(
-            "3920 Ashkenazi Jewish women, 473 with breast cancer, genotyped "
-            "for BRCA1/BRCA2 founder mutations. The time scale is age, not "
+            "3920 Ashkenazi Jewish women, 473 with breast cancer, all "
+            "first-degree female relatives of probands genotyped for "
+            "BRCA1/BRCA2 founder mutations; `mutant` is the proband's "
+            "carrier status. The time scale is age, not "
             "follow-up duration, so the endpoint is age at diagnosis and "
             "everyone is at risk from birth. Relatives are grouped by "
             "`famID`, so rows cluster within families."
@@ -340,16 +341,16 @@ SPECS: dict[str, DatasetSpec] = {
         sha256="5f8d031eecce3d9f8fc5e67c2697d5d965c3009ecf7f66c03d9581b2098071c5",
         license=_SURVIVAL_LICENSE,
         citation=(
-            "Therneau, T. M. (2024). A Package for Survival Analysis in R. "
-            "R package version 3.7."
+            "Kim, W. R. et al. (2006). Deaths on the liver transplant "
+            "waiting list: an analysis of competing risks. Hepatology "
+            "43(2), 345-351."
         ),
         description=(
             "815 patients on a liver transplant waiting list, with three "
             "ways to leave it: transplant (636), death on the list (66), "
-            "and withdrawal (37). Only 76 remain censored. The clearest "
-            "argument in the registry against treating competing events as "
-            "censoring -- do that here and the estimated transplant rate "
-            "exceeds one."
+            "and withdrawal (37). Only 76 remain censored. Treating the "
+            "competing events as censoring here gives per-cause "
+            "one-minus-Kaplan-Meier curves that sum to more than one."
         ),
         parser=p.parse_transplant,
         tags=("clinical", "competing-risks"),
@@ -368,9 +369,9 @@ SPECS: dict[str, DatasetSpec] = {
         description=(
             "181 irradiated mice, each of which died of exactly one of "
             "thymic lymphoma, reticulum cell sarcoma, or another cause, "
-            "under two germ-free conditions. There is no censoring at all: "
-            "the event rate is 100% and the entire question is which cause "
-            "won. The purest competing-risks illustration available."
+            "in a conventional laboratory (99) or a germ-free environment "
+            "(82). There is no censoring: every mouse has an event, and "
+            "the question is only which cause."
         ),
         parser=p.parse_hoel,
         tags=("competing-risks", "preclinical"),
@@ -453,12 +454,15 @@ SPECS: dict[str, DatasetSpec] = {
         sha256="69a293d89a1fafa06ddb0ee4d4b12ef1c7a7db6aaa6e28997c25586989e0708c",
         license=_SURVIVAL_LICENSE,
         citation=(
-            "Therneau, T. M. (2024). A Package for Survival Analysis in R. "
-            "R package version 3.7."
+            "Le-Rademacher, J. G. et al. (2018). Application of multi-state "
+            "models in cancer clinical trials. Clinical Trials 15(5), "
+            "489-498."
         ),
         description=(
             "646 patients in a two-arm acute myeloid leukemia trial, 320 "
-            "deaths. The source also records complete response, stem cell "
+            "deaths. The data are simulated from the trial: a de-identified "
+            "subset with randomly perturbed times. The source also records "
+            "complete response, stem cell "
             "transplant and relapse times; those are intermediate states "
             "reached after baseline, so they are dropped here rather than "
             "offered as covariates. The multi-state analysis they support "
@@ -474,9 +478,15 @@ SPECS: dict[str, DatasetSpec] = {
         url=f"{_R}/asaur/prostateSurvival.csv",
         sha256="a992eb03dc5642145e76cb632dde0578c523b535d27b941722739fd89449d470",
         license=_ASAUR_LICENSE,
-        citation=_MOORE_BOOK,
+        citation=(
+            "Lu-Yao, G. L. et al. (2009). Outcomes of localized prostate "
+            "cancer following conservative management. JAMA 302(11), "
+            "1202-1209. Distributed with Moore, D. F. (2016). Applied "
+            "Survival Analysis Using R. Springer."
+        ),
         description=(
-            "14294 men diagnosed with prostate cancer, drawn from SEER and "
+            "14294 men diagnosed with prostate cancer, simulated from the "
+            "SEER-Medicare survival curves of Lu-Yao et al. (2009) and "
             "grouped by tumour grade, stage and age. 799 died of prostate "
             "cancer and 3240 of something else -- competing mortality "
             "outnumbers the event of interest four to one, which is the "
@@ -495,7 +505,7 @@ SPECS: dict[str, DatasetSpec] = {
         sha256="4b483a3f9585e3a586a67754ac4d226a968b30b055db650098fa1cb0bccc96c2",
         license=_ASAUR_LICENSE,
         citation=(
-            "Li, J. et al. (2011). CXCL17 expression predicts poor "
+            "Li, L. et al. (2014). CXCL17 expression predicts poor "
             "prognosis and correlates with adverse immune infiltration in "
             "hepatocellular carcinoma. PLoS ONE 9(10), e110064."
         ),
@@ -518,7 +528,7 @@ SPECS: dict[str, DatasetSpec] = {
         sha256="4b483a3f9585e3a586a67754ac4d226a968b30b055db650098fa1cb0bccc96c2",
         license=_ASAUR_LICENSE,
         citation=(
-            "Li, J. et al. (2011). CXCL17 expression predicts poor "
+            "Li, L. et al. (2014). CXCL17 expression predicts poor "
             "prognosis and correlates with adverse immune infiltration in "
             "hepatocellular carcinoma. PLoS ONE 9(10), e110064."
         ),
@@ -684,8 +694,9 @@ SPECS: dict[str, DatasetSpec] = {
             "301-310."
         ),
         description=(
-            "154 severely burned patients randomised between routine "
-            "bathing and a body-cleansing protocol, followed for "
+            "154 severely burned patients treated with routine bathing "
+            "or, after a protocol change, with a body-cleansing protocol "
+            "(historical control, not randomised), followed for "
             "staphylococcus aureus infection (48 infections). Covariates "
             "Z1-Z11 cover treatment, gender, race, burn percentage by site, "
             "and burn type. Excision and antibiotic administration are "
@@ -703,7 +714,7 @@ SPECS: dict[str, DatasetSpec] = {
         license=_KMSURV_LICENSE,
         citation=_KM_BOOK,
         description=(
-            "927 mothers from the National Survey of Family Growth, "
+            "927 mothers from the National Longitudinal Survey of Youth, "
             "followed for weaning (892 events, 96%). Covariates: race, "
             "poverty status, smoking, alcohol use, age at birth, birth "
             "year, years of schooling, and prenatal care. Almost nothing is "
@@ -761,7 +772,8 @@ SPECS: dict[str, DatasetSpec] = {
         description=(
             "43 lymphoma patients given allogeneic or autologous bone "
             "marrow transplants, crossed with Hodgkin's or non-Hodgkin's "
-            "disease type, followed for death (26 events). Karnofsky score "
+            "disease type, followed for death or relapse (26 events). "
+            "Karnofsky score "
             "and waiting time to transplant are the covariates. A four-cell "
             "factorial design in a very small cohort."
         ),
@@ -829,8 +841,10 @@ SPECS: dict[str, DatasetSpec] = {
         license=_KMSURV_LICENSE,
         citation=_KM_BOOK,
         description=(
-            "34 HIV-positive patients split by intravenous drug use "
-            "history, followed for death (27 events). Klein and "
+            "34 HIV-positive patients randomised between zidovudine plus "
+            "zalcitabine and zidovudine plus zalcitabine plus saquinavir, "
+            "followed until the CD4 count reached a set level (27 events). "
+            "Klein and "
             "Moeschberger's two-sample exercise on tests weighted toward "
             "early versus late differences."
         ),
@@ -863,7 +877,7 @@ SPECS: dict[str, DatasetSpec] = {
         license=_KMSURV_LICENSE,
         citation=_KM_BOOK,
         description=(
-            "24 Danish twins who survived past age 60, followed for death "
+            "24 twins followed for death from coronary heart disease "
             "(8 events), recorded as matched pairs. The smallest paired "
             "design in the registry."
         ),
@@ -878,8 +892,11 @@ SPECS: dict[str, DatasetSpec] = {
         sha256="8ecbd76222eba9fb55c180c1ee5251063d3d14fb71adca70ab8d41b7f0713b80",
         license=_KMSURV_LICENSE,
         citation=(
-            "Nahman, N. S. et al. (1992). Laparoscopic peritoneal dialysis "
-            "catheter insertion. Advances in Peritoneal Dialysis 8, 404-407."
+            "Nahman, N. S. et al. (1992). Modification of the percutaneous "
+            "approach to peritoneal dialysis catheter placement under "
+            "peritoneoscopic visualization: clinical results in 78 "
+            "patients. Journal of the American Society of Nephrology 3(1), "
+            "103-107."
         ),
         description=(
             "119 kidney dialysis patients followed for exit-site infection, "

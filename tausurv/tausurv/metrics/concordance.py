@@ -275,7 +275,7 @@ def harrell_cause_specific(
     *,
     cause: int = 1,
 ) -> float:
-    r"""Cause-specific Harrell C-index for competing risks (Wolbers et al., 2014).
+    r"""Cause-specific Harrell C-index for competing risks (Wolbers et al., 2009).
 
     For a fixed cause $k$, a pair $(i, j)$ is comparable iff $\delta_i = k$
     and one of:
@@ -308,8 +308,12 @@ def harrell_cause_specific(
 
     References
     ----------
+    Wolbers, M., Koller, M. T., Witteman, J. C. M., Steyerberg, E. W.
+    (2009). Prognostic models with competing risks: methods and application
+    to coronary risk prediction. Epidemiology, 20(4), 555-561.
     Wolbers, M. et al. (2014). Concordance for prognostic models with
-    competing risks. Biostatistics, 15(3).
+    competing risks. Biostatistics, 15(3), 526-539. Describes the
+    IPCW-weighted version, which this function does not implement.
     """
     if cause < 1:
         raise ValueError(f"cause must be >= 1, got {cause}")

@@ -96,7 +96,7 @@ def crps(
     References
     ----------
     Avati, A. et al. (2020). Countdown Regression: Sharp and Calibrated
-    Survival Predictions. UAI 2020.
+    Survival Predictions. Proceedings of UAI 2019, PMLR 115, 145-155.
     """
     Y = np.asarray(event_time, dtype=np.float64)
     delta = np.asarray(event_indicator, dtype=np.int8)

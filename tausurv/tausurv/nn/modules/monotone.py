@@ -11,7 +11,7 @@ The two pieces:
   separated by a monotone activation (default ``tanh``). The composition
   of non-negative-weight linear maps with a monotone non-decreasing
   activation is itself monotone non-decreasing in each input
-  (Daniels & Velikova, 2010; Wehenkel & Louppe, 2019).
+  (Daniels & Velikova, 2010).
 
 A common use is to feed ``(features, t)`` in and obtain a real-valued
 output that is monotone non-decreasing in ``t``; wrapping the output as
@@ -28,8 +28,6 @@ References
 ----------
 Daniels, H., Velikova, M. (2010). Monotone and partially monotone neural
 networks. IEEE Transactions on Neural Networks, 21(6).
-Wehenkel, A., Louppe, G. (2019). Unconstrained monotonic neural networks.
-NeurIPS.
 """
 
 from __future__ import annotations

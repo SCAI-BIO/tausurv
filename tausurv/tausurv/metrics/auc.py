@@ -133,8 +133,10 @@ def blanche(
 
     References
     ----------
-    Blanche, P., Dartigues, J.-F., Jacqmin-Gadda, H. (2013). Statistics in
-    Medicine, 32(30).
+    Blanche, P., Dartigues, J.-F., Jacqmin-Gadda, H. (2013). Estimating
+    and comparing time-dependent areas under receiver operating
+    characteristic curves for censored event times with competing risks.
+    Statistics in Medicine, 32(30), 5381-5397.
     """
     Y = np.asarray(event_time, dtype=np.float64)
     delta = np.asarray(event_indicator, dtype=np.int8)
@@ -228,7 +230,10 @@ def cause_specific(
     ----------
     Saha, P., Heagerty, P. J. (2010). Time-dependent predictive accuracy in
     the presence of competing risks. Biometrics, 66(4).
-    Blanche, P. et al. (2013). Statistics in Medicine, 32(30).
+    Blanche, P., Dartigues, J.-F., Jacqmin-Gadda, H. (2013). Estimating
+    and comparing time-dependent areas under receiver operating
+    characteristic curves for censored event times with competing risks.
+    Statistics in Medicine, 32(30), 5381-5397.
     """
     if cause < 1:
         raise ValueError(f"cause must be >= 1, got {cause}")
@@ -278,7 +283,7 @@ def integrated(
     auc_per_time: ArrayLike,
     times: ArrayLike,
 ) -> float:
-    r"""Survival-weighted integrated AUC (Heagerty-Zheng).
+    r"""Integrated cumulative/dynamic AUC (Lambert & Chevret 2016).
 
     Weights per-time AUC by the marginal event density estimated by KM, so
     times with more events count more:
@@ -293,10 +298,8 @@ def integrated(
     marginal event distribution. Discretized as a trapezoidal-style sum
     against the KM drops between consecutive ``times`` points.
 
-    Generalizes Harrell's C over a time range — the simple time-average
-    $\int \widehat{AUC}(t)\,dt / (t_{\max} - t_{\min})$ is *not* used because
-    it gives equal weight to times with few events, which is rarely what
-    survival analysis cares about.
+    The plain time average $\int \widehat{AUC}(t)\,dt / (t_{\max} - t_{\min})$
+    would give times with few events the same weight as times with many.
 
     Parameters
     ----------
@@ -315,8 +318,9 @@ def integrated(
 
     References
     ----------
-    Heagerty, P. J., Zheng, Y. (2005). Survival model predictive accuracy and
-    ROC curves. Biometrics, 61(1).
+    Lambert, J., Chevret, S. (2016). Summary measure of discrimination in
+    survival models based on cumulative/dynamic time-dependent ROC curves.
+    Statistical Methods in Medical Research, 25(5), 2088-2102.
     """
     Y = np.asarray(event_time, dtype=np.float64)
     delta = np.asarray(event_indicator, dtype=np.int8)

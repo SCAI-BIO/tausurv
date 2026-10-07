@@ -271,7 +271,7 @@ class CauseSpecificPredictor(CompetingRisksPredictor):
     is $1 - \sum_k \hat F_k$, consistent with it.
 
     This is the cause-specific-hazard alternative to the subdistribution
-    approach of :class:`~tausurv.linear.FineGray`; compare FineGray (2021),
+    approach of :class:`~tausurv.linear.FineGray`; compare Fine & Gray (1999) and
     cause-specific Cox (Prentice et al., 1978).
 
     The class follows the sklearn-style composition pattern: construction

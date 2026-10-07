@@ -15,19 +15,19 @@ def deephit_ranking(
     sigma: float = 0.1,
     reduction: str = "mean",
 ) -> Tensor:
-    r"""DeepHit pair-ranking regularizer (Lee et al. 2018, equation 3).
+    r"""DeepHit pair-ranking regularizer (Lee et al. 2018, equation 4).
 
     For each cause $c$ and each comparable pair $(i, j)$ with
     $\delta_i = c$ and $T_i < T_j$:
 
     $$
-    L_{\text{rank}}^{(c)} = \frac{1}{n_{\text{pairs}}^{(c)}}
-        \sum_{(i, j) \in \mathcal{P}_c}
+    L_{\text{rank}}^{(c)} = \sum_{(i, j) \in \mathcal{P}_c}
         \exp\!\left(-\frac{\hat F_{i, c}(T_i) - \hat F_{j, c}(T_i)}{\sigma}\right)
     $$
 
-    Returns the sum of per-cause losses divided by the total comparable pairs
-    across all causes (a single scalar). Larger
+    ``reduction="sum"`` returns $\sum_c L_{\text{rank}}^{(c)}$, the paper's
+    loss with equal cause weights $\alpha_c = 1$; ``"mean"`` divides it by
+    the number of comparable pairs across all causes. Larger
     $\hat F_{i, c}(T_i) - \hat F_{j, c}(T_i)$ → smaller penalty (concordant).
     For single-event data ($n_{\text{causes}} = 1$), reduces to the original
     DeepHit ranking.

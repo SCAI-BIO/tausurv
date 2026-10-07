@@ -61,9 +61,7 @@ class MLP(nn.Module):
 
     Input projection -> ``n_blocks`` of (LayerNorm/BatchNorm -> Linear ->
     activation -> Dropout, optionally residual) -> output projection.
-    Pre-norm + residual is the modern default. For shallow tabular survival
-    nets (2-4 blocks), this is empirically near-optimal (Gorishniy et al.,
-    2021).
+    Pre-norm with residual connections is the default.
 
     Parameters
     ----------

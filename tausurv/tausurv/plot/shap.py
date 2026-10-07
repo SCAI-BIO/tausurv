@@ -21,7 +21,8 @@ not in scope here. Array conventions:
 - 2-D ``(n_features, n_times)``: a single subject (or pre-aggregated cohort).
 
 Reference: Krzyzinski et al. (2023). *SurvSHAP(t): Time-dependent
-explanations of machine learning survival models.* Knowledge-Based Systems.
+explanations of machine learning survival models.* Knowledge-Based Systems,
+262, 110234.
 """
 
 from __future__ import annotations
