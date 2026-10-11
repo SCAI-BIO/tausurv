@@ -325,6 +325,7 @@ class Trainer:
         val_metric: Callable[..., "float | dict[str, float]"] | None = None,
         val_every: int = 1,
         patience: int | None = None,
+        restore_best: bool = False,
         val_direction: str = "min",
         best_from: str | None = None,
         out_dir: str | Path | None = None,
@@ -345,6 +346,8 @@ class Trainer:
             )
         if patience is not None and val_data is None:
             raise ValueError("patience requires val_data")
+        if restore_best and val_data is None:
+            raise ValueError("restore_best requires val_data")
         out_dir_path = Path(out_dir) if out_dir is not None else None
 
         # Setup
@@ -406,6 +409,7 @@ class Trainer:
             )
         n_nan = 0
         n_bad_val = 0
+        best_state: dict[str, Tensor] | None = None
         interrupted = False
         epoch = start_epoch - 1
 
@@ -472,6 +476,11 @@ class Trainer:
                         best_epoch = epoch
                         best_key = tracked_key
                         n_bad_val = 0
+                        if restore_best:
+                            best_state = {
+                                name: value.detach().cpu().clone()
+                                for name, value in self.model.state_dict().items()
+                            }
                         if save_best and out_dir_path is not None:
                             self._save(
                                 out_dir_path / "best",
@@ -546,6 +555,9 @@ class Trainer:
             )
 
         logger.close()
+        
+        if restore_best and best_state is not None:
+            self.model.load_state_dict(best_state)
 
         history["best_epoch"] = best_epoch
         history["best_value"] = best_value if best_epoch >= 0 else None
