@@ -357,6 +357,16 @@ class Trainer:
             start_epoch, saved_extra = load_state(
                 resume_from, self.model, self.optimizer
             )
+            if (
+                restore_best
+                and saved_extra.get("best_epoch", -1) >= 0
+                and saved_extra.get("best_state") is None
+            ):
+                raise ValueError(
+                    "restore_best cannot resume from a checkpoint without saved "
+                    "best weights; resume from a checkpoint created with "
+                    "restore_best=True"
+                )
             sched_state = saved_extra.get("scheduler_state")
             if sched_state is not None and self._lr_scheduler is not None:
                 self._lr_scheduler.load_state_dict(sched_state)
@@ -395,6 +405,9 @@ class Trainer:
         )
         best_epoch = saved_extra.get("best_epoch", -1)
         best_key: str | None = saved_extra.get("best_metric")
+        best_state: dict[str, Tensor] | None = (
+            saved_extra.get("best_state") if restore_best else None
+        )
 
         rng = saved_extra.get("rng_state")
         if rng is not None:
@@ -409,7 +422,6 @@ class Trainer:
             )
         n_nan = 0
         n_bad_val = 0
-        best_state: dict[str, Tensor] | None = None
         interrupted = False
         epoch = start_epoch - 1
 
@@ -491,6 +503,7 @@ class Trainer:
                                     best_value=best_value,
                                     best_epoch=best_epoch,
                                     best_key=best_key,
+                                    best_state=best_state,
                                     history=history,
                                 ),
                             )
@@ -512,6 +525,7 @@ class Trainer:
                             best_value=best_value,
                             best_epoch=best_epoch,
                             best_key=best_key,
+                            best_state=best_state,
                             history=history,
                         ),
                     )
@@ -536,6 +550,7 @@ class Trainer:
                         best_value=best_value,
                         best_epoch=best_epoch,
                         best_key=best_key,
+                        best_state=best_state,
                         history=history,
                     ),
                 )
@@ -550,6 +565,7 @@ class Trainer:
                     best_value=best_value,
                     best_epoch=best_epoch,
                     best_key=best_key,
+                    best_state=best_state,
                     history=history,
                 ),
             )
@@ -587,6 +603,7 @@ class Trainer:
         best_value: float,
         best_epoch: int,
         best_key: str | None,
+        best_state: dict[str, Tensor] | None,
         history: dict[str, Any],
     ) -> dict[str, Any]:
         """Snapshot of fit-loop state needed for transparent resume."""
@@ -601,6 +618,8 @@ class Trainer:
                 "python_state": random.getstate(),
             },
         }
+        if best_state is not None:
+            state["best_state"] = best_state
         if self._lr_scheduler is not None:
             state["scheduler_state"] = self._lr_scheduler.state_dict()
         return state
