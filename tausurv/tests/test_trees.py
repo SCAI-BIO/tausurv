@@ -163,3 +163,66 @@ def test_survival_tree_rejects_invalid_max_features():
         SurvivalTree(max_features="quartile").fit(
             np.zeros((10, 3)), np.arange(10.0), np.ones(10, dtype=np.int8)
         )
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        SurvivalTree(max_depth=4, min_samples_leaf=10, seed=0),
+        RandomSurvivalForest(n_estimators=12, max_depth=4, max_features=2, seed=0),
+    ],
+    ids=["tree", "forest"],
+)
+def test_tree_model_save_load_preserves_predictions(model, tmp_path):
+    X, T, delta = simulations.single_risk(n=300, seed=0)
+    model.fit(X[:200], T[:200], delta[:200])
+    model.save(tmp_path / "ckpt")
+
+    loaded = type(model).load(tmp_path / "ckpt")
+
+    grid = np.linspace(0.1, 3.0, 7)
+    np.testing.assert_array_equal(loaded.times_, model.times_)
+    np.testing.assert_array_equal(
+        loaded.predict_cumulative_hazard(X[200:], grid),
+        model.predict_cumulative_hazard(X[200:], grid),
+    )
+    np.testing.assert_array_equal(loaded.predict(X[200:]), model.predict(X[200:]))
+    assert {name: getattr(loaded, name) for name in ("max_depth", "seed")} == {
+        "max_depth": 4,
+        "seed": 0,
+    }
+
+
+def test_tree_model_unfitted_save_rejected(tmp_path):
+    with pytest.raises(RuntimeError, match="not fitted"):
+        RandomSurvivalForest().save(tmp_path / "ckpt")
+
+
+def test_tree_model_checkpoint_rejects_wrong_class(tmp_path):
+    X, T, delta = simulations.single_risk(n=120, seed=0)
+    SurvivalTree(max_depth=3, seed=0).fit(X, T, delta).save(tmp_path / "ckpt")
+    with pytest.raises(ValueError, match="written by SurvivalTree"):
+        RandomSurvivalForest.load(tmp_path / "ckpt")
+
+
+def test_tree_model_checkpoint_rejects_tampered_state(tmp_path):
+    X, T, delta = simulations.single_risk(n=120, seed=0)
+    SurvivalTree(max_depth=3, seed=0).fit(X, T, delta).save(tmp_path / "ckpt")
+    with np.load(tmp_path / "ckpt" / "state.npz") as state:
+        arrays = {key: state[key] for key in state.files}
+    arrays["node_left"] = arrays["node_left"].copy()
+    arrays["node_left"][arrays["node_feature"] >= 0] = 10_000
+    np.savez_compressed(tmp_path / "ckpt" / "state.npz", **arrays)
+    with pytest.raises(ValueError, match="invalid tree arrays"):
+        SurvivalTree.load(tmp_path / "ckpt")
+
+
+def test_tree_model_checkpoint_rejects_unknown_format_version(tmp_path):
+    X, T, delta = simulations.single_risk(n=120, seed=0)
+    SurvivalTree(max_depth=3, seed=0).fit(X, T, delta).save(tmp_path / "ckpt")
+    config = tmp_path / "ckpt" / "config.json"
+    config.write_text(
+        config.read_text().replace('"format_version": 1', '"format_version": 99')
+    )
+    with pytest.raises(ValueError, match="format version 99"):
+        SurvivalTree.load(tmp_path / "ckpt")
