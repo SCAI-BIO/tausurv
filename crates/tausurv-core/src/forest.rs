@@ -14,6 +14,9 @@ use rand::{Rng, RngCore, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use rayon::prelude::*;
 
+use crate::arrays::{
+    ForestArrays, InvalidArrays, LeafArrays, NodeArrays, TreeArrays, check_offsets,
+};
 use crate::data::SurvivalData;
 use crate::splits::SplitCriterion;
 use crate::step::StepFunction;
@@ -145,6 +148,102 @@ impl<L: LeafPayload> Forest<L> {
             leaf_assignment,
             leaf_sizes,
         }
+    }
+
+    /// The forest in flat form; `from_arrays` inverts it exactly.
+    pub fn to_arrays(&self) -> ForestArrays {
+        let mut node_offsets = vec![0_u64];
+        let mut leaf_offsets = vec![0_u64];
+        let mut root = Vec::with_capacity(self.trees.len());
+        let mut nodes = NodeArrays::default();
+        let mut leaves = LeafArrays::default();
+        for tree in &self.trees {
+            let arrays = tree.to_arrays();
+            nodes.extend(&arrays.nodes);
+            leaves.extend(&arrays.leaves);
+            root.push(arrays.root);
+            node_offsets.push(nodes.len() as u64);
+            leaf_offsets.push(leaf_offsets.last().unwrap() + tree.n_leaves() as u64);
+        }
+        ForestArrays {
+            n_features: self.n_features,
+            n_train: self.n_train_samples() as u32,
+            node_offsets,
+            leaf_offsets,
+            root,
+            nodes,
+            leaves,
+            leaf_assignment: self.leaf_assignment.iter().copied().collect(),
+        }
+    }
+
+    /// Rebuild a forest from its flat form, checking every tree and the
+    /// leaf assignment of the training samples.
+    pub fn from_arrays(arrays: ForestArrays) -> Result<Self, InvalidArrays> {
+        let n_trees = arrays.root.len();
+        if n_trees == 0 {
+            return Err(InvalidArrays("a forest has at least one tree".to_string()));
+        }
+        arrays.nodes.check_lengths()?;
+        check_offsets(
+            &arrays.node_offsets,
+            n_trees,
+            arrays.nodes.len(),
+            "tree node",
+        )?;
+        let n_leaves_total = arrays.nodes.feature.iter().filter(|&&f| f < 0).count();
+        check_offsets(&arrays.leaf_offsets, n_trees, n_leaves_total, "tree leaf")?;
+
+        let mut trees = Vec::with_capacity(n_trees);
+        for b in 0..n_trees {
+            let node_range = arrays.node_offsets[b] as usize..arrays.node_offsets[b + 1] as usize;
+            let leaf_range = arrays.leaf_offsets[b] as usize..arrays.leaf_offsets[b + 1] as usize;
+            let tree = Tree::<L>::from_arrays(TreeArrays {
+                n_features: arrays.n_features,
+                root: arrays.root[b],
+                nodes: arrays.nodes.slice(node_range),
+                leaves: arrays.leaves.slice(leaf_range.clone())?,
+            })
+            .map_err(|InvalidArrays(msg)| InvalidArrays(format!("tree {b}: {msg}")))?;
+            if tree.n_leaves() != leaf_range.len() {
+                return Err(InvalidArrays(format!(
+                    "tree {b} has {} leaves but its leaf range holds {}",
+                    tree.n_leaves(),
+                    leaf_range.len()
+                )));
+            }
+            trees.push(tree);
+        }
+
+        let n_train = arrays.n_train as usize;
+        let leaf_assignment = Array2::from_shape_vec((n_trees, n_train), arrays.leaf_assignment)
+            .map_err(|_| {
+                InvalidArrays(format!(
+                    "leaf assignment must hold n_trees * n_train = {} entries",
+                    n_trees * n_train
+                ))
+            })?;
+        let mut leaf_sizes: Vec<Vec<u32>> =
+            trees.iter().map(|t| vec![0_u32; t.n_leaves()]).collect();
+        for (b, row) in leaf_assignment.rows().into_iter().enumerate() {
+            for &lid in row.iter() {
+                if lid == u32::MAX {
+                    continue;
+                }
+                let Some(size) = leaf_sizes[b].get_mut(lid as usize) else {
+                    return Err(InvalidArrays(format!(
+                        "tree {b} assigns a training sample to leaf {lid}, which it does not have"
+                    )));
+                };
+                *size += 1;
+            }
+        }
+        Ok(Forest {
+            trees,
+            n_features: arrays.n_features,
+            leaf_assignment,
+            leaf_sizes,
+        })
     }
 
     /// Number of trees in the ensemble.
@@ -490,5 +589,68 @@ mod tests {
         for (f, s) in h_forest.iter().zip(h_single.iter()) {
             assert_relative_eq!(*f, *s, max_relative = 1e-15);
         }
+    }
+
+    #[test]
+    fn arrays_round_trip_reproduces_predictions_and_weights() {
+        let (x, y, delta) = two_group_data(200);
+        let data = SurvivalData::new(x.view(), &y, &delta);
+        let config = ForestConfig {
+            n_trees: 12,
+            tree: TreeConfig {
+                min_samples_leaf: 10,
+                max_features: MaxFeatures::Count(2),
+                ..TreeConfig::default()
+            },
+            ..ForestConfig::default()
+        };
+        let forest: Forest<StepFunction> = Forest::fit(data, &LogRankCriterion, &config, 7);
+        let rebuilt = Forest::<StepFunction>::from_arrays(forest.to_arrays()).unwrap();
+        let times = [0.5, 1.5, 5.0, 12.0];
+        assert_eq!(
+            rebuilt.predict_cumulative_hazard(x.view(), &times),
+            forest.predict_cumulative_hazard(x.view(), &times)
+        );
+        assert_eq!(
+            rebuilt.forest_weights_batch(x.slice(ndarray::s![..5, ..])),
+            forest.forest_weights_batch(x.slice(ndarray::s![..5, ..]))
+        );
+        let (a, b) = (rebuilt.to_arrays(), forest.to_arrays());
+        assert_eq!((a.n_features, a.n_train), (b.n_features, b.n_train));
+        assert_eq!(
+            (a.node_offsets, a.leaf_offsets, a.root),
+            (b.node_offsets, b.leaf_offsets, b.root)
+        );
+        assert!(a.nodes.same_as(&b.nodes));
+        assert_eq!(a.leaves, b.leaves);
+        assert_eq!(a.leaf_assignment, b.leaf_assignment);
+    }
+
+    #[test]
+    fn corrupt_forest_arrays_are_rejected() {
+        let (x, y, delta) = two_group_data(100);
+        let data = SurvivalData::new(x.view(), &y, &delta);
+        let config = ForestConfig {
+            n_trees: 3,
+            tree: TreeConfig {
+                min_samples_leaf: 10,
+                ..TreeConfig::default()
+            },
+            ..ForestConfig::default()
+        };
+        let forest: Forest<StepFunction> = Forest::fit(data, &LogRankCriterion, &config, 1);
+        let good = forest.to_arrays();
+
+        let mut wrong_assignment = good.clone();
+        wrong_assignment.leaf_assignment[0] = 10_000;
+        assert!(Forest::<StepFunction>::from_arrays(wrong_assignment).is_err());
+
+        let mut short_assignment = good.clone();
+        short_assignment.leaf_assignment.pop();
+        assert!(Forest::<StepFunction>::from_arrays(short_assignment).is_err());
+
+        let mut bad_offsets = good;
+        bad_offsets.node_offsets[1] += 1;
+        assert!(Forest::<StepFunction>::from_arrays(bad_offsets).is_err());
     }
 }

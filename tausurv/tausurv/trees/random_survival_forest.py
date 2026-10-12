@@ -1,11 +1,23 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
 from tausurv._tausurv_core import LogRankSurvivalForest, fit_log_rank_forest
 from tausurv.predictor import SurvivalPredictor
+from tausurv.trees import _checkpoint
 from tausurv.trees.survival_tree import _coerce_inputs
+
+_PARAMS = (
+    "n_estimators",
+    "max_depth",
+    "min_samples_leaf",
+    "max_features",
+    "bootstrap",
+    "seed",
+)
 
 
 class RandomSurvivalForest(SurvivalPredictor):
@@ -102,6 +114,18 @@ class RandomSurvivalForest(SurvivalPredictor):
             self._handle.predict_cumulative_hazard(X_f, times_arr),
             dtype=np.float64,
         )
+
+    def save(self, path: str | Path) -> None:
+        """Write ``config.json`` and ``state.npz`` to ``path``."""
+        _checkpoint.save(self, path, {name: getattr(self, name) for name in _PARAMS})
+
+    @classmethod
+    def load(cls, path: str | Path) -> RandomSurvivalForest:
+        """Reconstruct a forest from a directory written by `save`."""
+        model: RandomSurvivalForest = _checkpoint.load(
+            cls, path, LogRankSurvivalForest.from_arrays, _PARAMS
+        )
+        return model
 
     def predict(self, X: ArrayLike) -> NDArray[np.float64]:
         r"""Ishwaran mortality, averaged across trees."""

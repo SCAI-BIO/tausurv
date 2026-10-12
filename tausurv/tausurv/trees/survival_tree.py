@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
 from tausurv._tausurv_core import LogRankSurvivalTree, fit_log_rank_tree
 from tausurv.predictor import SurvivalPredictor
+from tausurv.trees import _checkpoint
+
+_PARAMS = ("max_depth", "min_samples_leaf", "max_features", "seed")
 
 
 def _log_rank_statistic(
@@ -152,6 +157,18 @@ class SurvivalTree(SurvivalPredictor):
             self._handle.predict_cumulative_hazard(X_f, times_arr),
             dtype=np.float64,
         )
+
+    def save(self, path: str | Path) -> None:
+        """Write ``config.json`` and ``state.npz`` to ``path``."""
+        _checkpoint.save(self, path, {name: getattr(self, name) for name in _PARAMS})
+
+    @classmethod
+    def load(cls, path: str | Path) -> SurvivalTree:
+        """Reconstruct a tree from a directory written by `save`."""
+        model: SurvivalTree = _checkpoint.load(
+            cls, path, LogRankSurvivalTree.from_arrays, _PARAMS
+        )
+        return model
 
     def predict(self, X: ArrayLike) -> NDArray[np.float64]:
         r"""Ishwaran mortality: $M(x) = \sum_i \hat\Lambda(t_i \mid x)$ summed

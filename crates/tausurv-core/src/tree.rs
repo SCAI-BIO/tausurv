@@ -13,12 +13,14 @@ use ndarray::{Array2, ArrayView1, ArrayView2};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
+use std::cmp::Ordering;
 use std::fmt::Debug;
 
+use crate::arrays::{InvalidArrays, LeafArrays, NodeArrays, TreeArrays, check_offsets};
 use crate::data::SurvivalData;
 use crate::nelson_aalen::nelson_aalen;
 use crate::splits::SplitCriterion;
-use crate::step::StepFunction;
+use crate::step::{Side, StepFunction};
 
 /// Per-leaf payload type for [`Tree`].
 ///
@@ -35,16 +37,101 @@ pub trait LeafPayload: Send + Sync + Clone + Debug {
     /// training-sample indices). `data` is the full training set; the
     /// implementation reads only what it needs.
     fn compute(data: SurvivalData<'_>, estimation: &[u32]) -> Self;
+
+    /// Flatten the payloads of one tree's leaves, in leaf order.
+    fn encode(payloads: &[Self]) -> LeafArrays;
+
+    /// Rebuild `n_leaves` payloads from their flat form, rejecting arrays
+    /// that do not describe valid payloads.
+    fn decode(arrays: &LeafArrays, n_leaves: usize) -> Result<Vec<Self>, InvalidArrays>;
 }
 
 impl LeafPayload for StepFunction {
     fn compute(data: SurvivalData<'_>, estimation: &[u32]) -> Self {
         nelson_aalen(data.y, data.delta, estimation)
     }
+
+    fn encode(payloads: &[Self]) -> LeafArrays {
+        let mut arrays = LeafArrays {
+            offsets: vec![0],
+            ..LeafArrays::default()
+        };
+        for payload in payloads {
+            arrays.time.extend_from_slice(payload.time());
+            arrays.value.extend_from_slice(payload.value());
+            arrays.baseline.push(payload.baseline());
+            arrays.side.push(match payload.side() {
+                Side::Right => 0,
+                Side::Left => 1,
+            });
+            arrays.offsets.push(arrays.time.len() as u64);
+        }
+        arrays
+    }
+
+    fn decode(arrays: &LeafArrays, n_leaves: usize) -> Result<Vec<Self>, InvalidArrays> {
+        check_offsets(&arrays.offsets, n_leaves, arrays.time.len(), "leaf")?;
+        if arrays.value.len() != arrays.time.len() {
+            return Err(InvalidArrays(format!(
+                "leaf time has {} entries but leaf value has {}",
+                arrays.time.len(),
+                arrays.value.len()
+            )));
+        }
+        if arrays.baseline.len() != n_leaves || arrays.side.len() != n_leaves {
+            return Err(InvalidArrays(format!(
+                "{n_leaves} leaves need one baseline and one side each; got {} and {}",
+                arrays.baseline.len(),
+                arrays.side.len()
+            )));
+        }
+        (0..n_leaves)
+            .map(|l| {
+                let range = arrays.offsets[l] as usize..arrays.offsets[l + 1] as usize;
+                let time = &arrays.time[range.clone()];
+                if time
+                    .windows(2)
+                    .any(|w| !matches!(w[0].partial_cmp(&w[1]), Some(Ordering::Less)))
+                {
+                    return Err(InvalidArrays(format!(
+                        "leaf {l} grid times are not strictly increasing"
+                    )));
+                }
+                let side = match arrays.side[l] {
+                    0 => Side::Right,
+                    1 => Side::Left,
+                    other => {
+                        return Err(InvalidArrays(format!(
+                            "leaf {l} side must be 0 or 1; got {other}"
+                        )));
+                    }
+                };
+                Ok(StepFunction::new(
+                    time.to_vec(),
+                    arrays.value[range].to_vec(),
+                    side,
+                    arrays.baseline[l],
+                ))
+            })
+            .collect()
+    }
 }
 
 impl LeafPayload for () {
     fn compute(_data: SurvivalData<'_>, _estimation: &[u32]) -> Self {}
+
+    fn encode(_payloads: &[Self]) -> LeafArrays {
+        LeafArrays::default()
+    }
+
+    fn decode(arrays: &LeafArrays, n_leaves: usize) -> Result<Vec<Self>, InvalidArrays> {
+        if *arrays != LeafArrays::default() {
+            return Err(InvalidArrays(
+                "a payload-free tree carries no leaf arrays".to_string(),
+            ));
+        }
+        Ok(vec![(); n_leaves])
+    }
 }
 
 /// How many features to consider at each split.
@@ -252,6 +339,50 @@ impl<L: LeafPayload> Tree<L> {
         }
     }
 
+    /// The tree in flat form; `from_arrays` inverts it exactly.
+    pub fn to_arrays(&self) -> TreeArrays {
+        let mut nodes = NodeArrays::default();
+        for node in &self.nodes {
+            match node {
+                NodeKind::Internal {
+                    feature,
+                    threshold,
+                    left,
+                    right,
+                } => nodes.push_internal(*feature, *threshold, *left, *right),
+                NodeKind::Leaf { hazard_id } => nodes.push_leaf(*hazard_id),
+            }
+        }
+        TreeArrays {
+            n_features: self.n_features,
+            root: self.root,
+            nodes,
+            leaves: L::encode(&self.leaf_payloads),
+        }
+    }
+
+    /// Rebuild a tree from its flat form.
+    ///
+    /// Every invariant a fitted tree has is checked: columns agree in
+    /// length, split features and child indices are in range, thresholds
+    /// are finite, every node is reached from the root exactly once, and
+    /// the leaf payload indices are a permutation of `0..n_leaves`.
+    pub fn from_arrays(arrays: TreeArrays) -> Result<Self, InvalidArrays> {
+        let nodes = decode_nodes(&arrays.nodes, arrays.n_features)?;
+        let n_leaves = nodes
+            .iter()
+            .filter(|n| matches!(n, NodeKind::Leaf { .. }))
+            .count();
+        check_tree_shape(&nodes, arrays.root)?;
+        let leaf_payloads = L::decode(&arrays.leaves, n_leaves)?;
+        Ok(Tree {
+            nodes,
+            leaf_payloads,
+            root: arrays.root,
+            n_features: arrays.n_features,
+        })
+    }
+
     /// Number of features the tree was fitted on.
     pub fn n_features(&self) -> usize {
         self.n_features as usize
@@ -430,6 +561,92 @@ impl<'b, 'd, L: LeafPayload, C: SplitCriterion> TreeBuilder<'b, 'd, L, C> {
         }
         self.feature_pool[..k].to_vec()
     }
+}
+
+/// Turn a node table into nodes, checking ranges and the leaf numbering.
+fn decode_nodes(arrays: &NodeArrays, n_features: u32) -> Result<Vec<NodeKind>, InvalidArrays> {
+    arrays.check_lengths()?;
+    let n_nodes = arrays.len();
+    if n_nodes == 0 {
+        return Err(InvalidArrays("a tree has at least one node".to_string()));
+    }
+    let n_leaves = arrays.feature.iter().filter(|&&f| f < 0).count();
+    let mut leaf_seen = vec![false; n_leaves];
+    let mut nodes = Vec::with_capacity(n_nodes);
+    for i in 0..n_nodes {
+        let feature = arrays.feature[i];
+        if feature < 0 {
+            let leaf = arrays.leaf[i];
+            if leaf as usize >= n_leaves {
+                return Err(InvalidArrays(format!(
+                    "node {i} points at leaf {leaf} but there are {n_leaves} leaves"
+                )));
+            }
+            if leaf_seen[leaf as usize] {
+                return Err(InvalidArrays(format!(
+                    "leaf {leaf} is referenced by more than one node"
+                )));
+            }
+            leaf_seen[leaf as usize] = true;
+            nodes.push(NodeKind::Leaf { hazard_id: leaf });
+            continue;
+        }
+        if feature >= i64::from(n_features) {
+            return Err(InvalidArrays(format!(
+                "node {i} splits on feature {feature} but the tree has {n_features} features"
+            )));
+        }
+        let threshold = arrays.threshold[i];
+        if !threshold.is_finite() {
+            return Err(InvalidArrays(format!(
+                "node {i} has a non-finite threshold"
+            )));
+        }
+        let (left, right) = (arrays.left[i], arrays.right[i]);
+        if left as usize >= n_nodes || right as usize >= n_nodes {
+            return Err(InvalidArrays(format!(
+                "node {i} has a child outside the {n_nodes} nodes"
+            )));
+        }
+        nodes.push(NodeKind::Internal {
+            feature: feature as u32,
+            threshold,
+            left,
+            right,
+        });
+    }
+    Ok(nodes)
+}
+
+/// Check that `root` reaches every node exactly once, so the table is one
+/// tree: no cycles, no shared subtrees, no orphans.
+fn check_tree_shape(nodes: &[NodeKind], root: u32) -> Result<(), InvalidArrays> {
+    if root as usize >= nodes.len() {
+        return Err(InvalidArrays(format!(
+            "root {root} is outside the {} nodes",
+            nodes.len()
+        )));
+    }
+    let mut seen = vec![false; nodes.len()];
+    let mut stack = vec![root];
+    while let Some(node) = stack.pop() {
+        if seen[node as usize] {
+            return Err(InvalidArrays(format!(
+                "node {node} is reached twice from the root"
+            )));
+        }
+        seen[node as usize] = true;
+        if let NodeKind::Internal { left, right, .. } = &nodes[node as usize] {
+            stack.push(*left);
+            stack.push(*right);
+        }
+    }
+    if let Some(orphan) = seen.iter().position(|&s| !s) {
+        return Err(InvalidArrays(format!(
+            "node {orphan} is not reachable from the root"
+        )));
+    }
+    Ok(())
 }
 
 /// Fisher-Yates shuffle, in place.
@@ -658,5 +875,74 @@ mod tests {
             max_diff > 1e-6,
             "honest and non-honest produced identical predictions (max_diff={max_diff})",
         );
+    }
+
+    #[test]
+    fn arrays_round_trip_reproduces_predictions() {
+        let (x, y, delta) = two_group_data(200);
+        let data = SurvivalData::new(x.view(), &y, &delta);
+        let config = TreeConfig {
+            min_samples_leaf: 10,
+            ..TreeConfig::default()
+        };
+        let tree: Tree<StepFunction> = Tree::fit(data, &LogRankCriterion, &config, 3);
+        let rebuilt = Tree::<StepFunction>::from_arrays(tree.to_arrays()).unwrap();
+        assert_eq!(rebuilt.n_nodes(), tree.n_nodes());
+        assert_eq!(rebuilt.n_leaves(), tree.n_leaves());
+        let times = [0.5, 1.5, 5.0, 12.0];
+        assert_eq!(
+            rebuilt.predict_cumulative_hazard(x.view(), &times),
+            tree.predict_cumulative_hazard(x.view(), &times)
+        );
+        let (a, b) = (rebuilt.to_arrays(), tree.to_arrays());
+        assert_eq!((a.n_features, a.root), (b.n_features, b.root));
+        assert!(a.nodes.same_as(&b.nodes));
+        assert_eq!(a.leaves, b.leaves);
+    }
+
+    #[test]
+    fn arrays_round_trip_for_payload_free_tree() {
+        let (x, y, delta) = two_group_data(100);
+        let data = SurvivalData::new(x.view(), &y, &delta);
+        let tree: Tree<()> = Tree::fit(data, &LogRankCriterion, &TreeConfig::default(), 1);
+        let rebuilt = Tree::<()>::from_arrays(tree.to_arrays()).unwrap();
+        for row in x.rows() {
+            assert_eq!(rebuilt.predict_leaf(row), tree.predict_leaf(row));
+        }
+    }
+
+    #[test]
+    fn corrupt_arrays_are_rejected() {
+        let (x, y, delta) = two_group_data(200);
+        let data = SurvivalData::new(x.view(), &y, &delta);
+        let config = TreeConfig {
+            min_samples_leaf: 10,
+            ..TreeConfig::default()
+        };
+        let tree: Tree<StepFunction> = Tree::fit(data, &LogRankCriterion, &config, 3);
+        let good = tree.to_arrays();
+        let internal = good.nodes.feature.iter().position(|&f| f >= 0).unwrap();
+
+        let mut child_out_of_range = good.clone();
+        child_out_of_range.nodes.left[internal] = 10_000;
+        assert!(Tree::<StepFunction>::from_arrays(child_out_of_range).is_err());
+
+        let mut cycle = good.clone();
+        cycle.nodes.left[internal] = good.root;
+        assert!(Tree::<StepFunction>::from_arrays(cycle).is_err());
+
+        let mut bad_feature = good.clone();
+        bad_feature.nodes.feature[internal] = 99;
+        assert!(Tree::<StepFunction>::from_arrays(bad_feature).is_err());
+
+        let mut unsorted_grid = good.clone();
+        if unsorted_grid.leaves.time.len() >= 2 {
+            unsorted_grid.leaves.time.swap(0, 1);
+            assert!(Tree::<StepFunction>::from_arrays(unsorted_grid).is_err());
+        }
+
+        let mut short_columns = good;
+        short_columns.nodes.leaf.pop();
+        assert!(Tree::<StepFunction>::from_arrays(short_columns).is_err());
     }
 }

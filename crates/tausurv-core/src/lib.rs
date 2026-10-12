@@ -7,6 +7,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(test, allow(missing_docs))]
 
+pub mod arrays;
 pub mod data;
 pub mod forest;
 pub mod nelson_aalen;
@@ -14,6 +15,7 @@ pub mod splits;
 pub mod step;
 pub mod tree;
 
+pub use arrays::{ForestArrays, InvalidArrays, LeafArrays, NodeArrays, TreeArrays};
 pub use data::SurvivalData;
 pub use forest::{Bootstrap, Forest, ForestConfig};
 pub use nelson_aalen::nelson_aalen;

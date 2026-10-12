@@ -5,12 +5,14 @@
 //! core crate stays Python-agnostic.
 
 use ndarray::{ArrayView2, Axis};
-use numpy::{IntoPyArray, PyArray1, PyArray2, PyReadonlyArray1, PyReadonlyArray2};
+use numpy::{IntoPyArray, PyArray1, PyArray2, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
+use pyo3::types::PyDict;
 use tausurv_core::{
-    Bootstrap, Forest, ForestConfig, GradientCriterion, HonestyMode, LogRankCriterion, MaxFeatures,
-    StepFunction, SurvivalData, Tree, TreeConfig,
+    Bootstrap, Forest, ForestArrays, ForestConfig, GradientCriterion, HonestyMode, LeafArrays,
+    LogRankCriterion, MaxFeatures, NodeArrays, StepFunction, SurvivalData, Tree, TreeArrays,
+    TreeConfig,
 };
 
 #[pyfunction]
@@ -53,6 +55,21 @@ impl PyLogRankSurvivalTree {
             self.n_leaves(),
             self.depth(),
         )
+    }
+
+    /// The fitted tree as a dict of flat numpy arrays, the form
+    /// `from_arrays` accepts; see `tausurv_core::TreeArrays` for the columns.
+    fn to_arrays<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        tree_to_dict(py, &self.inner.to_arrays())
+    }
+
+    /// Rebuild a tree from the dict `to_arrays` returns. Arrays that do
+    /// not describe a valid tree raise `ValueError`.
+    #[staticmethod]
+    fn from_arrays(arrays: &Bound<'_, PyDict>) -> PyResult<Self> {
+        let inner = Tree::<StepFunction>::from_arrays(tree_from_dict(arrays)?)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok(PyLogRankSurvivalTree { inner })
     }
 
     /// Predict the cumulative hazard $\hat\Lambda(t \mid x)$ for each row
@@ -237,6 +254,21 @@ impl PyLogRankSurvivalForest {
             self.n_features(),
             self.n_train_samples(),
         )
+    }
+
+    /// The fitted forest as a dict of flat numpy arrays, the form
+    /// `from_arrays` accepts; see `tausurv_core::ForestArrays` for the columns.
+    fn to_arrays<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        forest_to_dict(py, &self.inner.to_arrays())
+    }
+
+    /// Rebuild a forest from the dict `to_arrays` returns. Arrays that do
+    /// not describe a valid forest raise `ValueError`.
+    #[staticmethod]
+    fn from_arrays(arrays: &Bound<'_, PyDict>) -> PyResult<Self> {
+        let inner = Forest::<StepFunction>::from_arrays(forest_from_dict(arrays)?)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok(PyLogRankSurvivalForest { inner })
     }
 
     /// Tree-averaged cumulative hazard $\hat\Lambda(t | x)$ for each row of
@@ -441,6 +473,21 @@ impl PyGradientForest {
         )
     }
 
+    /// The fitted forest as a dict of flat numpy arrays, the form
+    /// `from_arrays` accepts; see `tausurv_core::ForestArrays` for the columns.
+    fn to_arrays<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        forest_to_dict(py, &self.inner.to_arrays())
+    }
+
+    /// Rebuild a forest from the dict `to_arrays` returns. Arrays that do
+    /// not describe a valid forest raise `ValueError`.
+    #[staticmethod]
+    fn from_arrays(arrays: &Bound<'_, PyDict>) -> PyResult<Self> {
+        let inner = Forest::<()>::from_arrays(forest_from_dict(arrays)?)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok(PyGradientForest { inner })
+    }
+
     /// Batched forest weights. Returns `(n_query, n_train)`.
     #[pyo3(signature = (X))]
     #[allow(non_snake_case)]
@@ -576,6 +623,128 @@ fn fit_gradient_forest<'py>(
     let seed = seed.unwrap_or(0);
     let forest = py.detach(|| Forest::<()>::fit(data, &criterion, &config, seed));
     Ok(PyGradientForest { inner: forest })
+}
+
+/// One entry of an arrays dict, with the key in the error message.
+fn entry<'py, T>(arrays: &Bound<'py, PyDict>, key: &str) -> PyResult<T>
+where
+    T: for<'a> FromPyObject<'a, 'py>,
+{
+    match arrays.get_item(key)? {
+        Some(value) => value.extract::<T>().map_err(|e| {
+            let err: PyErr = e.into();
+            PyValueError::new_err(format!("arrays[{key:?}]: {err}"))
+        }),
+        None => Err(PyValueError::new_err(format!("arrays are missing {key:?}"))),
+    }
+}
+
+fn column<T: numpy::Element + Copy>(arrays: &Bound<'_, PyDict>, key: &str) -> PyResult<Vec<T>> {
+    let Some(value) = arrays.get_item(key)? else {
+        return Err(PyValueError::new_err(format!("arrays are missing {key:?}")));
+    };
+    let array = value.cast::<PyArray1<T>>().map_err(|e| {
+        PyValueError::new_err(format!(
+            "arrays[{key:?}] must be a 1-d {} array: {e}",
+            std::any::type_name::<T>()
+        ))
+    })?;
+    Ok(array.readonly().as_slice()?.to_vec())
+}
+
+fn put_nodes<'py>(py: Python<'py>, dict: &Bound<'py, PyDict>, nodes: &NodeArrays) -> PyResult<()> {
+    dict.set_item("node_feature", nodes.feature.clone().into_pyarray(py))?;
+    dict.set_item("node_threshold", nodes.threshold.clone().into_pyarray(py))?;
+    dict.set_item("node_left", nodes.left.clone().into_pyarray(py))?;
+    dict.set_item("node_right", nodes.right.clone().into_pyarray(py))?;
+    dict.set_item("node_leaf", nodes.leaf.clone().into_pyarray(py))?;
+    Ok(())
+}
+
+fn put_leaves<'py>(
+    py: Python<'py>,
+    dict: &Bound<'py, PyDict>,
+    leaves: &LeafArrays,
+) -> PyResult<()> {
+    dict.set_item("leaf_offsets", leaves.offsets.clone().into_pyarray(py))?;
+    dict.set_item("leaf_time", leaves.time.clone().into_pyarray(py))?;
+    dict.set_item("leaf_value", leaves.value.clone().into_pyarray(py))?;
+    dict.set_item("leaf_baseline", leaves.baseline.clone().into_pyarray(py))?;
+    dict.set_item("leaf_side", leaves.side.clone().into_pyarray(py))?;
+    Ok(())
+}
+
+fn get_nodes(arrays: &Bound<'_, PyDict>) -> PyResult<NodeArrays> {
+    Ok(NodeArrays {
+        feature: column(arrays, "node_feature")?,
+        threshold: column(arrays, "node_threshold")?,
+        left: column(arrays, "node_left")?,
+        right: column(arrays, "node_right")?,
+        leaf: column(arrays, "node_leaf")?,
+    })
+}
+
+fn get_leaves(arrays: &Bound<'_, PyDict>) -> PyResult<LeafArrays> {
+    Ok(LeafArrays {
+        offsets: column(arrays, "leaf_offsets")?,
+        time: column(arrays, "leaf_time")?,
+        value: column(arrays, "leaf_value")?,
+        baseline: column(arrays, "leaf_baseline")?,
+        side: column(arrays, "leaf_side")?,
+    })
+}
+
+fn tree_to_dict<'py>(py: Python<'py>, arrays: &TreeArrays) -> PyResult<Bound<'py, PyDict>> {
+    let dict = PyDict::new(py);
+    dict.set_item("n_features", arrays.n_features)?;
+    dict.set_item("root", arrays.root)?;
+    put_nodes(py, &dict, &arrays.nodes)?;
+    put_leaves(py, &dict, &arrays.leaves)?;
+    Ok(dict)
+}
+
+fn tree_from_dict(arrays: &Bound<'_, PyDict>) -> PyResult<TreeArrays> {
+    Ok(TreeArrays {
+        n_features: entry(arrays, "n_features")?,
+        root: entry(arrays, "root")?,
+        nodes: get_nodes(arrays)?,
+        leaves: get_leaves(arrays)?,
+    })
+}
+
+fn forest_to_dict<'py>(py: Python<'py>, arrays: &ForestArrays) -> PyResult<Bound<'py, PyDict>> {
+    let dict = PyDict::new(py);
+    dict.set_item("n_features", arrays.n_features)?;
+    dict.set_item("n_train", arrays.n_train)?;
+    dict.set_item(
+        "tree_node_offsets",
+        arrays.node_offsets.clone().into_pyarray(py),
+    )?;
+    dict.set_item(
+        "tree_leaf_offsets",
+        arrays.leaf_offsets.clone().into_pyarray(py),
+    )?;
+    dict.set_item("tree_root", arrays.root.clone().into_pyarray(py))?;
+    put_nodes(py, &dict, &arrays.nodes)?;
+    put_leaves(py, &dict, &arrays.leaves)?;
+    dict.set_item(
+        "leaf_assignment",
+        arrays.leaf_assignment.clone().into_pyarray(py),
+    )?;
+    Ok(dict)
+}
+
+fn forest_from_dict(arrays: &Bound<'_, PyDict>) -> PyResult<ForestArrays> {
+    Ok(ForestArrays {
+        n_features: entry(arrays, "n_features")?,
+        n_train: entry(arrays, "n_train")?,
+        node_offsets: column(arrays, "tree_node_offsets")?,
+        leaf_offsets: column(arrays, "tree_leaf_offsets")?,
+        root: column(arrays, "tree_root")?,
+        nodes: get_nodes(arrays)?,
+        leaves: get_leaves(arrays)?,
+        leaf_assignment: column(arrays, "leaf_assignment")?,
+    })
 }
 
 #[pymodule]
