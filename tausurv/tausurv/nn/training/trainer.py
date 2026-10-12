@@ -571,7 +571,7 @@ class Trainer:
             )
 
         logger.close()
-        
+
         if restore_best and best_state is not None:
             self.model.load_state_dict(best_state)
 
