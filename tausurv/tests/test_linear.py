@@ -13,9 +13,7 @@ def test_coxnet_matches_sksurv_predictions():
     X, event_time, event_indicator = simulations.single_risk(n=200, seed=0)
     alphas = [0.01]
 
-    model = Coxnet(alphas=alphas, standardize=False).fit(
-        X, event_time, event_indicator
-    )
+    model = Coxnet(alphas=alphas, standardize=False).fit(X, event_time, event_indicator)
     reference = sksurv_linear.CoxnetSurvivalAnalysis(
         alphas=alphas,
         fit_baseline_model=True,
@@ -27,9 +25,7 @@ def test_coxnet_matches_sksurv_predictions():
     np.testing.assert_allclose(model.predict(X), reference.predict(X))
     np.testing.assert_allclose(
         model.predict_survival_function(X),
-        np.asarray(
-            [fn(model.times_) for fn in reference.predict_survival_function(X)]
-        ),
+        np.asarray([fn(model.times_) for fn in reference.predict_survival_function(X)]),
     )
 
 
@@ -82,7 +78,7 @@ def test_coxnet_predictor_contract_uses_requested_time_grid():
 
 def test_coxnet_requires_fit_before_prediction():
     pytest.importorskip("sksurv")
-    with pytest.raises(AssertionError, match="must be fitted"):
+    with pytest.raises(RuntimeError, match="not fitted"):
         Coxnet().predict(np.zeros((1, 2)))
 
 

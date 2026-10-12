@@ -73,5 +73,5 @@ files = ["tausurv"]
 
 # Optional dependency, ships no type information.
 [[tool.mypy.overrides]]
-module = ["sklearn.*"]
+module = ["sklearn.*", "sksurv.*"]
 ignore_missing_imports = true
