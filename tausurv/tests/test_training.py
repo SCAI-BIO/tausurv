@@ -187,6 +187,38 @@ def test_fit_restore_best_returns_best_epoch_weights():
         torch.testing.assert_close(value.cpu(), observed_states[0][name])
 
 
+def test_fit_function_forwards_restore_best():
+    torch.manual_seed(0)
+    model = DeepSurv(in_features=5, hidden_dim=16, n_blocks=2, dropout=0.0)
+    observed_states = []
+    scores = iter([0.0, 1.0, 2.0])
+
+    def val_metric(predictions, T, E):
+        observed_states.append(
+            {
+                name: value.detach().cpu().clone()
+                for name, value in model.state_dict().items()
+            }
+        )
+        return next(scores)
+
+    history = fit(
+        model,
+        functional.cox_nll,
+        _data(),
+        _data(),
+        epochs=3,
+        lr=1e-2,
+        val_metric=val_metric,
+        restore_best=True,
+        verbose=False,
+    )
+
+    assert history["best_epoch"] == 0
+    for name, value in model.state_dict().items():
+        torch.testing.assert_close(value.cpu(), observed_states[0][name])
+
+
 def test_fit_restore_best_survives_resume_without_new_improvement(tmp_path):
     torch.manual_seed(0)
     model = DeepSurv(in_features=5, hidden_dim=16, n_blocks=2, dropout=0.0)
