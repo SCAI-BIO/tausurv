@@ -2893,6 +2893,9 @@ deepsurv = [
 plot = [
     { name = "matplotlib" },
 ]
+sksurv = [
+    { name = "scikit-survival" },
+]
 tune = [
     { name = "optuna" },
 ]
@@ -2906,10 +2909,11 @@ requires-dist = [
     { name = "platformdirs", specifier = ">=4.0" },
     { name = "polars", specifier = ">=1.0" },
     { name = "scikit-learn", marker = "extra == 'boost'", specifier = ">=1.4.2" },
+    { name = "scikit-survival", marker = "extra == 'sksurv'", specifier = ">=0.23.0" },
     { name = "scipy", specifier = ">=1.13" },
     { name = "tqdm", specifier = ">=4.65" },
 ]
-provides-extras = ["plot", "boost", "deepsurv", "tune"]
+provides-extras = ["plot", "boost", "deepsurv", "tune", "sksurv"]
 
 [[package]]
 name = "tausurv-workspace"

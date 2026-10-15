@@ -12,6 +12,7 @@ from tausurv import (
 from tausurv.discretization import bin_index, time_grid
 from tausurv.linear import (
     CoxPH,
+    Coxnet,
     FineGray,
     LogLogisticAFT,
     LogNormalAFT,

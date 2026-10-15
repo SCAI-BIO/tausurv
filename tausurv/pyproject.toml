@@ -67,6 +67,9 @@ deepsurv = [
 tune = [
     "optuna>=3.1",
 ]
+sksurv = [
+    "scikit-survival>=0.23.0",
+]
 
 [build-system]
 requires = ["maturin>=1.10,<2"]
