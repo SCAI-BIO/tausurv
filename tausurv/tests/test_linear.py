@@ -82,6 +82,68 @@ def test_coxnet_requires_fit_before_prediction():
         Coxnet().predict(np.zeros((1, 2)))
 
 
+def test_coxnet_save_load_preserves_predictions(tmp_path):
+    pytest.importorskip("sksurv")
+    X, event_time, event_indicator = simulations.single_risk(n=200, seed=0)
+    model = Coxnet(alphas=[0.01, 0.05], standardize=False).fit(
+        X, event_time, event_indicator
+    )
+    model.save(tmp_path / "coxnet")
+    loaded = Coxnet.load(tmp_path / "coxnet")
+
+    assert loaded.l1_ratio == model.l1_ratio
+    assert loaded.standardize == model.standardize
+    np.testing.assert_array_equal(loaded.alphas, model.alphas)
+    np.testing.assert_array_equal(loaded.times_, model.times_)
+
+    grid = np.linspace(0.1, 2.0, 5)
+    np.testing.assert_allclose(loaded.predict(X), model.predict(X))
+    np.testing.assert_allclose(
+        loaded.predict_survival_function(X, grid),
+        model.predict_survival_function(X, grid),
+    )
+    np.testing.assert_allclose(
+        loaded.predict_cumulative_hazard(X, grid),
+        model.predict_cumulative_hazard(X, grid),
+    )
+
+
+def test_coxnet_save_load_with_standardize(tmp_path):
+    pytest.importorskip("sksurv")
+    pytest.importorskip("sklearn")
+    X, event_time, event_indicator = simulations.single_risk(n=200, seed=0)
+    model = Coxnet(alphas=[0.01], standardize=True).fit(X, event_time, event_indicator)
+    model.save(tmp_path / "coxnet")
+    loaded = Coxnet.load(tmp_path / "coxnet")
+
+    assert loaded.standardize is True
+    grid = np.linspace(0.1, 2.0, 5)
+    np.testing.assert_allclose(loaded.predict(X), model.predict(X))
+    np.testing.assert_allclose(
+        loaded.predict_survival_function(X, grid),
+        model.predict_survival_function(X, grid),
+    )
+
+
+def test_coxnet_save_load_preserves_full_path(tmp_path):
+    pytest.importorskip("sksurv")
+    X, event_time, event_indicator = simulations.single_risk(n=200, seed=0)
+    model = Coxnet(alphas=[0.01, 0.05, 0.1], standardize=False).fit(
+        X, event_time, event_indicator
+    )
+    model.save(tmp_path / "coxnet")
+    loaded = Coxnet.load(tmp_path / "coxnet")
+
+    assert loaded.coef_.shape == (X.shape[1], 3)
+    np.testing.assert_allclose(loaded.coef_, model.coef_)
+
+
+def test_coxnet_unfitted_save_rejected(tmp_path):
+    pytest.importorskip("sksurv")
+    with pytest.raises(RuntimeError, match="not fitted"):
+        Coxnet().save(tmp_path / "coxnet")
+
+
 def test_coxph_recovers_simulated_coefficients():
     X, T, E = simulations.single_risk(n=5000, n_features=5, censoring_rate=0.2, seed=0)
     cph = CoxPH().fit(X, T, E)
