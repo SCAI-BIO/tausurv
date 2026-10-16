@@ -157,6 +157,140 @@ def test_fit_resume_continues_history_and_preserves_best(tmp_path):
     assert history2["best_value"] <= best_before
 
 
+def test_fit_restore_best_returns_best_epoch_weights():
+    torch.manual_seed(0)
+    model = DeepSurv(in_features=5, hidden_dim=16, n_blocks=2, dropout=0.0)
+    trainer = Trainer(model, loss_fn=functional.cox_nll, lr=1e-2, seed=0)
+    observed_states = []
+    scores = iter([0.0, 1.0, 2.0])
+
+    def val_metric(predictions, T, E):
+        observed_states.append(
+            {
+                name: value.detach().cpu().clone()
+                for name, value in model.state_dict().items()
+            }
+        )
+        return next(scores)
+
+    history = trainer.fit(
+        _data(),
+        _data(),
+        epochs=3,
+        val_metric=val_metric,
+        restore_best=True,
+        verbose=False,
+    )
+
+    assert history["best_epoch"] == 0
+    for name, value in model.state_dict().items():
+        torch.testing.assert_close(value.cpu(), observed_states[0][name])
+
+
+def test_fit_function_forwards_restore_best():
+    torch.manual_seed(0)
+    model = DeepSurv(in_features=5, hidden_dim=16, n_blocks=2, dropout=0.0)
+    observed_states = []
+    scores = iter([0.0, 1.0, 2.0])
+
+    def val_metric(predictions, T, E):
+        observed_states.append(
+            {
+                name: value.detach().cpu().clone()
+                for name, value in model.state_dict().items()
+            }
+        )
+        return next(scores)
+
+    history = fit(
+        model,
+        functional.cox_nll,
+        _data(),
+        _data(),
+        epochs=3,
+        lr=1e-2,
+        val_metric=val_metric,
+        restore_best=True,
+        verbose=False,
+    )
+
+    assert history["best_epoch"] == 0
+    for name, value in model.state_dict().items():
+        torch.testing.assert_close(value.cpu(), observed_states[0][name])
+
+
+def test_fit_restore_best_survives_resume_without_new_improvement(tmp_path):
+    torch.manual_seed(0)
+    model = DeepSurv(in_features=5, hidden_dim=16, n_blocks=2, dropout=0.0)
+    trainer = Trainer(model, loss_fn=functional.cox_nll, lr=1e-2, seed=0)
+    best_states = []
+    first_scores = iter([0.0, 1.0])
+
+    def first_metric(predictions, T, E):
+        best_states.append(
+            {
+                name: value.detach().cpu().clone()
+                for name, value in model.state_dict().items()
+            }
+        )
+        return next(first_scores)
+
+    trainer.fit(
+        _data(),
+        _data(),
+        epochs=2,
+        val_metric=first_metric,
+        restore_best=True,
+        out_dir=tmp_path,
+        verbose=False,
+    )
+
+    resumed_model = DeepSurv(in_features=5, hidden_dim=16, n_blocks=2, dropout=0.0)
+    resumed_trainer = Trainer(
+        resumed_model, loss_fn=functional.cox_nll, lr=1e-2, seed=0
+    )
+    scores = iter([10.0, 11.0])
+    resumed_trainer.fit(
+        _data(),
+        _data(),
+        epochs=4,
+        val_metric=lambda predictions, T, E: next(scores),
+        restore_best=True,
+        out_dir=tmp_path,
+        resume_from=tmp_path / "final",
+        verbose=False,
+    )
+
+    for name, value in resumed_model.state_dict().items():
+        torch.testing.assert_close(value.cpu(), best_states[0][name])
+
+
+def test_fit_restore_best_rejects_legacy_resume_without_best_weights(tmp_path):
+    torch.manual_seed(0)
+    model = DeepSurv(in_features=5, hidden_dim=16, n_blocks=2, dropout=0.0)
+    Trainer(model, loss_fn=functional.cox_nll, lr=1e-2, seed=0).fit(
+        _data(),
+        _data(),
+        epochs=2,
+        out_dir=tmp_path,
+        verbose=False,
+    )
+
+    resumed_model = DeepSurv(in_features=5, hidden_dim=16, n_blocks=2, dropout=0.0)
+    resumed_trainer = Trainer(
+        resumed_model, loss_fn=functional.cox_nll, lr=1e-2, seed=0
+    )
+    with pytest.raises(ValueError, match="without saved best weights"):
+        resumed_trainer.fit(
+            _data(),
+            _data(),
+            epochs=3,
+            restore_best=True,
+            resume_from=tmp_path / "final",
+            verbose=False,
+        )
+
+
 def test_fit_resume_uninterrupted_equivalence(tmp_path):
     """8 epochs straight vs 5+resume+3 give the same trajectory (RNG restored)."""
     torch.manual_seed(0)

@@ -325,6 +325,7 @@ class Trainer:
         val_metric: Callable[..., "float | dict[str, float]"] | None = None,
         val_every: int = 1,
         patience: int | None = None,
+        restore_best: bool | None = None,
         val_direction: str = "min",
         best_from: str | None = None,
         out_dir: str | Path | None = None,
@@ -345,6 +346,11 @@ class Trainer:
             )
         if patience is not None and val_data is None:
             raise ValueError("patience requires val_data")
+        # Default: restore best weights only when early stopping is active.
+        if restore_best is None:
+            restore_best = patience is not None
+        if restore_best and val_data is None:
+            raise ValueError("restore_best requires val_data")
         out_dir_path = Path(out_dir) if out_dir is not None else None
 
         # Setup
@@ -354,6 +360,16 @@ class Trainer:
             start_epoch, saved_extra = load_state(
                 resume_from, self.model, self.optimizer
             )
+            if (
+                restore_best
+                and saved_extra.get("best_epoch", -1) >= 0
+                and saved_extra.get("best_state") is None
+            ):
+                raise ValueError(
+                    "restore_best cannot resume from a checkpoint without saved "
+                    "best weights; resume from a checkpoint created with "
+                    "restore_best=True"
+                )
             sched_state = saved_extra.get("scheduler_state")
             if sched_state is not None and self._lr_scheduler is not None:
                 self._lr_scheduler.load_state_dict(sched_state)
@@ -392,6 +408,9 @@ class Trainer:
         )
         best_epoch = saved_extra.get("best_epoch", -1)
         best_key: str | None = saved_extra.get("best_metric")
+        best_state: dict[str, Tensor] | None = (
+            saved_extra.get("best_state") if restore_best else None
+        )
 
         rng = saved_extra.get("rng_state")
         if rng is not None:
@@ -472,6 +491,11 @@ class Trainer:
                         best_epoch = epoch
                         best_key = tracked_key
                         n_bad_val = 0
+                        if restore_best:
+                            best_state = {
+                                name: value.detach().cpu().clone()
+                                for name, value in self.model.state_dict().items()
+                            }
                         if save_best and out_dir_path is not None:
                             self._save(
                                 out_dir_path / "best",
@@ -482,6 +506,7 @@ class Trainer:
                                     best_value=best_value,
                                     best_epoch=best_epoch,
                                     best_key=best_key,
+                                    best_state=best_state,
                                     history=history,
                                 ),
                             )
@@ -503,6 +528,7 @@ class Trainer:
                             best_value=best_value,
                             best_epoch=best_epoch,
                             best_key=best_key,
+                            best_state=best_state,
                             history=history,
                         ),
                     )
@@ -527,6 +553,7 @@ class Trainer:
                         best_value=best_value,
                         best_epoch=best_epoch,
                         best_key=best_key,
+                        best_state=best_state,
                         history=history,
                     ),
                 )
@@ -541,11 +568,15 @@ class Trainer:
                     best_value=best_value,
                     best_epoch=best_epoch,
                     best_key=best_key,
+                    best_state=best_state,
                     history=history,
                 ),
             )
 
         logger.close()
+
+        if restore_best and best_state is not None:
+            self.model.load_state_dict(best_state)
 
         history["best_epoch"] = best_epoch
         history["best_value"] = best_value if best_epoch >= 0 else None
@@ -575,6 +606,7 @@ class Trainer:
         best_value: float,
         best_epoch: int,
         best_key: str | None,
+        best_state: dict[str, Tensor] | None,
         history: dict[str, Any],
     ) -> dict[str, Any]:
         """Snapshot of fit-loop state needed for transparent resume."""
@@ -589,6 +621,8 @@ class Trainer:
                 "python_state": random.getstate(),
             },
         }
+        if best_state is not None:
+            state["best_state"] = best_state
         if self._lr_scheduler is not None:
             state["scheduler_state"] = self._lr_scheduler.state_dict()
         return state
