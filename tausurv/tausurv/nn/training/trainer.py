@@ -325,7 +325,7 @@ class Trainer:
         val_metric: Callable[..., "float | dict[str, float]"] | None = None,
         val_every: int = 1,
         patience: int | None = None,
-        restore_best: bool = False,
+        restore_best: bool = True,
         val_direction: str = "min",
         best_from: str | None = None,
         out_dir: str | Path | None = None,
