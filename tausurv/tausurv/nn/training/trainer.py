@@ -325,7 +325,7 @@ class Trainer:
         val_metric: Callable[..., "float | dict[str, float]"] | None = None,
         val_every: int = 1,
         patience: int | None = None,
-        restore_best: bool = True,
+        restore_best: bool | None = None,
         val_direction: str = "min",
         best_from: str | None = None,
         out_dir: str | Path | None = None,
@@ -346,6 +346,9 @@ class Trainer:
             )
         if patience is not None and val_data is None:
             raise ValueError("patience requires val_data")
+        # Default: restore best weights only when early stopping is active.
+        if restore_best is None:
+            restore_best = patience is not None
         if restore_best and val_data is None:
             raise ValueError("restore_best requires val_data")
         out_dir_path = Path(out_dir) if out_dir is not None else None

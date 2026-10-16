@@ -32,7 +32,7 @@ def fit(
     val_metric: Callable[..., "float | dict[str, float]"] | None = None,
     val_every: int = 1,
     patience: int | None = None,
-    restore_best: bool = False,
+    restore_best: bool | None = None,
     val_direction: str = "min",
     best_from: str | None = None,
     # io
