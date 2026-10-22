@@ -41,7 +41,7 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from scipy.optimize import minimize
 
-from tausurv.linear._checkpoint import _check_model_name
+from tausurv._checkpoint import check_model_name
 from tausurv.nonparametric import kaplan_meier
 from tausurv.predictor import SurvivalPredictor
 from tausurv.step import StepFunction
@@ -244,7 +244,7 @@ class FineGray(SurvivalPredictor):
         """Reconstruct a model saved by `save`."""
         path = Path(path)
         config = json.loads((path / "config.json").read_text())
-        _check_model_name(config.pop("model"), cls, path)
+        check_model_name(config.pop("model"), cls, path)
         model = cls(**config)
         with np.load(path / "state.npz") as state:
             model.coef_ = state["coef"]
