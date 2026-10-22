@@ -2,16 +2,31 @@
 
 from __future__ import annotations
 
+import functools
+import json
+import shutil
+
 import numpy as np
 import pytest
 
 from tausurv import simulations
 from tausurv.linear import CoxPH
-from tausurv.predictor import CauseSpecificPredictor
+from tausurv.predictor import CauseSpecificPredictor, SurvivalPredictor
 
 
 def _cr_data(n=500, n_causes=2, seed=0):
     return simulations.competing_risks(n=n, n_features=5, n_causes=n_causes, seed=seed)
+
+
+class _NoSavePredictor(SurvivalPredictor):
+    """Wrapped-model stand-in without ``save``/``load``."""
+
+    def fit(self, X, event_time, event_indicator):
+        self.times_ = np.unique(np.asarray(event_time, dtype=np.float64))
+        return self
+
+    def _survival_function(self, X, times):
+        return np.ones((len(X), len(times)))
 
 
 def test_n_causes_must_be_positive():
@@ -117,3 +132,166 @@ def test_times_set_after_fit():
     assert hasattr(model, "times_")
     assert model.times_.ndim == 1
     assert np.all(np.diff(model.times_) > 0)  # sorted, unique
+
+
+def test_save_load_round_trip_predictions(tmp_path):
+    X, T, E = _cr_data(n=300, n_causes=2)
+    model = CauseSpecificPredictor(CoxPH, n_causes=2).fit(X, T, E)
+    grid = np.linspace(0.1, 3.0, 15)
+    cif_before = model.predict_cif(X[:20], grid)
+    survival_before = model.predict_survival_function(X[:20], grid)
+
+    model.save(tmp_path / "cs")
+    restored = CauseSpecificPredictor.load(tmp_path / "cs")
+
+    np.testing.assert_allclose(restored.predict_cif(X[:20], grid), cif_before)
+    np.testing.assert_allclose(
+        restored.predict_survival_function(X[:20], grid), survival_before
+    )
+
+
+def test_save_load_layout_and_metadata(tmp_path):
+    X, T, E = _cr_data(n=200, n_causes=2)
+    model = CauseSpecificPredictor(CoxPH, n_causes=2).fit(X, T, E)
+    out = tmp_path / "cs"
+    model.save(out)
+
+    assert {p.name for p in out.iterdir()} == {
+        "config.json",
+        "times.npz",
+        "cause_00",
+        "cause_01",
+    }
+    cox_path = f"{CoxPH.__module__}.{CoxPH.__qualname__}"
+    config = json.loads((out / "config.json").read_text())
+    assert config == {
+        "model": "CauseSpecificPredictor",
+        "n_causes": 2,
+        "cause_models": [cox_path, cox_path],
+    }
+    for k in range(2):
+        assert (out / f"cause_{k:02d}" / "config.json").is_file()
+        assert (out / f"cause_{k:02d}" / "state.npz").is_file()
+
+    restored = CauseSpecificPredictor.load(out)
+    assert restored.n_causes == 2
+    assert len(restored.models_) == 2
+    assert all(type(model_k) is CoxPH for model_k in restored.models_)
+    np.testing.assert_array_equal(restored.times_, model.times_)
+    assert restored.model_factory is None
+
+
+def test_loaded_model_cannot_refit(tmp_path):
+    X, T, E = _cr_data(n=200, n_causes=2)
+    model = CauseSpecificPredictor(CoxPH, n_causes=2).fit(X, T, E)
+    model.save(tmp_path / "cs")
+    restored = CauseSpecificPredictor.load(tmp_path / "cs")
+
+    with pytest.raises(RuntimeError, match="model_factory"):
+        restored.fit(X, T, E)
+
+
+def test_save_unfitted_raises(tmp_path):
+    model = CauseSpecificPredictor(CoxPH, n_causes=2)
+    with pytest.raises(RuntimeError, match="not fitted"):
+        model.save(tmp_path / "cs")
+
+
+def test_save_rejects_wrapped_model_without_save(tmp_path):
+    X, T, E = _cr_data(n=100, n_causes=1)
+    model = CauseSpecificPredictor(_NoSavePredictor, n_causes=1).fit(X, T, E)
+    with pytest.raises(TypeError, match="no save"):
+        model.save(tmp_path / "cs")
+
+
+def test_load_missing_config_raises(tmp_path):
+    with pytest.raises(FileNotFoundError, match="config.json"):
+        CauseSpecificPredictor.load(tmp_path / "missing")
+
+
+def test_load_wrong_model_name_raises(tmp_path):
+    X, T, E = _cr_data(n=100, n_causes=1)
+    model = CauseSpecificPredictor(CoxPH, n_causes=1).fit(X, T, E)
+    out = tmp_path / "cs"
+    model.save(out)
+    config = json.loads((out / "config.json").read_text())
+    config["model"] = "CoxPH"
+    (out / "config.json").write_text(json.dumps(config))
+
+    with pytest.raises(ValueError, match="CauseSpecificPredictor"):
+        CauseSpecificPredictor.load(out)
+
+
+def test_load_tampered_class_path_raises(tmp_path):
+    X, T, E = _cr_data(n=100, n_causes=2)
+    model = CauseSpecificPredictor(CoxPH, n_causes=2).fit(X, T, E)
+    out = tmp_path / "cs"
+    model.save(out)
+    config = json.loads((out / "config.json").read_text())
+    config["cause_models"][1] = "tausurv.linear.NoSuchModel"
+    (out / "config.json").write_text(json.dumps(config))
+
+    with pytest.raises(ImportError, match="NoSuchModel"):
+        CauseSpecificPredictor.load(out)
+
+
+def test_load_class_without_load_raises(tmp_path):
+    X, T, E = _cr_data(n=100, n_causes=1)
+    model = CauseSpecificPredictor(CoxPH, n_causes=1).fit(X, T, E)
+    out = tmp_path / "cs"
+    model.save(out)
+    config = json.loads((out / "config.json").read_text())
+    config["cause_models"][0] = "tausurv.step.StepFunction"
+    (out / "config.json").write_text(json.dumps(config))
+
+    with pytest.raises(TypeError, match="no load"):
+        CauseSpecificPredictor.load(out)
+
+
+def test_load_missing_cause_dir_raises(tmp_path):
+    X, T, E = _cr_data(n=100, n_causes=2)
+    model = CauseSpecificPredictor(CoxPH, n_causes=2).fit(X, T, E)
+    out = tmp_path / "cs"
+    model.save(out)
+    shutil.rmtree(out / "cause_01")
+
+    with pytest.raises(FileNotFoundError, match="cause_01"):
+        CauseSpecificPredictor.load(out)
+
+
+def test_load_n_causes_mismatch_raises(tmp_path):
+    X, T, E = _cr_data(n=100, n_causes=2)
+    model = CauseSpecificPredictor(CoxPH, n_causes=2).fit(X, T, E)
+    out = tmp_path / "cs"
+    model.save(out)
+    config = json.loads((out / "config.json").read_text())
+    config["n_causes"] = 3
+    (out / "config.json").write_text(json.dumps(config))
+
+    with pytest.raises(ValueError, match="cause_models"):
+        CauseSpecificPredictor.load(out)
+
+
+def test_partial_factory_round_trip(tmp_path):
+    X, T, E = _cr_data(n=200, n_causes=2)
+    factory = functools.partial(CoxPH, max_iter=37)
+    model = CauseSpecificPredictor(factory, n_causes=2).fit(X, T, E)
+    grid = np.linspace(0.1, 3.0, 10)
+    expected = model.predict_cif(X[:10], grid)
+    model.save(tmp_path / "cs")
+    restored = CauseSpecificPredictor.load(tmp_path / "cs")
+
+    np.testing.assert_allclose(restored.predict_cif(X[:10], grid), expected)
+    assert restored.model_factory is None
+
+
+def test_lambda_factory_round_trip(tmp_path):
+    X, T, E = _cr_data(n=200, n_causes=2)
+    model = CauseSpecificPredictor(lambda: CoxPH(), n_causes=2).fit(X, T, E)
+    grid = np.linspace(0.1, 3.0, 10)
+    expected = model.predict_cif(X[:10], grid)
+    model.save(tmp_path / "cs")
+    restored = CauseSpecificPredictor.load(tmp_path / "cs")
+
+    np.testing.assert_allclose(restored.predict_cif(X[:10], grid), expected)
+    assert restored.model_factory is None

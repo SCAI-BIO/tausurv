@@ -27,7 +27,11 @@ a competing-risks predictor via the standard cause-specific-hazard CIF
 
 from __future__ import annotations
 
+import importlib
+import json
 from collections.abc import Callable
+from pathlib import Path
+from typing import Any
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
@@ -35,6 +39,51 @@ from numpy.typing import ArrayLike, NDArray
 # How far predicted cumulative incidences may leave [0, 1], or their sum
 # exceed 1, before it counts as a model bug rather than rounding.
 _CIF_TOLERANCE = 1e-9
+
+
+def import_class(path: str) -> type[Any]:
+    """Return the class named by ``"package.module.ClassName"``.
+
+    Checkpoints store wrapped-model classes as
+    ``type(model).__module__ + "." + type(model).__qualname__``. The final
+    dot separates the module from the attribute name; nested classes
+    (``Outer.Inner``) are not supported.
+    """
+    module_name, _, qualname = path.rpartition(".")
+    if not module_name or not qualname:
+        raise ValueError(
+            f"invalid class path {path!r}; expected 'package.module.ClassName'"
+        )
+    try:
+        module = importlib.import_module(module_name)
+    except ImportError as exc:
+        raise ImportError(
+            f"cannot import class path {path!r}: module {module_name!r} "
+            f"could not be imported ({exc})"
+        ) from exc
+    try:
+        cls = getattr(module, qualname)
+    except AttributeError as exc:
+        raise ImportError(
+            f"cannot import class path {path!r}: module {module_name!r} has "
+            f"no attribute {qualname!r}"
+        ) from exc
+    if not isinstance(cls, type):
+        raise TypeError(
+            f"class path {path!r} resolves to {type(cls).__name__}, not a class"
+        )
+    return cls
+
+
+def _class_path(model: SurvivalPredictor) -> str:
+    """Return the importable ``module.qualname`` path of ``model``'s class."""
+    cls = type(model)
+    if "<locals>" in cls.__qualname__:
+        raise ValueError(
+            f"{cls.__name__} is defined inside a function and cannot be "
+            f"imported by path on load; use a module-level model class"
+        )
+    return f"{cls.__module__}.{cls.__qualname__}"
 
 
 class SurvivalPredictor:
@@ -332,6 +381,12 @@ class CauseSpecificPredictor(CompetingRisksPredictor):
         competing events). Each wrapped model is a freshly constructed
         instance from ``model_factory``.
         """
+        if self.model_factory is None:
+            raise RuntimeError(
+                "this CauseSpecificPredictor was restored by load() and has "
+                "no model_factory; construct a new instance to fit()"
+            )
+
         X = np.asarray(X, dtype=np.float64)
         Y = np.asarray(event_time, dtype=np.float64)
         eps = np.asarray(event_indicator)
@@ -354,6 +409,148 @@ class CauseSpecificPredictor(CompetingRisksPredictor):
         self.times_ = np.unique(event_times) if event_times.size else np.unique(Y)
         self.times_ = self.times_.astype(np.float64)
         return self
+
+    def save(self, path: str | Path) -> None:
+        """Write ``config.json``, ``times.npz`` and one directory per cause.
+
+        Each wrapped model is written by its own :meth:`save` into
+        ``cause_XX/``, so those directories use the wrapped model's native
+        checkpoint format. No pickle is used: :meth:`load` restores each
+        wrapped model by importing its class from the ``cause_models`` paths
+        stored in ``config.json``.
+
+        The fitted ``model_factory`` is not persisted. A model restored with
+        :meth:`load` supports prediction but not refitting.
+        """
+        if not hasattr(self, "models_") or not hasattr(self, "times_"):
+            raise RuntimeError(
+                "CauseSpecificPredictor is not fitted; call fit() before save()"
+            )
+        if len(self.models_) != self.n_causes:
+            raise RuntimeError(
+                f"CauseSpecificPredictor has {len(self.models_)} fitted "
+                f"model(s) but n_causes={self.n_causes}"
+            )
+
+        class_paths: list[str] = []
+        for k, model in enumerate(self.models_):
+            if not callable(getattr(model, "save", None)):
+                raise TypeError(
+                    f"{type(model).__name__} for cause {k + 1} has no save(); "
+                    f"CauseSpecificPredictor cannot be persisted"
+                )
+            if not callable(getattr(type(model), "load", None)):
+                raise TypeError(
+                    f"{type(model).__name__} for cause {k + 1} has no load(); "
+                    f"CauseSpecificPredictor cannot be restored"
+                )
+            class_paths.append(_class_path(model))
+
+        path = Path(path)
+        path.mkdir(parents=True, exist_ok=True)
+        for k, model in enumerate(self.models_):
+            model.save(path / f"cause_{k:02d}")
+        np.savez_compressed(path / "times.npz", times=self.times_)
+
+        config = {
+            "model": type(self).__name__,
+            "n_causes": self.n_causes,
+            "cause_models": class_paths,
+        }
+        (path / "config.json").write_text(json.dumps(config, indent=2))
+
+    @classmethod
+    def load(cls, path: str | Path) -> "CauseSpecificPredictor":
+        """Reconstruct a model written by :meth:`save`.
+
+        Each ``cause_XX/`` directory is restored by the wrapped model class's
+        own ``load``. The classes are imported from the ``cause_models``
+        paths in ``config.json`` (no pickle), so checkpoints from untrusted
+        sources should be treated like code. The restored object supports
+        prediction; its ``model_factory`` is ``None`` and calling
+        :meth:`fit` again raises.
+        """
+        path = Path(path)
+        config_path = path / "config.json"
+        if not config_path.is_file():
+            raise FileNotFoundError(
+                f"no config.json in {path}; not a CauseSpecificPredictor checkpoint"
+            )
+        config = json.loads(config_path.read_text())
+
+        saved = config.get("model")
+        if saved != cls.__name__:
+            raise ValueError(
+                f"checkpoint at {path} was written by {saved!r}; "
+                f"load it with {saved}.load, not {cls.__name__}.load"
+            )
+
+        n_causes = config.get("n_causes")
+        if not isinstance(n_causes, int) or isinstance(n_causes, bool) or n_causes < 1:
+            raise ValueError(
+                f"checkpoint at {path} has invalid n_causes={n_causes!r}; "
+                f"expected an integer >= 1"
+            )
+
+        class_paths = config.get("cause_models")
+        if (
+            not isinstance(class_paths, list)
+            or len(class_paths) != n_causes
+            or not all(isinstance(p, str) and p for p in class_paths)
+        ):
+            raise ValueError(
+                f"checkpoint at {path} has invalid cause_models; expected a "
+                f"list of {n_causes} importable class paths"
+            )
+
+        models: list[SurvivalPredictor] = []
+        for k, class_path in enumerate(class_paths):
+            cause_dir = path / f"cause_{k:02d}"
+            if not cause_dir.is_dir():
+                raise FileNotFoundError(
+                    f"checkpoint at {path} is missing {cause_dir.name}/ for "
+                    f"cause {k + 1}"
+                )
+            try:
+                model_cls = import_class(class_path)
+            except (ImportError, TypeError, ValueError) as exc:
+                raise ImportError(
+                    f"checkpoint at {path}: cannot restore the cause {k + 1} "
+                    f"model from class path {class_path!r}: {exc}"
+                ) from exc
+            loader = getattr(model_cls, "load", None)
+            if not callable(loader):
+                raise TypeError(
+                    f"wrapped model {class_path} for cause {k + 1} has no "
+                    f"load(); cannot restore the checkpoint"
+                )
+            models.append(loader(cause_dir))
+
+        times_path = path / "times.npz"
+        if not times_path.is_file():
+            raise FileNotFoundError(f"checkpoint at {path} is missing times.npz")
+        with np.load(times_path, allow_pickle=False) as data:
+            if "times" not in data.files:
+                raise ValueError(
+                    f"checkpoint at {path} has no 'times' array in times.npz"
+                )
+            times = np.asarray(data["times"], dtype=np.float64)
+        if times.ndim != 1:
+            raise ValueError(
+                f"checkpoint at {path} has times with shape {times.shape}; "
+                f"expected a 1-D array"
+            )
+        if times.size > 1 and not bool(np.all(np.diff(times) > 0)):
+            raise ValueError(
+                f"checkpoint at {path} has times that are not strictly increasing"
+            )
+
+        obj = cls.__new__(cls)
+        obj.model_factory = None  # loaded instances cannot refit
+        obj.n_causes = n_causes
+        obj.models_ = models
+        obj.times_ = times
+        return obj
 
     def _cif(
         self,
