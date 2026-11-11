@@ -34,4 +34,4 @@ from tausurv.predictor import (
 from tausurv.step import StepFunction
 from tausurv.trees import RandomSurvivalForest, SurvivalBoost, SurvivalTree
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

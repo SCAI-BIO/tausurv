@@ -1,6 +1,6 @@
 [project]
 name = "tausurv"
-version = "0.1.0"
+version = "0.2.0"
 description = "A complete survival analysis library for Python: nonparametric estimators, regression models, tree ensembles and neural networks, with support for competing risks."
 readme = "../README.md"
 requires-python = ">=3.12"
